@@ -28,7 +28,7 @@ if ($base === '.') { $base = ''; }
       <button class="nav-item" data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg>Kalendar</button>
       <button class="nav-item" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Skeniraj</button>
       <button class="nav-item" data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg>Statistika</button>
-      <button class="nav-item desktop-extra"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg>Evidencija sati</button>
+      <button class="nav-item desktop-extra" data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg>Evidencija sati</button>
       <button class="nav-item desktop-extra"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Kolege</button>
       <button class="nav-item" data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg>Postavke</button>
     </nav>
@@ -99,7 +99,7 @@ if ($base === '.') { $base = ''; }
 
       <section class="quick-actions" aria-label="Brze akcije">
         <button data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><b>Skeniraj raspored</b><small>OCR prepoznavanje iz slike ili PDF-a</small></button>
-        <button><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg><b>Evidencija sati</b><small>Pregledaj odrađene sate i smjene</small></button>
+        <button data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg><b>Evidencija sati</b><small>Pregledaj odrađene sate i smjene</small></button>
         <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><b>Statistika</b><small>Analize, saldo i izvještaji</small></button>
         <button class="desktop-extra"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg><b>Kolege</b><small>Pogledaj rasporede kolega</small></button>
         <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><b>Postavke</b><small>Prilagodi aplikaciju svojim potrebama</small></button>
@@ -154,6 +154,54 @@ if ($base === '.') { $base = ''; }
       </section>
       <section class="card chart-card"><div class="card-head"><h2>Raspodjela sati po tjednima</h2><span>›</span></div><div class="bar-chart" id="weeklyBars"></div></section>
       <section class="card detail-card"><div class="card-head"><h2>Detaljna statistika</h2><span>›</span></div><div class="detail-grid" id="detailStats"></div></section>
+    </section>
+
+
+    <section class="view" id="view-hours" data-view="hours">
+      <div class="hours-title-row">
+        <div>
+          <h1>Evidencija sati</h1>
+          <p>Bilježi stvarni ulaz i izlaz te prati odrađeno vrijeme.</p>
+        </div>
+        <span class="hours-date" id="hoursDate">—</span>
+      </div>
+
+      <div class="hours-layout">
+        <section class="card hours-current-card">
+          <div class="card-head">
+            <div>
+              <small>Današnji status</small>
+              <h2 id="hoursStatus">Nema evidentiranog ulaza</h2>
+            </div>
+            <span class="hours-status-pill" id="hoursStatusPill">Spremno</span>
+          </div>
+          <div class="hours-shift-row">
+            <span class="metric-icon"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg></span>
+            <div><small>Planirana smjena</small><b id="hoursPlannedShift">—</b></div>
+          </div>
+          <div class="hours-live">
+            <div><small>Ulaz</small><b id="hoursInValue">—</b></div>
+            <div><small>Izlaz</small><b id="hoursOutValue">—</b></div>
+            <div><small>Odrađeno</small><b id="hoursDurationValue">0h 00min</b></div>
+          </div>
+          <div class="hours-actions">
+            <button class="primary-btn" id="clockInBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Evidentiraj ulaz</button>
+            <button class="secondary-btn" id="clockOutBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg>Evidentiraj izlaz</button>
+          </div>
+          <label class="hours-note">
+            <span>Bilješka</span>
+            <textarea id="hoursNote" rows="3" maxlength="500" placeholder="Dodaj kratku bilješku uz evidenciju, po potrebi."></textarea>
+          </label>
+        </section>
+
+        <section class="card hours-history-card">
+          <div class="card-head">
+            <div><h2>Ovaj mjesec</h2><small id="hoursMonthLabel">—</small></div>
+            <strong id="hoursMonthTotal">0h 00min</strong>
+          </div>
+          <div class="hours-history" id="hoursHistory"></div>
+        </section>
+      </div>
     </section>
 
     <section class="view" id="view-settings" data-view="settings">
