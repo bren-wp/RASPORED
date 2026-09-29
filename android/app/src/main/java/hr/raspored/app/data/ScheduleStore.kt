@@ -17,7 +17,7 @@ class ScheduleStore(context: Context) {
     fun load(): Map<String, String> =
         preferences.all
             .mapNotNull { (key, value) ->
-                val code = value as? String
+                val code = value as? String ?: return@mapNotNull null
                 if (DATE.matches(key) && code in VALID_CODES) key to code else null
             }
             .toMap()
