@@ -201,7 +201,7 @@ internal fun OcrScanScreen(
         item {
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 1.dp
             ) {
                 Column(Modifier.padding(16.dp)) {
@@ -250,7 +250,7 @@ internal fun OcrScanScreen(
         item {
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 1.dp
             ) {
                 Column(Modifier.padding(16.dp)) {
@@ -392,7 +392,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () 
     Surface(
         shape = RoundedCornerShape(12.dp),
         border = ButtonDefaults.outlinedButtonBorder,
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.width(82.dp).clickable(onClick = onClick)
     ) {
         Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
