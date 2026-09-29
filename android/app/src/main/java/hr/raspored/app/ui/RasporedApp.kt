@@ -436,16 +436,6 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     }
 }
 
-@Composable private fun ScanScreen(){
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=16.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        item{Text("Skeniraj raspored",fontSize=30.sp,fontWeight=FontWeight.ExtraBold);Text("Slikaj raspored s papira ili učitaj fotografiju.\nMi ćemo automatski prepoznati podatke.",color=Slate)}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color(0xFF755E49)){Column(Modifier.padding(16.dp)){Surface(shape=RoundedCornerShape(10.dp),color=Color(0xFFE7EAEE),modifier=Modifier.fillMaxWidth().height(280.dp)){Column(Modifier.padding(18.dp)){Text("LISTOPAD 2026.",fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.End));Spacer(Modifier.height(30.dp));repeat(5){Text((it+1).toString()+"   PREPOZNATI REDAK     D   N   GO   D",fontSize=12.sp,modifier=Modifier.fillMaxWidth().padding(vertical=8.dp))}}};Row(Modifier.fillMaxWidth()){TextButton(onClick={},modifier=Modifier.weight(1f)){Icon(Icons.Outlined.PhotoCamera,null,tint=Color.White);Text(" Ponovno skeniraj",color=Color.White)};TextButton(onClick={},modifier=Modifier.weight(1f)){Icon(Icons.Outlined.Image,null,tint=Color.White);Text(" Odaberi iz galerije",color=Color.White)}}}}}
-        item{Surface(shape=RoundedCornerShape(18.dp),color=Color.White){Column(Modifier.padding(16.dp)){Text("Odaberi moj redak",fontSize=22.sp,fontWeight=FontWeight.Bold);Text("Provjeri je li ispravno prepoznat tvoj redak.",color=Slate);OutlinedButton(onClick={},modifier=Modifier.fillMaxWidth().padding(top=10.dp)){Icon(Icons.Outlined.Person,null);Spacer(Modifier.width(8.dp));Text("6. MARIO EGIMOVIĆ",modifier=Modifier.weight(1f),fontWeight=FontWeight.Bold);Icon(Icons.Outlined.ExpandMore,null)}}}}
-        item{Surface(shape=RoundedCornerShape(18.dp),color=Color.White){Column(Modifier.padding(16.dp)){Row{Column(Modifier.weight(1f)){Text("Provjera rasporeda",fontSize=22.sp,fontWeight=FontWeight.Bold);Text("Pregledaj prepoznate smjene i po potrebi ih ispravi.",fontSize=12.sp,color=Slate)};AssistChip(onClick={},label={Text("✓ Prepoznato 31 dan")})};Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf(D,N,GO,Shift("—","slobodno","—",0),D).forEachIndexed{i,s->Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){Text("0"+(i+1)+".10.",fontSize=11.sp);Spacer(Modifier.height(6.dp));ShiftBadge(s,44.dp)}}};Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={},modifier=Modifier.weight(1f)){Text("✎ Uredi")};OutlinedButton(onClick={},modifier=Modifier.weight(1f)){Text("⌗ Ponovno skeniraj")}}}}}
-        item{Button(onClick={},modifier=Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(16.dp)){Text("✓  Spremi raspored",fontSize=18.sp,fontWeight=FontWeight.Bold)}}
-    }
-}
-
 @Composable private fun StatsScreen(scheduleCodes:Map<String,String>){
     var month by remember { mutableStateOf(YearMonth.from(appDate())) }
     var periodMenu by remember { mutableStateOf(false) }
