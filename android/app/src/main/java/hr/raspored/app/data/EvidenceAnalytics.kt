@@ -13,6 +13,7 @@ data class EvidenceMonthSummary(
     val saturdayMinutes: Long,
     val sundayMinutes: Long,
     val holidayMinutes: Long,
+    val weekendHolidayMinutes: Long,
     val weekMinutes: List<Long>
 ) {
     val balanceMinutes: Long get() = workedMinutes - plannedMinutes
@@ -41,6 +42,7 @@ object EvidenceAnalytics {
         var saturdayMinutes = 0L
         var sundayMinutes = 0L
         var holidayMinutes = 0L
+        var weekendHolidayMinutes = 0L
         val weeks = MutableList(5) { 0L }
 
         val completed = entries.filter { entry ->
@@ -64,6 +66,7 @@ object EvidenceAnalytics {
                 7 -> sundayMinutes += minutes
             }
             if (holidays.containsKey(date)) holidayMinutes += minutes
+            if (date.dayOfWeek.value >= 6 || holidays.containsKey(date)) weekendHolidayMinutes += minutes
             val week = minOf(4, (date.dayOfMonth - 1) / 7)
             weeks[week] += minutes
         }
@@ -81,6 +84,7 @@ object EvidenceAnalytics {
                     7 -> sundayMinutes += minutes
                 }
                 if (holidays.containsKey(date)) holidayMinutes += minutes
+                if (date.dayOfWeek.value >= 6 || holidays.containsKey(date)) weekendHolidayMinutes += minutes
                 weeks[minOf(4, (day - 1) / 7)] += minutes
             }
         }
@@ -94,6 +98,7 @@ object EvidenceAnalytics {
             saturdayMinutes = saturdayMinutes,
             sundayMinutes = sundayMinutes,
             holidayMinutes = holidayMinutes,
+            weekendHolidayMinutes = weekendHolidayMinutes,
             weekMinutes = weeks
         )
     }
