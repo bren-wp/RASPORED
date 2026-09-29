@@ -1,0 +1,11 @@
+{
+  "name":"raspored-web-qa",
+  "private":true,
+  "version":"0.1.0",
+  "scripts":{
+    "test:e2e":"playwright test",
+    "test:visual":"RASPORED_VISUAL_BASELINE=1 playwright test tests/visual.spec.ts",
+    "capture":"playwright test tests/capture.spec.ts"
+  },
+  "devDependencies":{"@playwright/test":"^1.55.0"}
+}
