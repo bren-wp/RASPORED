@@ -506,23 +506,37 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 }
 
-@Composable private fun StatsScreen(scheduleCodes:Map<String,String>){
+@Composable private fun StatsScreen(
+    scheduleCodes:Map<String,String>,
+    evidenceEntries:List<TimeEvidenceEntry>
+){
     var month by remember { mutableStateOf(YearMonth.from(appDate())) }
     var periodMenu by remember { mutableStateOf(false) }
     val data=scheduleFor(month,scheduleCodes)
-    val previous=scheduleFor(month.minusMonths(1),scheduleCodes)
-    val worked=data.values.sumOf{it.hours}
-    val previousWorked=previous.values.sumOf{it.hours}
-    val dayHours=data.values.filter{it.code=="D"}.sumOf{it.hours}
-    val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
-    val weeks=weeklyHours(month,data)
-    val maxWeek=maxOf(1,weeks.maxOrNull()?:1)
+    val previousMonth=month.minusMonths(1)
+    val previousData=scheduleFor(previousMonth,scheduleCodes)
+    val analytics=EvidenceAnalytics.summarize(
+        month=month,
+        entries=evidenceEntries,
+        scheduleCodes=codesForMonth(month,data),
+        fallbackToPlanned=BuildConfig.DEBUG
+    )
+    val previousAnalytics=EvidenceAnalytics.summarize(
+        month=previousMonth,
+        entries=evidenceEntries,
+        scheduleCodes=codesForMonth(previousMonth,previousData),
+        fallbackToPlanned=BuildConfig.DEBUG
+    )
     val holidays=CroatianHolidays.forYear(month.year)
     val saturdayCount=data.keys.count{month.atDay(it).dayOfWeek.value==6}
     val sundayCount=data.keys.count{month.atDay(it).dayOfWeek.value==7}
     val holidayShiftCount=data.keys.count{holidays.containsKey(month.atDay(it))}
-    val trend=if(previousWorked>0)((worked-previousWorked)*100/previousWorked) else null
-    val monthTitle=month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+"."
+    val trend=if(previousAnalytics.workedMinutes>0L){
+        ((analytics.workedMinutes-previousAnalytics.workedMinutes)*100L/previousAnalytics.workedMinutes).toInt()
+    }else null
+    val maxWeek=maxOf(1L,analytics.weekMinutes.maxOrNull()?:1L)
+    val monthTitle=month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR"))
+        .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+"."
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal=14.dp),
@@ -540,8 +554,12 @@ private fun largeMinutesLabel(minutes:Long):String {
                     }
                     DropdownMenu(expanded=periodMenu,onDismissRequest={periodMenu=false}){
                         (0..11).map{YearMonth.from(appDate()).minusMonths(it.toLong())}.forEach{option->
-                            val label=option.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+option.year+"."
-                            DropdownMenuItem(text={Text(label)},onClick={month=option;periodMenu=false})
+                            val label=option.month.getDisplayName(TextStyle.FULL,Locale("hr","HR"))
+                                .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+option.year+"."
+                            DropdownMenuItem(
+                                text={Text(label)},
+                                onClick={month=option;periodMenu=false}
+                            )
                         }
                     }
                 }
@@ -553,7 +571,11 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Row(verticalAlignment=Alignment.CenterVertically){
                         Column(Modifier.weight(1f)){
                             Text("Ukupno odrađeno sati",fontWeight=FontWeight.Bold)
-                            Text(worked.toString()+":00 h",fontSize=48.sp,fontWeight=FontWeight.ExtraBold)
+                            Text(
+                                largeMinutesLabel(analytics.workedMinutes),
+                                fontSize=48.sp,
+                                fontWeight=FontWeight.ExtraBold
+                            )
                             Text(
                                 when{
                                     trend==null->"Nema podataka za prethodni mjesec"
@@ -566,12 +588,17 @@ private fun largeMinutesLabel(minutes:Long):String {
                                 fontSize=13.sp
                             )
                         }
-                        HoursDonut(dayHours=dayHours,nightHours=night,total=worked)
+                        HoursDonut(
+                            dayMinutes=analytics.dayMinutes,
+                            nightMinutes=analytics.nightMinutes,
+                            otherMinutes=analytics.otherMinutes,
+                            totalMinutes=analytics.workedMinutes
+                        )
                     }
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-                        StatMini("Dnevne",dayHours.toString()+"h",Cyan,Modifier.weight(1f))
-                        StatMini("Noćne",night.toString()+"h",Nbg,Modifier.weight(1f))
+                        StatMini("Dnevne",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
+                        StatMini("Noćne",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
                         StatMini("GO",(data.values.count{it.code=="GO"}*8).toString()+"h",Teal,Modifier.weight(1f))
                         StatMini("BO",(data.values.count{it.code=="BO"}*8).toString()+"h",Red,Modifier.weight(1f))
                     }
@@ -588,12 +615,12 @@ private fun largeMinutesLabel(minutes:Long):String {
                         horizontalArrangement=Arrangement.SpaceAround,
                         verticalAlignment=Alignment.Bottom
                     ){
-                        weeks.take(4).forEachIndexed{i,h->
+                        analytics.weekMinutes.take(4).forEachIndexed{i,minutes->
                             Column(horizontalAlignment=Alignment.CenterHorizontally){
-                                Text(h.toString()+"h",fontWeight=FontWeight.Bold)
+                                Text(minutesLabel(minutes),fontWeight=FontWeight.Bold)
                                 Box(
                                     Modifier.width(54.dp)
-                                        .height(maxOf(6,((h.toFloat()/maxWeek)*100).toInt()).dp)
+                                        .height(maxOf(6,((minutes.toFloat()/maxWeek.toFloat())*100f).toInt()).dp)
                                         .background(Cyan,RoundedCornerShape(7.dp,7.dp,0.dp,0.dp))
                                 )
                                 Text((i+1).toString()+". tjedan",fontSize=10.sp,color=Slate)
@@ -607,20 +634,66 @@ private fun largeMinutesLabel(minutes:Long):String {
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp)){
                     Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold)
-                    DetailLine(Icons.Outlined.WbSunny,"Dnevne smjene",data.values.count{it.code=="D"}.toString()+" smjena",dayHours.toString()+"h")
-                    DetailLine(Icons.Outlined.DarkMode,"Noćne smjene",data.values.count{it.code=="N"}.toString()+" smjena",night.toString()+"h")
-                    DetailLine(Icons.Outlined.CalendarMonth,"Subote",saturdayCount.toString()+" smjena",(saturdayCount*12).toString()+"h")
-                    DetailLine(Icons.Outlined.Event,"Nedjelje",sundayCount.toString()+" smjena",(sundayCount*12).toString()+"h")
-                    DetailLine(Icons.Outlined.Celebration,"Blagdani",holidayShiftCount.toString()+" smjena",(holidayShiftCount*12).toString()+"h")
-                    DetailLine(Icons.Outlined.BeachAccess,"GO",data.values.count{it.code=="GO"}.toString()+" dana",(data.values.count{it.code=="GO"}*8).toString()+"h")
-                    DetailLine(Icons.Outlined.MedicalServices,"BO",data.values.count{it.code=="BO"}.toString()+" dana",(data.values.count{it.code=="BO"}*8).toString()+"h")
+                    DetailLine(
+                        Icons.Outlined.WbSunny,
+                        "Dnevne smjene",
+                        data.values.count{it.code=="D"}.toString()+" smjena",
+                        minutesLabel(analytics.dayMinutes)
+                    )
+                    DetailLine(
+                        Icons.Outlined.DarkMode,
+                        "Noćne smjene",
+                        data.values.count{it.code=="N"}.toString()+" smjena",
+                        minutesLabel(analytics.nightMinutes)
+                    )
+                    DetailLine(
+                        Icons.Outlined.CalendarMonth,
+                        "Subote",
+                        saturdayCount.toString()+" smjena",
+                        minutesLabel(analytics.saturdayMinutes)
+                    )
+                    DetailLine(
+                        Icons.Outlined.Event,
+                        "Nedjelje",
+                        sundayCount.toString()+" smjena",
+                        minutesLabel(analytics.sundayMinutes)
+                    )
+                    DetailLine(
+                        Icons.Outlined.Celebration,
+                        "Blagdani",
+                        holidayShiftCount.toString()+" smjena",
+                        minutesLabel(analytics.holidayMinutes)
+                    )
+                    DetailLine(
+                        Icons.Outlined.BeachAccess,
+                        "GO",
+                        data.values.count{it.code=="GO"}.toString()+" dana",
+                        (data.values.count{it.code=="GO"}*8).toString()+"h"
+                    )
+                    DetailLine(
+                        Icons.Outlined.MedicalServices,
+                        "BO",
+                        data.values.count{it.code=="BO"}.toString()+" dana",
+                        (data.values.count{it.code=="BO"}*8).toString()+"h"
+                    )
+                    DetailLine(
+                        Icons.Outlined.Balance,
+                        "Saldo sati",
+                        "Prema evidenciji",
+                        signedMinutesLabel(analytics.balanceMinutes)
+                    )
                 }
             }
         }
     }
 }
 
-@Composable private fun HoursDonut(dayHours:Int,nightHours:Int,total:Int){
+@Composable private fun HoursDonut(
+    dayMinutes:Long,
+    nightMinutes:Long,
+    otherMinutes:Long,
+    totalMinutes:Long
+){
     val size=142.dp
     Box(Modifier.size(size),contentAlignment=Alignment.Center){
         Canvas(Modifier.fillMaxSize()){
@@ -632,8 +705,10 @@ private fun largeMinutesLabel(minutes:Long):String {
                 useCenter=false,
                 style=Stroke(width=stroke)
             )
-            if(total>0){
-                val daySweep=360f*(dayHours.toFloat()/total.toFloat())
+            if(totalMinutes>0L){
+                val daySweep=360f*(dayMinutes.toFloat()/totalMinutes.toFloat())
+                val nightSweep=360f*(nightMinutes.toFloat()/totalMinutes.toFloat())
+                val otherSweep=360f*(otherMinutes.toFloat()/totalMinutes.toFloat())
                 drawArc(
                     color=Cyan,
                     startAngle=-90f,
@@ -644,20 +719,48 @@ private fun largeMinutesLabel(minutes:Long):String {
                 drawArc(
                     color=Nbg,
                     startAngle=-90f+daySweep,
-                    sweepAngle=360f-daySweep,
+                    sweepAngle=nightSweep,
                     useCenter=false,
                     style=Stroke(width=stroke)
                 )
+                if(otherSweep>0f){
+                    drawArc(
+                        color=Color(0xFFB8D0ED),
+                        startAngle=-90f+daySweep+nightSweep,
+                        sweepAngle=otherSweep,
+                        useCenter=false,
+                        style=Stroke(width=stroke)
+                    )
+                }
             }
         }
         Column(horizontalAlignment=Alignment.CenterHorizontally){
-            Text(total.toString()+"h",fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
+            Text(minutesLabel(totalMinutes),fontSize=22.sp,fontWeight=FontWeight.ExtraBold)
             Text("ukupno",fontSize=11.sp,color=Slate)
         }
     }
 }
-@Composable private fun StatMini(label:String,value:String,color:Color,modifier:Modifier){Column(modifier.padding(4.dp)){Box(Modifier.size(18.dp).background(color,RoundedCornerShape(5.dp)));Text(value,fontSize=18.sp,fontWeight=FontWeight.Bold);Text(label,fontSize=11.sp,color=Slate)}}
-@Composable private fun DetailLine(icon:ImageVector,label:String,caption:String,value:String){Row(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(label,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)};Text(value,fontWeight=FontWeight.Bold,fontSize=18.sp)}}
+@Composable private fun StatMini(label:String,value:String,color:Color,modifier:Modifier){
+    Column(modifier.padding(4.dp)){
+        Box(Modifier.size(18.dp).background(color,RoundedCornerShape(5.dp)))
+        Text(value,fontSize=18.sp,fontWeight=FontWeight.Bold)
+        Text(label,fontSize=11.sp,color=Slate)
+    }
+}
+@Composable private fun DetailLine(icon:ImageVector,label:String,caption:String,value:String){
+    Row(
+        Modifier.fillMaxWidth().padding(vertical=8.dp),
+        verticalAlignment=Alignment.CenterVertically
+    ){
+        Icon(icon,null,tint=Cyan)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)){
+            Text(label,fontWeight=FontWeight.Bold)
+            Text(caption,fontSize=11.sp,color=Slate)
+        }
+        Text(value,fontWeight=FontWeight.Bold,fontSize=18.sp)
+    }
+}
 
 @Composable private fun SettingsScreen(
     darkMode:Boolean,
