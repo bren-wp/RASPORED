@@ -29,6 +29,7 @@ import hr.raspored.app.BuildConfig
 import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
+import hr.raspored.app.data.UiSettingsStore
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -56,17 +57,45 @@ private val BO=Shift("BO","Bolovanje","—",0)
     var screen by remember { mutableStateOf(Screen.Home) }
     val context = LocalContext.current.applicationContext
     val store = remember(context) { ScheduleStore(context) }
+    val uiSettings = remember(context) { UiSettingsStore(context) }
+    var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
+    var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
     LaunchedEffect(store) {
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
     }
+    val colors = if(darkMode) {
+        darkColorScheme(
+            primary=Cyan,
+            secondary=Teal,
+            background=Color(0xFF07162D),
+            surface=Color(0xFF0D2446),
+            surfaceVariant=Color(0xFF102B52),
+            onBackground=Color(0xFFF8FAFC),
+            onSurface=Color(0xFFF8FAFC),
+            onSurfaceVariant=Color(0xFFB7C6D9),
+            error=Red
+        )
+    } else {
+        lightColorScheme(
+            primary=Cyan,
+            secondary=Teal,
+            background=Bg,
+            surface=Color.White,
+            surfaceVariant=Color(0xFFF1F5F9),
+            onBackground=Navy,
+            onSurface=Navy,
+            onSurfaceVariant=Slate,
+            error=Red
+        )
+    }
     MaterialTheme(
-        colorScheme=lightColorScheme(primary=Cyan,secondary=Teal,background=Bg,surface=Color.White,onSurface=Navy),
+        colorScheme=colors,
         typography=Typography()
     ){
         Scaffold(
-            containerColor=Bg,
+            containerColor=MaterialTheme.colorScheme.background,
             topBar={ BrandHeader() },
             bottomBar={ BottomNav(screen){screen=it} }
         ){ padding ->
@@ -90,7 +119,18 @@ private val BO=Shift("BO","Bolovanje","—",0)
                             onBack={screen=Screen.Home}
                         )
                     }
-                    Screen.Settings->SettingsScreen()
+                    Screen.Settings->SettingsScreen(
+                        darkMode=darkMode,
+                        reducedMotion=reducedMotion,
+                        onDarkModeChange={
+                            darkMode=it
+                            uiSettings.darkMode=it
+                        },
+                        onReducedMotionChange={
+                            reducedMotion=it
+                            uiSettings.reducedMotion=it
+                        }
+                    )
                 }
             }
         }
@@ -168,7 +208,7 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
     val dateTitle=today.format(formatter).replaceFirstChar{if(it.isLowerCase())it.titlecase(Locale("hr","HR")) else it.toString()}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-        item{Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=Navy);Text("Dobar dan! 👋",fontSize=20.sp,color=Slate)}
+        item{Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground);Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
         item{ShiftCard("Današnja smjena",current,true,onHours={go(Screen.Hours)})}
         item{ShiftCard("Sljedeća smjena",next,false,onHours=null)}
         item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}}}
@@ -179,9 +219,9 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
 }
 
 @Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,onHours:(()->Unit)?){
-    Surface(shape=RoundedCornerShape(20.dp),color=Color.White,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth()){
+    Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth()){
         Column(Modifier.padding(18.dp)){
-            Row(verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null,tint=Navy)}
+            Row(verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null,tint=MaterialTheme.colorScheme.onSurface)}
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment=Alignment.CenterVertically){
                 ShiftBadge(shift,72.dp)
@@ -201,13 +241,13 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
 @Composable private fun InfoLine(icon:ImageVector,label:String,value:String,onClick:(()->Unit)?=null){
     val modifier=if(onClick!=null) Modifier.fillMaxWidth().clickable(onClick=onClick).padding(vertical=7.dp) else Modifier.fillMaxWidth().padding(vertical=5.dp)
     Row(modifier,verticalAlignment=Alignment.CenterVertically){
-        Icon(icon,null,tint=Navy,modifier=Modifier.size(22.dp))
+        Icon(icon,null,tint=MaterialTheme.colorScheme.onSurface,modifier=Modifier.size(22.dp))
         Spacer(Modifier.width(12.dp))
         Text(label,modifier=Modifier.weight(1f),color=Slate)
         Text(value,fontWeight=FontWeight.Bold)
     }
 }
-@Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=Color.White,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
+@Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
 @Composable private fun CalendarScreen(scheduleCodes:Map<String,String>){
     val today=appDate()
@@ -559,12 +599,56 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
 @Composable private fun StatMini(label:String,value:String,color:Color,modifier:Modifier){Column(modifier.padding(4.dp)){Box(Modifier.size(18.dp).background(color,RoundedCornerShape(5.dp)));Text(value,fontSize=18.sp,fontWeight=FontWeight.Bold);Text(label,fontSize=11.sp,color=Slate)}}
 @Composable private fun DetailLine(icon:ImageVector,label:String,caption:String,value:String){Row(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(label,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)};Text(value,fontWeight=FontWeight.Bold,fontSize=18.sp)}}
 
-@Composable private fun SettingsScreen(){
-    LazyColumn(Modifier.fillMaxSize().padding(16.dp),contentPadding=PaddingValues(top=10.dp,bottom=20.dp)){
-        item{Text("Postavke",fontSize=31.sp,fontWeight=FontWeight.ExtraBold);Spacer(Modifier.height(14.dp));Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Izgled i pristupačnost",fontSize=20.sp,fontWeight=FontWeight.Bold);SettingSwitch("Tamni način","Navy/dark surface uz iste statusne boje.");SettingSwitch("Smanjene animacije","Smanjuje prijelaze i motion efekte.")}}}
+@Composable private fun SettingsScreen(
+    darkMode:Boolean,
+    reducedMotion:Boolean,
+    onDarkModeChange:(Boolean)->Unit,
+    onReducedMotionChange:(Boolean)->Unit
+){
+    LazyColumn(
+        Modifier.fillMaxSize().padding(16.dp),
+        contentPadding=PaddingValues(top=10.dp,bottom=20.dp)
+    ){
+        item{
+            Text("Postavke",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)
+            Spacer(Modifier.height(14.dp))
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp)){
+                    Text("Izgled i pristupačnost",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    SettingSwitch(
+                        "Tamni način",
+                        "Navy/dark surface uz iste statusne boje.",
+                        checked=darkMode,
+                        onCheckedChange=onDarkModeChange
+                    )
+                    SettingSwitch(
+                        "Smanjene animacije",
+                        "Smanjuje prijelaze i motion efekte.",
+                        checked=reducedMotion,
+                        onCheckedChange=onReducedMotionChange
+                    )
+                }
+            }
+        }
     }
 }
-@Composable private fun SettingSwitch(title:String,caption:String){var checked by remember{mutableStateOf(false)};Row(Modifier.fillMaxWidth().padding(vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(title,fontWeight=FontWeight.Bold);Text(caption,fontSize=12.sp,color=Slate)};Switch(checked=checked,onCheckedChange={checked=it})}}
+@Composable private fun SettingSwitch(
+    title:String,
+    caption:String,
+    checked:Boolean,
+    onCheckedChange:(Boolean)->Unit
+){
+    Row(
+        Modifier.fillMaxWidth().padding(vertical=13.dp),
+        verticalAlignment=Alignment.CenterVertically
+    ){
+        Column(Modifier.weight(1f)){
+            Text(title,fontWeight=FontWeight.Bold)
+            Text(caption,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked=checked,onCheckedChange=onCheckedChange)
+    }
+}
 
 @Composable private fun ShiftChip(s:Shift,modifier:Modifier){Surface(modifier=modifier.height(40.dp),shape=RoundedCornerShape(11.dp),color=shiftBg(s)){Box(contentAlignment=Alignment.Center){Text(s.code,fontWeight=FontWeight.ExtraBold,color=shiftFg(s),fontSize=13.sp)}}}
 @Composable private fun ShiftBadge(s:Shift,size:androidx.compose.ui.unit.Dp){Surface(shape=RoundedCornerShape(14.dp),color=shiftBg(s),modifier=Modifier.size(size)){Box(contentAlignment=Alignment.Center){Text(s.code,fontSize=if(size>50.dp)24.sp else 14.sp,fontWeight=FontWeight.ExtraBold,color=shiftFg(s))}}}
