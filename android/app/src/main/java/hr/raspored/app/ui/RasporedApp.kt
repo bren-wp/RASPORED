@@ -1,5 +1,6 @@
 package hr.raspored.app.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,24 +15,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import hr.raspored.app.BuildConfig
+import hr.raspored.app.R
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 
-private val Navy=Color(0xFF0B1F44)
-private val Cyan=Color(0xFF00C2FF)
-private val Teal=Color(0xFF14B8A6)
-private val Bg=Color(0xFFF6F8FB)
-private val Red=Color(0xFFEF4444)
-private val Slate=Color(0xFF64748B)
-private val Dbg=Color(0xFFC7F0FF)
-private val Nbg=Color(0xFF173C7D)
-private val GObg=Color(0xFFC7F7E9)
-private val BObg=Color(0xFFFFD8DD)
+private val Navy=RasporedTokens.Navy
+private val Cyan=RasporedTokens.Cyan
+private val Teal=RasporedTokens.Teal
+private val Bg=RasporedTokens.Background
+private val Red=RasporedTokens.Red
+private val Slate=RasporedTokens.Slate
+private val Dbg=RasporedTokens.CyanSoft
+private val Nbg=RasporedTokens.NavyAlt
+private val GObg=RasporedTokens.TealSoft
+private val BObg=RasporedTokens.RedSoft
 
 private enum class Screen { Home, Calendar, Scan, Stats, Settings }
 private data class Shift(val code:String,val name:String,val time:String,val hours:Int)
@@ -76,12 +80,11 @@ private val BO=Shift("BO","Bolovanje","—",0)
 }
 
 @Composable private fun BrandMark(){
-    Box(Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF0A7BC2)),contentAlignment=Alignment.Center){
-        Column(horizontalAlignment=Alignment.CenterHorizontally){
-            Text("▦",color=Color.White,fontSize=18.sp,fontWeight=FontWeight.Bold)
-            Row{Text("☀",color=Color(0xFFFFC12E),fontSize=12.sp);Text("☾",color=Color.White,fontSize=12.sp)}
-        }
-    }
+    Image(
+        painter=painterResource(R.drawable.ic_raspored_foreground),
+        contentDescription=null,
+        modifier=Modifier.size(48.dp)
+    )
 }
 
 @Composable private fun BottomNav(current:Screen,onSelect:(Screen)->Unit){
@@ -102,22 +105,39 @@ private val BO=Shift("BO","Bolovanje","—",0)
 }
 
 private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
-    val p=listOf(D,D,N,D,D,null,null,D,D,GO,D,N,null,null,D,N,D,GO,D,null,BO,D,N,D,D,null,BO,D,D,N,D)
-    return (1..month.lengthOfMonth()).mapNotNull{day->p[(day-1)%p.size]?.let{day to it}}.toMap()
+    val p=listOf(D,N,D,null,null,D,D,GO,D,N,null,N,D,N,D,D,N,GO,D,D,N,D,D,BO,null,D,BO,D,D,N,D)
+    return (1..month.lengthOfMonth()).mapNotNull{day->p[(day-1)%p.size]?.let{day to it}}.toMap().toMutableMap().apply {
+        if(month==YearMonth.of(2026,10)){this[16]=D;this[17]=N}
+    }
 }
+private fun appDate():LocalDate = if(BuildConfig.DEBUG) LocalDate.of(2026,10,16) else LocalDate.now()
+private fun scheduleFor(month:YearMonth):Map<Int,Shift> = if(BuildConfig.DEBUG) sampleSchedule(month) else emptyMap()
+private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
+    (0..4).map { week ->
+        val first=week*7+1
+        val last=minOf(month.lengthOfMonth(),first+6)
+        if(first>month.lengthOfMonth()) 0 else (first..last).sumOf { data[it]?.hours ?: 0 }
+    }
 
 @Composable private fun HomeScreen(go:(Screen)->Unit){
-    val month=YearMonth.of(2026,10)
-    val data=sampleSchedule(month)
+    val today=appDate()
+    val month=YearMonth.from(today)
+    val data=scheduleFor(month)
     val worked=data.values.sumOf{it.hours}
     val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
+    val weekendHours=data.entries.sumOf{(day,shift)->val dow=month.atDay(day).dayOfWeek.value;if(dow>=6) shift.hours else 0}
+    val current=data[today.dayOfMonth] ?: GO
+    val nextEntry=(today.dayOfMonth+1..month.lengthOfMonth()).firstNotNullOfOrNull{day->data[day]?.takeIf{it.code=="D"||it.code=="N"}?.let{day to it}}
+    val next=nextEntry?.second ?: GO
+    val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
+    val dateTitle=today.format(formatter).replaceFirstChar{if(it.isLowerCase())it.titlecase(Locale("hr","HR")) else it.toString()}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-        item{Text("Četvrtak, 16.10.2026.",fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=Navy);Text("Dobar dan! 👋",fontSize=20.sp,color=Slate)}
-        item{ShiftCard("Današnja smjena",D,true)}
-        item{ShiftCard("Sljedeća smjena",N,false)}
+        item{Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=Navy);Text("Dobar dan! 👋",fontSize=20.sp,color=Slate)}
+        item{ShiftCard("Današnja smjena",current,true)}
+        item{ShiftCard("Sljedeća smjena",next,false)}
         item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}}}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Ovaj mjesec",worked.toString()+"h","Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f));MetricCard("Saldo sati","+8h","Ukupni saldo",Icons.Outlined.BarChart,Modifier.weight(1f))}}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Noćni sati",night.toString()+"h","Ovaj mjesec",Icons.Outlined.DarkMode,Modifier.weight(1f));MetricCard("Vikendi i blagdani","24h","Ovaj mjesec",Icons.Outlined.Event,Modifier.weight(1f))}}
+        item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Ovaj mjesec",worked.toString()+"h","Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f));MetricCard("Saldo sati","0h","Ukupni saldo",Icons.Outlined.BarChart,Modifier.weight(1f))}}
+        item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Noćni sati",night.toString()+"h","Ovaj mjesec",Icons.Outlined.DarkMode,Modifier.weight(1f));MetricCard("Vikendi i blagdani",weekendHours.toString()+"h","Ovaj mjesec",Icons.Outlined.Event,Modifier.weight(1f))}}
         item{Button(onClick={go(Screen.Scan)},modifier=Modifier.fillMaxWidth().height(58.dp),shape=RoundedCornerShape(16.dp)){Icon(Icons.Outlined.PhotoCamera,null);Spacer(Modifier.width(10.dp));Text("Skeniraj raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)}}
     }
 }
@@ -141,13 +161,16 @@ private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=Color.White,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
 @Composable private fun CalendarScreen(){
-    val month=YearMonth.of(2026,10)
-    val data=sampleSchedule(month)
+    val today=appDate()
+    val month=YearMonth.from(today)
+    val data=scheduleFor(month)
+    val worked=data.values.sumOf{it.hours}
+    val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=16.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        item{Surface(shape=RoundedCornerShape(22.dp),color=Color.White,shadowElevation=2.dp){Column(Modifier.padding(14.dp)){Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={}){Icon(Icons.Outlined.ChevronLeft,null)};Text("Listopad 2026.",fontSize=25.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center);IconButton(onClick={}){Icon(Icons.Outlined.ChevronRight,null)}};CalendarGrid(month,data)}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(16.dp)){Row{Column(Modifier.weight(1f)){Text("Danas",fontSize=24.sp,fontWeight=FontWeight.Bold);Text("Ponedjeljak, 12.10.2026.",color=Slate)};Text("▦ Blagdan",color=Red,fontWeight=FontWeight.Bold)};Divider(Modifier.padding(vertical=12.dp));Row(verticalAlignment=Alignment.CenterVertically){ShiftBadge(BO,62.dp);Spacer(Modifier.width(14.dp));Text("Blagdan (neradni dan)",fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null)}}}}
+        item{Surface(shape=RoundedCornerShape(22.dp),color=Color.White,shadowElevation=2.dp){Column(Modifier.padding(14.dp)){Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={}){Icon(Icons.Outlined.ChevronLeft,null)};Text(month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",fontSize=25.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center);IconButton(onClick={}){Icon(Icons.Outlined.ChevronRight,null)}};CalendarGrid(month,data)}}}
+        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(16.dp)){Row{Column(Modifier.weight(1f)){Text("Danas",fontSize=24.sp,fontWeight=FontWeight.Bold);Text(today.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))).replaceFirstChar{it.titlecase(Locale("hr","HR"))},color=Slate)};Text("▦ Blagdan",color=Red,fontWeight=FontWeight.Bold)};Divider(Modifier.padding(vertical=12.dp));Row(verticalAlignment=Alignment.CenterVertically){ShiftBadge(BO,62.dp);Spacer(Modifier.width(14.dp));Text("Blagdan (neradni dan)",fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null)}}}}
         item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(16.dp)){Text("Sažetak za mjesec",fontSize=20.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row{listOf("Planirano" to "184h","Odrađeno" to "168h","Saldo" to "-16h","Noćni sati" to "56h").forEach{Column(Modifier.weight(1f)){Text(it.first,fontSize=11.sp,color=Slate);Text(it.second,fontWeight=FontWeight.Bold,fontSize=18.sp)}}}}}}
+        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(16.dp)){Text("Sažetak za mjesec",fontSize=20.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row{listOf("Planirano" to worked.toString()+"h","Odrađeno" to worked.toString()+"h","Saldo" to "0h","Noćni sati" to night.toString()+"h").forEach{Column(Modifier.weight(1f)){Text(it.first,fontSize=11.sp,color=Slate);Text(it.second,fontWeight=FontWeight.Bold,fontSize=18.sp)}}}}}}
     }
 }
 @Composable private fun CalendarGrid(month:YearMonth,data:Map<Int,Shift>){
@@ -168,12 +191,12 @@ private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
 }
 
 @Composable private fun StatsScreen(){
-    val data=sampleSchedule(YearMonth.of(2026,10));val worked=data.values.sumOf{it.hours};val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
+    val month=YearMonth.from(appDate());val data=scheduleFor(month);val worked=data.values.sumOf{it.hours};val night=data.values.filter{it.code=="N"}.sumOf{it.hours};val weeks=weeklyHours(month,data)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=16.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        item{Row(verticalAlignment=Alignment.CenterVertically){Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.weight(1f));OutlinedButton(onClick={}){Icon(Icons.Outlined.CalendarMonth,null);Text(" Listopad 2026. ")}}}
+        item{Row(verticalAlignment=Alignment.CenterVertically){Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.weight(1f));OutlinedButton(onClick={}){Icon(Icons.Outlined.CalendarMonth,null);Text(" "+month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+". ")}}}
         item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Ukupno odrađeno sati",fontWeight=FontWeight.Bold);Text(worked.toString()+":00 h",fontSize=48.sp,fontWeight=FontWeight.ExtraBold);Text("↗ +8%  u odnosu na rujan",color=Teal,fontWeight=FontWeight.Bold);Spacer(Modifier.height(14.dp));Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){StatMini("Dnevne",(data.values.count{it.code=="D"}*12).toString()+"h",Cyan,Modifier.weight(1f));StatMini("Noćne",night.toString()+"h",Nbg,Modifier.weight(1f));StatMini("GO",(data.values.count{it.code=="GO"}*8).toString()+"h",Teal,Modifier.weight(1f));StatMini("BO",(data.values.count{it.code=="BO"}*8).toString()+"h",Red,Modifier.weight(1f))}}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Raspodjela sati po tjednima",fontSize=20.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(16.dp));Row(Modifier.height(150.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceAround,verticalAlignment=Alignment.Bottom){listOf(36,40,48,44).forEachIndexed{i,h->Column(horizontalAlignment=Alignment.CenterHorizontally){Text(h.toString()+"h",fontWeight=FontWeight.Bold);Box(Modifier.width(54.dp).height((h*2).dp).background(Cyan,RoundedCornerShape(7.dp,7.dp,0.dp,0.dp)));Text((i+1).toString()+". tjedan",fontSize=10.sp,color=Slate)}}}}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold);DetailLine(Icons.Outlined.WbSunny,"Dnevne smjene","12 smjena","96h");DetailLine(Icons.Outlined.DarkMode,"Noćne smjene","6 smjena",night.toString()+"h");DetailLine(Icons.Outlined.CalendarMonth,"Subote","4 smjene","16h");DetailLine(Icons.Outlined.Event,"Nedjelje","4 smjene","16h")}}}
+        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Raspodjela sati po tjednima",fontSize=20.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(16.dp));Row(Modifier.height(150.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceAround,verticalAlignment=Alignment.Bottom){weeks.take(4).forEachIndexed{i,h->Column(horizontalAlignment=Alignment.CenterHorizontally){Text(h.toString()+"h",fontWeight=FontWeight.Bold);Box(Modifier.width(54.dp).height((h*2).dp).background(Cyan,RoundedCornerShape(7.dp,7.dp,0.dp,0.dp)));Text((i+1).toString()+". tjedan",fontSize=10.sp,color=Slate)}}}}}}
+        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold);DetailLine(Icons.Outlined.WbSunny,"Dnevne smjene",data.values.count{it.code=="D"}.toString()+" smjena",(data.values.count{it.code=="D"}*12).toString()+"h");DetailLine(Icons.Outlined.DarkMode,"Noćne smjene",data.values.count{it.code=="N"}.toString()+" smjena",night.toString()+"h");DetailLine(Icons.Outlined.CalendarMonth,"GO",data.values.count{it.code=="GO"}.toString()+" dana",(data.values.count{it.code=="GO"}*8).toString()+"h");DetailLine(Icons.Outlined.Event,"BO",data.values.count{it.code=="BO"}.toString()+" dana",(data.values.count{it.code=="BO"}*8).toString()+"h")}}}
     }
 }
 @Composable private fun StatMini(label:String,value:String,color:Color,modifier:Modifier){Column(modifier.padding(4.dp)){Box(Modifier.size(18.dp).background(color,RoundedCornerShape(5.dp)));Text(value,fontSize=18.sp,fontWeight=FontWeight.Bold);Text(label,fontSize=11.sp,color=Slate)}}
