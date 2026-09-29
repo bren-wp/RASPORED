@@ -30,6 +30,9 @@ import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
 import hr.raspored.app.data.UiSettingsStore
+import hr.raspored.app.data.EvidenceAnalytics
+import hr.raspored.app.data.TimeEvidenceEntry
+import hr.raspored.app.data.TimeEvidenceStore
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -58,6 +61,9 @@ private val BO=Shift("BO","Bolovanje","—",0)
     val context = LocalContext.current.applicationContext
     val store = remember(context) { ScheduleStore(context) }
     val uiSettings = remember(context) { UiSettingsStore(context) }
+    val evidenceStore = remember(context) { TimeEvidenceStore(context) }
+    var evidenceRevision by remember { mutableIntStateOf(0) }
+    val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
@@ -101,7 +107,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
         ){ padding ->
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
-                    Screen.Home->HomeScreen(scheduleCodes){screen=it}
+                    Screen.Home->HomeScreen(scheduleCodes,evidenceEntries){screen=it}
                     Screen.Calendar->CalendarScreen(scheduleCodes)
                     Screen.Scan->OcrScanScreen(YearMonth.from(appDate())) { month, shifts ->
                         store.saveMonth(month, shifts)
@@ -109,14 +115,15 @@ private val BO=Shift("BO","Bolovanje","—",0)
                         shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
                         screen = Screen.Calendar
                     }
-                    Screen.Stats->StatsScreen(scheduleCodes)
+                    Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries)
                     Screen.Hours->{
                         val today=appDate()
                         val shift=scheduleFor(YearMonth.from(today),scheduleCodes)[today.dayOfMonth]
                         TimeEvidenceScreen(
                             plannedShiftCode=shift?.code,
                             plannedShiftLabel=shift?.let{it.name+" · "+it.time} ?: "—",
-                            onBack={screen=Screen.Home}
+                            onBack={screen=Screen.Home},
+                            onEvidenceChanged={evidenceRevision++}
                         )
                     }
                     Screen.Settings->SettingsScreen(
@@ -175,7 +182,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
 }
 
 private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
-    val p=listOf(D,N,D,null,null,D,D,GO,D,N,null,N,D,N,D,D,N,GO,D,D,N,D,D,BO,null,D,BO,D,D,N,D)
+    val p=listOf(D,N,D,null,null,D,D,GO,D,N,null,null,D,GO,D,D,N,null,null,D,null,N,null,D,null,null,BO,null,null,null,null)
     return (1..month.lengthOfMonth()).mapNotNull{day->p[(day-1)%p.size]?.let{day to it}}.toMap().toMutableMap().apply {
         if(month==YearMonth.of(2026,10)){this[16]=D;this[17]=N}
     }
@@ -195,26 +202,89 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
         if(first>month.lengthOfMonth()) 0 else (first..last).sumOf { data[it]?.hours ?: 0 }
     }
 
-@Composable private fun HomeScreen(scheduleCodes:Map<String,String>,go:(Screen)->Unit){
+private fun codesForMonth(month:YearMonth,data:Map<Int,Shift>):Map<String,String> =
+    data.mapKeys { (day,_) -> month.atDay(day).toString() }.mapValues { it.value.code }
+
+private fun minutesLabel(minutes:Long):String {
+    val safe=minutes.coerceAtLeast(0L)
+    val hours=safe/60L
+    val remainder=safe%60L
+    return if(remainder==0L) hours.toString()+"h" else hours.toString()+"h "+remainder.toString().padStart(2,'0')+"min"
+}
+
+private fun signedMinutesLabel(minutes:Long):String {
+    val sign=when{minutes>0L->"+";minutes<0L->"-";else->""}
+    return sign+minutesLabel(kotlin.math.abs(minutes))
+}
+
+private fun largeMinutesLabel(minutes:Long):String {
+    val safe=minutes.coerceAtLeast(0L)
+    return (safe/60L).toString()+":"+((safe%60L).toString().padStart(2,'0'))+" h"
+}
+
+@Composable private fun HomeScreen(
+    scheduleCodes:Map<String,String>,
+    evidenceEntries:List<TimeEvidenceEntry>,
+    go:(Screen)->Unit
+){
     val today=appDate()
     val month=YearMonth.from(today)
     val data=scheduleFor(month,scheduleCodes)
-    val worked=data.values.sumOf{it.hours}
-    val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
-    val weekendHours=data.entries.sumOf{(day,shift)->val dow=month.atDay(day).dayOfWeek.value;if(dow>=6) shift.hours else 0}
+    val analytics=EvidenceAnalytics.summarize(
+        month=month,
+        entries=evidenceEntries,
+        scheduleCodes=codesForMonth(month,data),
+        fallbackToPlanned=BuildConfig.DEBUG
+    )
     val current=data[today.dayOfMonth] ?: GO
-    val nextEntry=(today.dayOfMonth+1..month.lengthOfMonth()).firstNotNullOfOrNull{day->data[day]?.takeIf{it.code=="D"||it.code=="N"}?.let{day to it}}
+    val nextEntry=(today.dayOfMonth+1..month.lengthOfMonth()).firstNotNullOfOrNull{day->
+        data[day]?.takeIf{it.code=="D"||it.code=="N"}?.let{day to it}
+    }
     val next=nextEntry?.second ?: GO
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
-    val dateTitle=today.format(formatter).replaceFirstChar{if(it.isLowerCase())it.titlecase(Locale("hr","HR")) else it.toString()}
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-        item{Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground);Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    val dateTitle=today.format(formatter).replaceFirstChar{
+        if(it.isLowerCase())it.titlecase(Locale("hr","HR")) else it.toString()
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal=16.dp),
+        contentPadding=PaddingValues(top=20.dp,bottom=24.dp),
+        verticalArrangement=Arrangement.spacedBy(14.dp)
+    ){
+        item{
+            Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground)
+            Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         item{ShiftCard("Današnja smjena",current,true,onHours={go(Screen.Hours)})}
         item{ShiftCard("Sljedeća smjena",next,false,onHours=null)}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}}}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Ovaj mjesec",worked.toString()+"h","Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f));MetricCard("Saldo sati","0h","Ukupni saldo",Icons.Outlined.BarChart,Modifier.weight(1f))}}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Noćni sati",night.toString()+"h","Ovaj mjesec",Icons.Outlined.DarkMode,Modifier.weight(1f));MetricCard("Vikendi i blagdani",weekendHours.toString()+"h","Ovaj mjesec",Icons.Outlined.Event,Modifier.weight(1f))}}
-        item{Button(onClick={go(Screen.Scan)},modifier=Modifier.fillMaxWidth().height(58.dp),shape=RoundedCornerShape(16.dp)){Icon(Icons.Outlined.PhotoCamera,null);Spacer(Modifier.width(10.dp));Text("Skeniraj raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)}}
+        item{
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
+                listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
+            }
+        }
+        item{
+            Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
+                MetricCard("Ovaj mjesec",minutesLabel(analytics.workedMinutes),"Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f))
+                MetricCard("Saldo sati",signedMinutesLabel(analytics.balanceMinutes),"Ukupni saldo",Icons.Outlined.BarChart,Modifier.weight(1f))
+            }
+        }
+        item{
+            Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
+                MetricCard("Noćni sati",minutesLabel(analytics.nightMinutes),"Ovaj mjesec",Icons.Outlined.DarkMode,Modifier.weight(1f))
+                MetricCard("Vikendi i blagdani",minutesLabel(analytics.weekendHolidayMinutes),"Ovaj mjesec",Icons.Outlined.Event,Modifier.weight(1f))
+            }
+        }
+        item{
+            Button(
+                onClick={go(Screen.Scan)},
+                modifier=Modifier.fillMaxWidth().height(58.dp),
+                shape=RoundedCornerShape(16.dp)
+            ){
+                Icon(Icons.Outlined.PhotoCamera,null)
+                Spacer(Modifier.width(10.dp))
+                Text("Skeniraj raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)
+            }
+        }
     }
 }
 
