@@ -11,6 +11,21 @@ function icon(name,extra){
   return '<svg class="ui-icon '+(extra||"")+'" aria-hidden="true"><use href="'+base+'"></use></svg>';
 }
 
+function configureProfile(){
+  var saved="";
+  try{saved=(localStorage.getItem("raspored.profile.name")||"").trim().slice(0,80)}catch(e){}
+  var name=state.demo?"Marko Marković":saved;
+  var display=name||"Korisnik";
+  var parts=display.split(/\s+/).filter(Boolean);
+  var initials=parts.slice(0,2).map(function(x){return x.charAt(0).toUpperCase()}).join("")||"K";
+  var nameEl=document.getElementById("profileName"),initialEl=document.getElementById("profileInitials"),welcome=document.getElementById("welcomeTitle");
+  if(nameEl)nameEl.textContent=display;
+  if(initialEl)initialEl.textContent=initials;
+  if(welcome){
+    if(name&&name!=="Korisnik")welcome.textContent="Dobro došao, "+parts[0]+"!";
+    else welcome.textContent="Dobro došao!";
+  }
+}
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,da=((h+l-7*m+114)%31)+1;return new Date(y,mo,da)}
 function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x}
@@ -115,5 +130,5 @@ document.getElementById("galleryBtn").addEventListener("click",function(){docume
 function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
 window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
 var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}}
-loadSchedule();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((window.RASPORED_BASE||"")+"/sw.js").catch(function(){})})}
+loadSchedule();document.body.dataset.demo=state.demo?"true":"false";configureProfile();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((window.RASPORED_BASE||"")+"/sw.js").catch(function(){})})}
 })();
