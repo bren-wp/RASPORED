@@ -18,6 +18,20 @@ function holidays(y){var map={};function add(m,d,n){map[y+"-"+String(m).padStart
 function demoSchedule(year,month){var s={},pattern=["D","N","D",null,null,"D","D","GO","D","N",null,"N","D","N","D","D","N","GO","D","D","N","D","D","BO",null,"D","BO","D","D","N","D"];var days=new Date(year,month+1,0).getDate();for(var i=1;i<=days;i++){var code=pattern[(i-1)%pattern.length];if(code)s[iso(new Date(year,month,i))]=code}if(year===2026&&month===9){s["2026-10-16"]="D";s["2026-10-17"]="N"}return s}
 function loadSchedule(){try{state.schedule=JSON.parse(localStorage.getItem("raspored.schedule")||"{}")}catch(e){state.schedule={}}if(state.demo&&Object.keys(state.schedule).length===0){state.schedule=demoSchedule(2026,9);state.cursor=new Date(2026,9,1);state.selected=new Date(2026,9,16)}}
 function save(){localStorage.setItem("raspored.schedule",JSON.stringify(state.schedule))}
+function appNow(){return state.demo?new Date(2026,9,16,9,0,0):new Date()}
+function loadTimeEntries(){try{var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");return Array.isArray(raw)?raw.filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")}):[]}catch(e){return []}}
+function saveTimeEntries(entries){localStorage.setItem("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
+function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function durationMinutes(entry,now){
+  if(!entry||!entry.in)return 0;
+  function minutes(v){var p=v.split(":").map(Number);return p[0]*60+p[1]}
+  var start=minutes(entry.in),end=entry.out?minutes(entry.out):(now.getHours()*60+now.getMinutes());
+  if(end<start)end+=24*60;
+  return Math.max(0,end-start);
+}
+function durationLabel(mins){return Math.floor(mins/60)+"h "+String(mins%60).padStart(2,"0")+"min"}
+function currentTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey&&!entries[i].out)return entries[i]}return null}
+function latestTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey)return entries[i]}return null}
 function shiftMeta(code){return {D:{name:"Dnevna smjena",time:"07:00 – 19:00 (12h)",hours:12},N:{name:"Noćna smjena",time:"19:00 – 07:00 (12h)",hours:12},GO:{name:"Slobodan dan",time:"—",hours:0},BO:{name:"Bolovanje",time:"—",hours:0}}[code]||{name:"Slobodno",time:"—",hours:0}}
 function monthData(y,m){var out={worked:0,night:0,sat:0,sun:0,holidays:0,go:0,bo:0,planned:0,counts:{D:0,N:0,GO:0,BO:0},weeks:[{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0}]};var hm=holidays(y);var days=new Date(y,m+1,0).getDate();for(var day=1;day<=days;day++){var date=new Date(y,m,day),key=iso(date),code=state.schedule[key];if(!code)continue;out.counts[code]=(out.counts[code]||0)+1;if(code==="D"||code==="N"){out.worked+=12;out.planned+=12;if(code==="N")out.night+=12;if(date.getDay()===6)out.sat++;if(date.getDay()===0)out.sun++;if(hm[key])out.holidays++;var wi=Math.min(4,Math.floor((day-1)/7));if(code==="D")out.weeks[wi].d+=12;else out.weeks[wi].n+=12}else if(code==="GO")out.go++;else if(code==="BO")out.bo++}out.balance=out.worked-out.planned;return out}
 function statsForCursor(){return monthData(state.cursor.getFullYear(),state.cursor.getMonth())}
@@ -29,7 +43,7 @@ function renderMobileHome(){
   var title=document.getElementById("mobileTodayTitle");
   if(title){var dateText=date.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)+"."}
   var currentEl=document.getElementById("mobileCurrentShift");
-  if(currentEl){currentEl.innerHTML='<div class="mobile-shift-card-head"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</div><div class="mobile-shift-card-body">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code==="D"||code==="N"?'<span class="shift-countdown">Danas</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><div>'+icon("check")+'<span>Evidentiraj ulaz/izlaz</span>'+icon("chevron-right")+'</div><div>'+icon("note")+'<span>Bilješka</span>'+icon("chevron-right")+'</div></div>'}
+  if(currentEl){currentEl.innerHTML='<div class="mobile-shift-card-head"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</div><div class="mobile-shift-card-body">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code==="D"||code==="N"?'<span class="shift-countdown">Danas</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("check")+'<span>Evidentiraj ulaz/izlaz</span>'+icon("chevron-right")+'</button><div>'+icon("note")+'<span>Bilješka</span>'+icon("chevron-right")+'</div></div>'}
   var next=null;
   for(var i=1;i<=62&&!next;i++){var nd=addDays(date,i),nc=state.schedule[iso(nd)];if(nc==="D"||nc==="N")next={date:nd,code:nc}}
   var nextEl=document.getElementById("mobileNextShift");
@@ -41,6 +55,46 @@ function nextShifts(){var list=[],start=new Date();if(state.demo)start=new Date(
 function renderSelected(){var el=document.getElementById("selectedDayCard");if(!el)return;var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(new Date()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+d.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'.</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}
 function renderRecognition(){var el=document.getElementById("recognitionDays");if(!el)return;var y=state.cursor.getFullYear(),m=state.cursor.getMonth();el.innerHTML="";for(var i=1;i<=Math.min(10,new Date(y,m+1,0).getDate());i++){var c=state.schedule[iso(new Date(y,m,i))]||"",x=document.createElement("div");x.className="recognition-day";x.innerHTML="<b>"+String(i).padStart(2,"0")+"."+String(m+1).padStart(2,"0")+".</b><small>"+weekdays[new Date(y,m,i).getDay()].toLowerCase()+"</small>"+(c?'<i class="shift '+c.toLowerCase()+'">'+c+'</i>':'<i class="shift">slobodno</i>');el.appendChild(x)}}
 function renderStats(){var d=statsForCursor(),worked=document.getElementById("workedTotal");if(worked)worked.textContent=d.worked+":00 h";document.getElementById("donutHours").textContent=d.worked+"h";var cats=[["#20B7EB","Dnevne smjene",d.counts.D*12+"h",d.counts.D+" smjena"],["#27388D","Noćne smjene",d.night+"h",d.counts.N+" smjena"],["#B8D0ED","Subote",d.sat*12+"h",d.sat+" smjene"],["#FF6B61","Nedjelje",d.sun*12+"h",d.sun+" smjene"],["#F59E0B","Blagdani",d.holidays*12+"h",d.holidays+" smjena"],["#14B8A6","GO",d.go*8+"h",d.go+" dana"],["#FB7185","BO",d.bo*8+"h",d.bo+" dana"],["#BFEFFF","Saldo sati",(d.balance>=0?"+":"")+d.balance+"h","Prema evidenciji"]],el=document.getElementById("statsCategories");if(el)el.innerHTML=cats.map(function(x){return '<div class="stat-cat"><span><i style="background:'+x[0]+'"></i><b>'+x[2]+'</b></span><small>'+x[1]+' · '+x[3]+'</small></div>'}).join("");var max=1;d.weeks.forEach(function(w){max=Math.max(max,w.d+w.n+w.o)});var wb=document.getElementById("weeklyBars");if(wb)wb.innerHTML=d.weeks.slice(0,4).map(function(w,i){var total=w.d+w.n+w.o,h=Math.max(8,Math.round(total/max*130));return '<div class="week-bar-wrap"><b>'+total+'h</b><div class="week-bar" style="height:'+h+'px"><span class="d" style="height:'+Math.round((w.d/Math.max(1,total))*100)+'%"></span><span class="n" style="height:'+Math.round((w.n/Math.max(1,total))*100)+'%"></span><span class="other" style="height:'+Math.round((w.o/Math.max(1,total))*100)+'%"></span></div><small>'+(i+1)+'. tjedan</small></div>'}).join("");var detail=document.getElementById("detailStats");if(detail)detail.innerHTML=[["sun","Dnevne smjene",d.counts.D+" smjena",d.counts.D*12+"h"],["holiday","Blagdani",d.holidays+" smjena",d.holidays*12+"h"],["moon","Noćne smjene",d.counts.N+" smjena",d.night+"h"],["holiday","GO",d.go+" dana",d.go*8+"h"],["calendar","Subote",d.sat+" smjene",d.sat*12+"h"],["check","BO",d.bo+" dana",d.bo*8+"h"],["calendar","Nedjelje",d.sun+" smjene",d.sun*12+"h"],["scale","Saldo sati","Prema evidenciji",(d.balance>=0?"+":"")+d.balance+"h"]].map(function(x){return '<div class="detail-item"><i>'+icon(x[0])+'</i><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span><b>'+x[3]+'</b></div>'}).join("")}
+function renderHours(){
+  var root=document.getElementById("view-hours");if(!root)return;
+  var now=appNow(),today=iso(now),entries=loadTimeEntries(),active=currentTimeEntry(entries,today),latest=latestTimeEntry(entries,today);
+  var planned=shiftMeta(state.schedule[today]||"");
+  var dateEl=document.getElementById("hoursDate");if(dateEl)dateEl.textContent=now.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  var monthLabel=document.getElementById("hoursMonthLabel");if(monthLabel)monthLabel.textContent=months[now.getMonth()]+" "+now.getFullYear()+".";
+  var plannedEl=document.getElementById("hoursPlannedShift");if(plannedEl)plannedEl.textContent=(state.schedule[today]?planned.name+" · "+planned.time:"Nema planirane smjene");
+  var status=document.getElementById("hoursStatus"),pill=document.getElementById("hoursStatusPill"),inEl=document.getElementById("hoursInValue"),outEl=document.getElementById("hoursOutValue"),durationEl=document.getElementById("hoursDurationValue"),note=document.getElementById("hoursNote");
+  if(status)status.textContent=active?"Rad je u tijeku":latest&&latest.out?"Današnja evidencija je spremljena":"Nema evidentiranog ulaza";
+  if(pill){pill.textContent=active?"U tijeku":latest&&latest.out?"Završeno":"Spremno";pill.classList.toggle("is-active",!!active);pill.classList.toggle("is-done",!!(latest&&latest.out))}
+  if(inEl)inEl.textContent=latest?latest.in:"—";
+  if(outEl)outEl.textContent=latest&&latest.out?latest.out:"—";
+  if(durationEl)durationEl.textContent=latest?durationLabel(durationMinutes(latest,now)):"0h 00min";
+  if(note&&document.activeElement!==note)note.value=latest&&latest.note?latest.note:"";
+  var inBtn=document.getElementById("clockInBtn"),outBtn=document.getElementById("clockOutBtn");
+  if(inBtn)inBtn.disabled=!!active;
+  if(outBtn)outBtn.disabled=!active;
+  var monthPrefix=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-",monthEntries=entries.filter(function(x){return x.date.indexOf(monthPrefix)===0});
+  var total=monthEntries.reduce(function(sum,x){return sum+(x.out?durationMinutes(x,now):0)},0),totalEl=document.getElementById("hoursMonthTotal");if(totalEl)totalEl.textContent=durationLabel(total);
+  var history=document.getElementById("hoursHistory");if(history){var sorted=monthEntries.slice().reverse();history.innerHTML=sorted.length?sorted.map(function(x){var d=new Date(x.date+"T12:00:00"),mins=durationMinutes(x,now);return '<article class="hours-history-row"><span class="hours-history-date"><b>'+String(d.getDate()).padStart(2,"0")+'.'+String(d.getMonth()+1).padStart(2,"0")+'.</b><small>'+d.toLocaleDateString("hr-HR",{weekday:"short"})+'</small></span><span><b>'+x.in+' – '+(x.out||"u tijeku")+'</b><small>'+(x.note?escapeHtml(x.note):"Bez bilješke")+'</small></span><strong>'+durationLabel(mins)+'</strong></article>'}).join(""):'<div class="hours-empty">'+icon("clock")+'<p>Još nema evidentiranih sati za ovaj mjesec.</p></div>'}
+}
+function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
+function clockIn(){
+  var entries=loadTimeEntries(),now=appNow(),today=iso(now);
+  if(currentTimeEntry(entries,today)){toast("Ulaz je već evidentiran.");return}
+  entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:""});
+  saveTimeEntries(entries);renderHours();toast("Ulaz je evidentiran.")
+}
+function clockOut(){
+  var entries=loadTimeEntries(),now=appNow(),today=iso(now),active=currentTimeEntry(entries,today);
+  if(!active){toast("Nema aktivne evidencije za izlaz.");return}
+  active.out=hhmm(now);
+  var note=document.getElementById("hoursNote");active.note=note?note.value.trim().slice(0,500):active.note||"";
+  saveTimeEntries(entries);renderHours();toast("Izlaz je evidentiran.")
+}
+function saveHoursNote(){
+  var entries=loadTimeEntries(),today=iso(appNow()),entry=currentTimeEntry(entries,today)||latestTimeEntry(entries,today),note=document.getElementById("hoursNote");
+  if(!entry||!note)return;
+  entry.note=note.value.trim().slice(0,500);saveTimeEntries(entries)
+}
 function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
   if(file.size>10*1024*1024){toast("Slika je prevelika. Najveća dopuštena veličina je 10 MB.");return}
@@ -50,16 +104,16 @@ function handleScanFile(file){
   status.classList.remove("is-success");status.classList.add("is-scanning");status.querySelector("span").textContent="Automatsko prepoznavanje...";
   setTimeout(function(){status.classList.remove("is-scanning");status.classList.add("is-success");status.querySelector("span").textContent="Fotografija je učitana i spremna za OCR obradu.";},900);
 }
-function route(name){state.route=name;document.body.dataset.routeCurrent=name;document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===name)});window.scrollTo({top:0,behavior:"smooth"})}
+function route(name){state.route=name;document.body.dataset.routeCurrent=name;document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===name)});if(name==="hours")renderHours();window.scrollTo({top:0,behavior:"smooth"})}
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
-function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderRecognition();renderStats()}
-function bind(){document.querySelectorAll("[data-route]").forEach(function(x){x.addEventListener("click",function(e){e.preventDefault();route(this.dataset.route)})});["prevMonth","calPrev"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(-1)})});["nextMonth","calNext"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(1)})});document.getElementById("todayBtn").addEventListener("click",function(){state.cursor=new Date();state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);state.selected=new Date();renderAll()});document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";localStorage.setItem("raspored.theme",document.documentElement.dataset.theme)});document.getElementById("saveSchedule").addEventListener("click",function(){save();toast("Raspored je spremljen.")});document.getElementById("rescanBtn").addEventListener("click",function(){document.getElementById("cameraInput").click()});
+function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderRecognition();renderStats();renderHours()}
+function bind(){document.querySelectorAll("[data-route]").forEach(function(x){x.addEventListener("click",function(e){e.preventDefault();route(this.dataset.route)})});document.addEventListener("click",function(e){var target=e.target.closest("[data-route-dynamic]");if(target){e.preventDefault();route(target.dataset.routeDynamic)}});["prevMonth","calPrev"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(-1)})});["nextMonth","calNext"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(1)})});document.getElementById("todayBtn").addEventListener("click",function(){state.cursor=new Date();state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);state.selected=new Date();renderAll()});document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";localStorage.setItem("raspored.theme",document.documentElement.dataset.theme)});document.getElementById("saveSchedule").addEventListener("click",function(){save();toast("Raspored je spremljen.")});document.getElementById("clockInBtn").addEventListener("click",clockIn);document.getElementById("clockOutBtn").addEventListener("click",clockOut);document.getElementById("hoursNote").addEventListener("change",saveHoursNote);document.getElementById("rescanBtn").addEventListener("click",function(){document.getElementById("cameraInput").click()});
 document.getElementById("rescanSecondary").addEventListener("click",function(){document.getElementById("cameraInput").click()});
 document.getElementById("galleryBtn").addEventListener("click",function(){document.getElementById("galleryInput").click()});
 ["cameraInput","galleryInput"].forEach(function(id){var input=document.getElementById(id);input.addEventListener("change",function(){if(this.files&&this.files[0])handleScanFile(this.files[0])})});
 function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
 window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
 var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}}
-loadSchedule();bind();document.body.dataset.routeCurrent=state.route;renderAll();if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((window.RASPORED_BASE||"")+"/sw.js").catch(function(){})})}
+loadSchedule();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((window.RASPORED_BASE||"")+"/sw.js").catch(function(){})})}
 })();
