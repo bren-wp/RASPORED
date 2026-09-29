@@ -31,3 +31,31 @@ test("scan accepts a real image file and exposes OCR state", async ({page}) => {
   });
   await expect(page.locator("#scanStatus")).toContainText(/Automatsko prepoznavanje|Fotografija je učitana/);
 });
+
+
+test("time evidence records and persists check-in and check-out", async ({page}) => {
+  await page.goto("/?demo=1");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  }else{
+    await page.locator('[data-route="hours"]:visible').first().click();
+  }
+
+  await expect(page.getByRole("heading",{name:"Evidencija sati"})).toBeVisible();
+  await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
+  await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
+  await page.locator("#hoursNote").fill("Redovna smjena");
+  await page.getByRole("button",{name:"Evidentiraj izlaz"}).click();
+  await expect(page.locator("#hoursStatus")).toContainText("spremljena");
+
+  await page.reload();
+  if(width<=820){
+    await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  }else{
+    await page.locator('[data-route="hours"]:visible').first().click();
+  }
+  await expect(page.locator("#hoursInValue")).toHaveText("09:00");
+  await expect(page.locator("#hoursOutValue")).toHaveText("09:00");
+  await expect(page.locator("#hoursHistory")).toContainText("Redovna smjena");
+});
