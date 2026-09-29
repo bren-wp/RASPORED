@@ -38,4 +38,9 @@ Za vizualne testne podatke otvoriti `/?demo=1`. Bez `demo=1` aplikacija ne hardk
 
 ## QA
 
-Web screenshot testovi koriste Playwright na 375, 390, tablet, 1440 i 1920 px. Android ima Compose testnu osnovu za glavne ekrane. Baseline screenshotovi se ne prihvaćaju automatski: svaka namjerna promjena mora se pregledati prije ažuriranja baselinea.
+Web screenshot testovi koriste Playwright na 375, 390, tablet, 1440 i 1920 px, uz funkcionalne responsive smoke testove i provjeru stvarnog image-upload toka na Scan ekranu. Android CI sada provjerava debug build, kompilaciju Compose androidTestova i lint. Referentni demo podaci uključeni su samo u Android debug buildu; release put koristi stvarni datum i ne hardkodira referentni mjesec. Baseline screenshotovi se ne prihvaćaju automatski: svaka namjerna promjena mora se pregledati prije ažuriranja baselinea.
+
+
+## Trenutačni UI pass
+
+Mobilni Web/PWA početni ekran više nije smanjeni desktop kalendar: ima zasebnu kompoziciju s današnjom smjenom, sljedećom smjenom, D/N/GO/BO oznakama, četiri mjesečne metrike i glavnim Scan CTA-om kao na mobilnoj referenci. Web koristi zajednički SVG icon set umjesto zamjenskih Unicode znakova. Scan ekran prihvaća stvarnu fotografiju s kamere ili galerije, validira vrstu i veličinu datoteke te prikazuje loading/success OCR stanje bez lažnog tvrdjenja da je backend OCR već dovršen.
