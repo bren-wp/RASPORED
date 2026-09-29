@@ -1,5 +1,6 @@
 package hr.raspored.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -12,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -23,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import hr.raspored.app.BuildConfig
 import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
+import hr.raspored.app.data.CroatianHolidays
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -182,22 +185,189 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
 
 @Composable private fun CalendarScreen(scheduleCodes:Map<String,String>){
     val today=appDate()
-    val month=YearMonth.from(today)
+    var month by remember { mutableStateOf(YearMonth.from(today)) }
+    var selected by remember { mutableStateOf(today) }
     val data=scheduleFor(month,scheduleCodes)
+    val holidays=CroatianHolidays.forYear(month.year)
     val worked=data.values.sumOf{it.hours}
     val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=16.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        item{Surface(shape=RoundedCornerShape(22.dp),color=Color.White,shadowElevation=2.dp){Column(Modifier.padding(14.dp)){Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={}){Icon(Icons.Outlined.ChevronLeft,null)};Text(month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",fontSize=25.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center);IconButton(onClick={}){Icon(Icons.Outlined.ChevronRight,null)}};CalendarGrid(month,data)}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(16.dp)){Row{Column(Modifier.weight(1f)){Text("Danas",fontSize=24.sp,fontWeight=FontWeight.Bold);Text(today.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))).replaceFirstChar{it.titlecase(Locale("hr","HR"))},color=Slate)};Text("▦ Blagdan",color=Red,fontWeight=FontWeight.Bold)};Divider(Modifier.padding(vertical=12.dp));Row(verticalAlignment=Alignment.CenterVertically){ShiftBadge(BO,62.dp);Spacer(Modifier.width(14.dp));Text("Blagdan (neradni dan)",fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null)}}}}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(16.dp)){Text("Sažetak za mjesec",fontSize=20.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row{listOf("Planirano" to worked.toString()+"h","Odrađeno" to worked.toString()+"h","Saldo" to "0h","Noćni sati" to night.toString()+"h").forEach{Column(Modifier.weight(1f)){Text(it.first,fontSize=11.sp,color=Slate);Text(it.second,fontWeight=FontWeight.Bold,fontSize=18.sp)}}}}}}
+    val selectedShift=if(YearMonth.from(selected)==month) data[selected.dayOfMonth] else null
+    val selectedHoliday=holidays[selected]
+    val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
+    val selectedTitle=if(selected==today)"Danas" else selected.dayOfWeek.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}
+
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal=14.dp),
+        contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
+        verticalArrangement=Arrangement.spacedBy(12.dp)
+    ){
+        item{
+            Surface(shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=2.dp){
+                Column(Modifier.padding(14.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        IconButton(onClick={
+                            month=month.minusMonths(1)
+                            selected=month.atDay(1)
+                        }){Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")}
+                        Text(
+                            month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",
+                            fontSize=25.sp,
+                            fontWeight=FontWeight.Bold,
+                            modifier=Modifier.weight(1f),
+                            textAlign=androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        IconButton(onClick={
+                            month=month.plusMonths(1)
+                            selected=month.atDay(1)
+                        }){Icon(Icons.Outlined.ChevronRight,"Sljedeći mjesec")}
+                    }
+                    CalendarGrid(
+                        month=month,
+                        data=data,
+                        holidays=holidays,
+                        selected=selected,
+                        today=today,
+                        onSelect={ date ->
+                            if(YearMonth.from(date)!=month) month=YearMonth.from(date)
+                            selected=date
+                        }
+                    )
+                }
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(16.dp)){
+                    Row{
+                        Column(Modifier.weight(1f)){
+                            Text(selectedTitle,fontSize=24.sp,fontWeight=FontWeight.Bold)
+                            Text(
+                                selected.format(formatter).replaceFirstChar{it.titlecase(Locale("hr","HR"))},
+                                color=Slate
+                            )
+                        }
+                        if(selectedHoliday!=null){
+                            Text("▦ Blagdan\n"+selectedHoliday,color=Red,fontWeight=FontWeight.Bold,fontSize=12.sp)
+                        }
+                    }
+                    Divider(Modifier.padding(vertical=12.dp))
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        if(selectedShift!=null){
+                            ShiftBadge(selectedShift,62.dp)
+                        }else{
+                            Surface(
+                                shape=RoundedCornerShape(14.dp),
+                                color=if(selectedHoliday!=null) BObg else Color(0xFFF1F5F9),
+                                modifier=Modifier.size(62.dp)
+                            ){Box(contentAlignment=Alignment.Center){Text(if(selectedHoliday!=null)"BO" else "—",fontWeight=FontWeight.Bold,color=if(selectedHoliday!=null)Red else Slate)}}
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)){
+                            Text(
+                                selectedShift?.name ?: if(selectedHoliday!=null)"Blagdan (neradni dan)" else "Nema planirane smjene",
+                                fontWeight=FontWeight.Bold,
+                                fontSize=18.sp
+                            )
+                            Text(selectedShift?.time ?: "—",color=Slate)
+                        }
+                        Icon(Icons.Outlined.ChevronRight,null)
+                    }
+                }
+            }
+        }
+        item{
+            Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
+                listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(16.dp)){
+                    Text("Sažetak za mjesec",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    Row{
+                        listOf(
+                            "Planirano" to worked.toString()+"h",
+                            "Odrađeno" to worked.toString()+"h",
+                            "Saldo" to "0h",
+                            "Noćni sati" to night.toString()+"h"
+                        ).forEach{
+                            Column(Modifier.weight(1f)){
+                                Text(it.first,fontSize=11.sp,color=Slate)
+                                Text(it.second,fontWeight=FontWeight.Bold,fontSize=18.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
-@Composable private fun CalendarGrid(month:YearMonth,data:Map<Int,Shift>){
-    val firstOffset=(month.atDay(1).dayOfWeek.value-1)
-    val cells=List(42){idx->idx-firstOffset+1}
-    Row(Modifier.fillMaxWidth()){listOf("Pon","Uto","Sri","Čet","Pet","Sub","Ned").forEach{Text(it,modifier=Modifier.weight(1f).padding(vertical=8.dp),fontSize=12.sp,color=Slate,textAlign=androidx.compose.ui.text.style.TextAlign.Center)}}
-    cells.chunked(7).forEach{week->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){week.forEach{day->val valid=day in 1..month.lengthOfMonth();val shift=if(valid)data[day] else null;Surface(shape=RoundedCornerShape(10.dp),color=if(shift!=null) shiftBg(shift) else Color(0xFFF1F5F9),modifier=Modifier.weight(1f).aspectRatio(.9f)){Box(contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(valid) day.toString() else "",fontWeight=FontWeight.Bold,color=if(shift?.code=="N") Color.White else Navy);if(shift!=null)Text(shift.code,fontWeight=FontWeight.Bold,color=shiftFg(shift))}}}}}}
+
+@Composable private fun CalendarGrid(
+    month:YearMonth,
+    data:Map<Int,Shift>,
+    holidays:Map<LocalDate,String>,
+    selected:LocalDate,
+    today:LocalDate,
+    onSelect:(LocalDate)->Unit
+){
+    val firstOffset=month.atDay(1).dayOfWeek.value-1
+    val start=month.atDay(1).minusDays(firstOffset.toLong())
+    val cells=List(42){start.plusDays(it.toLong())}
+    Row(Modifier.fillMaxWidth()){
+        listOf("Pon","Uto","Sri","Čet","Pet","Sub","Ned").forEach{
+            Text(
+                it,
+                modifier=Modifier.weight(1f).padding(vertical=8.dp),
+                fontSize=12.sp,
+                color=Slate,
+                textAlign=androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+    }
+    cells.chunked(7).forEach{week->
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
+            week.forEach{date->
+                val inside=YearMonth.from(date)==month
+                val shift=if(inside)data[date.dayOfMonth] else null
+                val holiday=holidays[date]
+                val isWeekend=date.dayOfWeek.value>=6
+                val bg=when{
+                    shift!=null->shiftBg(shift)
+                    holiday!=null->BObg
+                    isWeekend->Color(0xFFF6F8FB)
+                    else->Color(0xFFF1F5F9)
+                }
+                val fg=when{
+                    shift!=null->shiftFg(shift)
+                    holiday!=null->Red
+                    else->Navy
+                }
+                Surface(
+                    onClick={onSelect(date)},
+                    shape=RoundedCornerShape(10.dp),
+                    color=bg,
+                    border=when{
+                        date==selected->BorderStroke(2.dp,Cyan)
+                        date==today->BorderStroke(1.dp,Color(0x6600C2FF))
+                        else->null
+                    },
+                    modifier=Modifier.weight(1f).aspectRatio(.9f).alpha(if(inside)1f else .38f)
+                ){
+                    Box(contentAlignment=Alignment.Center){
+                        Column(horizontalAlignment=Alignment.CenterHorizontally){
+                            Text(date.dayOfMonth.toString(),fontWeight=FontWeight.Bold,color=fg)
+                            when{
+                                shift!=null->Text(shift.code,fontWeight=FontWeight.Bold,color=fg)
+                                holiday!=null->Text("✣",fontWeight=FontWeight.Bold,color=Red)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable private fun ScanScreen(){
