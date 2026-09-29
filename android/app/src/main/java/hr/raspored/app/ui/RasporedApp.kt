@@ -16,11 +16,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.BuildConfig
 import hr.raspored.app.R
+import hr.raspored.app.data.ScheduleStore
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -46,6 +48,13 @@ private val BO=Shift("BO","Bolovanje","—",0)
 
 @Composable fun RasporedApp(){
     var screen by remember { mutableStateOf(Screen.Home) }
+    val context = LocalContext.current.applicationContext
+    val store = remember(context) { ScheduleStore(context) }
+    val scheduleCodes = remember { mutableStateMapOf<String, String>() }
+    LaunchedEffect(store) {
+        scheduleCodes.clear()
+        scheduleCodes.putAll(store.load())
+    }
     MaterialTheme(
         colorScheme=lightColorScheme(primary=Cyan,secondary=Teal,background=Bg,surface=Color.White,onSurface=Navy),
         typography=Typography()
@@ -57,10 +66,15 @@ private val BO=Shift("BO","Bolovanje","—",0)
         ){ padding ->
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
-                    Screen.Home->HomeScreen{screen=it}
-                    Screen.Calendar->CalendarScreen()
-                    Screen.Scan->ScanScreen()
-                    Screen.Stats->StatsScreen()
+                    Screen.Home->HomeScreen(scheduleCodes){screen=it}
+                    Screen.Calendar->CalendarScreen(scheduleCodes)
+                    Screen.Scan->OcrScanScreen(YearMonth.from(appDate())) { month, shifts ->
+                        store.saveMonth(month, shifts)
+                        (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
+                        shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
+                        screen = Screen.Calendar
+                    }
+                    Screen.Stats->StatsScreen(scheduleCodes)
                     Screen.Settings->SettingsScreen()
                 }
             }
@@ -111,7 +125,13 @@ private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
     }
 }
 private fun appDate():LocalDate = if(BuildConfig.DEBUG) LocalDate.of(2026,10,16) else LocalDate.now()
-private fun scheduleFor(month:YearMonth):Map<Int,Shift> = if(BuildConfig.DEBUG) sampleSchedule(month) else emptyMap()
+private fun shiftFromCode(code:String):Shift?=when(code){"D"->D;"N"->N;"GO"->GO;"BO"->BO;else->null}
+private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>{
+    val persisted=(1..month.lengthOfMonth()).mapNotNull { day ->
+        shiftFromCode(codes[month.atDay(day).toString()] ?: "")?.let { day to it }
+    }.toMap()
+    return if(persisted.isNotEmpty()) persisted else if(BuildConfig.DEBUG) sampleSchedule(month) else emptyMap()
+}
 private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     (0..4).map { week ->
         val first=week*7+1
@@ -119,10 +139,10 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
         if(first>month.lengthOfMonth()) 0 else (first..last).sumOf { data[it]?.hours ?: 0 }
     }
 
-@Composable private fun HomeScreen(go:(Screen)->Unit){
+@Composable private fun HomeScreen(scheduleCodes:Map<String,String>,go:(Screen)->Unit){
     val today=appDate()
     val month=YearMonth.from(today)
-    val data=scheduleFor(month)
+    val data=scheduleFor(month,scheduleCodes)
     val worked=data.values.sumOf{it.hours}
     val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
     val weekendHours=data.entries.sumOf{(day,shift)->val dow=month.atDay(day).dayOfWeek.value;if(dow>=6) shift.hours else 0}
@@ -160,10 +180,10 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
 @Composable private fun InfoLine(icon:ImageVector,label:String,value:String){Row(Modifier.fillMaxWidth().padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Navy,modifier=Modifier.size(22.dp));Spacer(Modifier.width(12.dp));Text(label,modifier=Modifier.weight(1f),color=Slate);Text(value,fontWeight=FontWeight.Bold)}}
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=Color.White,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
-@Composable private fun CalendarScreen(){
+@Composable private fun CalendarScreen(scheduleCodes:Map<String,String>){
     val today=appDate()
     val month=YearMonth.from(today)
-    val data=scheduleFor(month)
+    val data=scheduleFor(month,scheduleCodes)
     val worked=data.values.sumOf{it.hours}
     val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=16.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -190,8 +210,8 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     }
 }
 
-@Composable private fun StatsScreen(){
-    val month=YearMonth.from(appDate());val data=scheduleFor(month);val worked=data.values.sumOf{it.hours};val night=data.values.filter{it.code=="N"}.sumOf{it.hours};val weeks=weeklyHours(month,data)
+@Composable private fun StatsScreen(scheduleCodes:Map<String,String>){
+    val month=YearMonth.from(appDate());val data=scheduleFor(month,scheduleCodes);val worked=data.values.sumOf{it.hours};val night=data.values.filter{it.code=="N"}.sumOf{it.hours};val weeks=weeklyHours(month,data)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=16.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
         item{Row(verticalAlignment=Alignment.CenterVertically){Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.weight(1f));OutlinedButton(onClick={}){Icon(Icons.Outlined.CalendarMonth,null);Text(" "+month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+". ")}}}
         item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Ukupno odrađeno sati",fontWeight=FontWeight.Bold);Text(worked.toString()+":00 h",fontSize=48.sp,fontWeight=FontWeight.ExtraBold);Text("↗ +8%  u odnosu na rujan",color=Teal,fontWeight=FontWeight.Bold);Spacer(Modifier.height(14.dp));Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){StatMini("Dnevne",(data.values.count{it.code=="D"}*12).toString()+"h",Cyan,Modifier.weight(1f));StatMini("Noćne",night.toString()+"h",Nbg,Modifier.weight(1f));StatMini("GO",(data.values.count{it.code=="GO"}*8).toString()+"h",Teal,Modifier.weight(1f));StatMini("BO",(data.values.count{it.code=="BO"}*8).toString()+"h",Red,Modifier.weight(1f))}}}}
