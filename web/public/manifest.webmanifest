@@ -1,0 +1,15 @@
+{
+  "name": "RASPORED — Shift planner & evidencija sati",
+  "short_name": "RASPORED",
+  "description": "Planiranje smjena, evidencija sati, statistika i skeniranje rasporeda.",
+  "lang": "hr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F8FB",
+  "theme_color": "#0B1F44",
+  "icons": [
+    {"src":"assets/brand/logo.svg","sizes":"any","type":"image/svg+xml","purpose":"any"},
+    {"src":"assets/brand/icon-maskable.svg","sizes":"any","type":"image/svg+xml","purpose":"maskable"}
+  ]
+}
