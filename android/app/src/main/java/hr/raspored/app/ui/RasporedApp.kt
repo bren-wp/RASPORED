@@ -2,6 +2,7 @@ package hr.raspored.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -44,7 +45,7 @@ private val Nbg=RasporedTokens.NavyAlt
 private val GObg=RasporedTokens.TealSoft
 private val BObg=RasporedTokens.RedSoft
 
-private enum class Screen { Home, Calendar, Scan, Stats, Settings }
+private enum class Screen { Home, Calendar, Scan, Stats, Hours, Settings }
 private data class Shift(val code:String,val name:String,val time:String,val hours:Int)
 private val D=Shift("D","Dnevna smjena","07:00 – 19:00 (12h)",12)
 private val N=Shift("N","Noćna smjena","19:00 – 07:00 (12h)",12)
@@ -80,6 +81,15 @@ private val BO=Shift("BO","Bolovanje","—",0)
                         screen = Screen.Calendar
                     }
                     Screen.Stats->StatsScreen(scheduleCodes)
+                    Screen.Hours->{
+                        val today=appDate()
+                        val shift=scheduleFor(YearMonth.from(today),scheduleCodes)[today.dayOfMonth]
+                        TimeEvidenceScreen(
+                            plannedShiftCode=shift?.code,
+                            plannedShiftLabel=shift?.let{it.name+" · "+it.time} ?: "—",
+                            onBack={screen=Screen.Home}
+                        )
+                    }
                     Screen.Settings->SettingsScreen()
                 }
             }
@@ -107,12 +117,13 @@ private val BO=Shift("BO","Bolovanje","—",0)
 }
 
 @Composable private fun BottomNav(current:Screen,onSelect:(Screen)->Unit){
-    NavigationBar(containerColor=Color.White,tonalElevation=6.dp){
-        NavItem(current,Screen.Home,"Početna",Icons.Outlined.Home,onSelect)
-        NavItem(current,Screen.Calendar,"Kalendar",Icons.Outlined.CalendarMonth,onSelect)
-        NavItem(current,Screen.Scan,"Skeniraj",Icons.Outlined.PhotoCamera,onSelect,true)
-        NavItem(current,Screen.Stats,"Statistika",Icons.Outlined.BarChart,onSelect)
-        NavItem(current,Screen.Settings,"Postavke",Icons.Outlined.Settings,onSelect)
+    val selected=if(current==Screen.Hours) Screen.Home else current
+    NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=6.dp){
+        NavItem(selected,Screen.Home,"Početna",Icons.Outlined.Home,onSelect)
+        NavItem(selected,Screen.Calendar,"Kalendar",Icons.Outlined.CalendarMonth,onSelect)
+        NavItem(selected,Screen.Scan,"Skeniraj",Icons.Outlined.PhotoCamera,onSelect,true)
+        NavItem(selected,Screen.Stats,"Statistika",Icons.Outlined.BarChart,onSelect)
+        NavItem(selected,Screen.Settings,"Postavke",Icons.Outlined.Settings,onSelect)
     }
 }
 @Composable private fun RowScope.NavItem(current:Screen,target:Screen,label:String,icon:ImageVector,onSelect:(Screen)->Unit,emphasis:Boolean=false){
@@ -158,8 +169,8 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     val dateTitle=today.format(formatter).replaceFirstChar{if(it.isLowerCase())it.titlecase(Locale("hr","HR")) else it.toString()}
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),contentPadding=PaddingValues(top=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
         item{Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=Navy);Text("Dobar dan! 👋",fontSize=20.sp,color=Slate)}
-        item{ShiftCard("Današnja smjena",current,true)}
-        item{ShiftCard("Sljedeća smjena",next,false)}
+        item{ShiftCard("Današnja smjena",current,true,onHours={go(Screen.Hours)})}
+        item{ShiftCard("Sljedeća smjena",next,false,onHours=null)}
         item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}}}
         item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Ovaj mjesec",worked.toString()+"h","Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f));MetricCard("Saldo sati","0h","Ukupni saldo",Icons.Outlined.BarChart,Modifier.weight(1f))}}
         item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){MetricCard("Noćni sati",night.toString()+"h","Ovaj mjesec",Icons.Outlined.DarkMode,Modifier.weight(1f));MetricCard("Vikendi i blagdani",weekendHours.toString()+"h","Ovaj mjesec",Icons.Outlined.Event,Modifier.weight(1f))}}
@@ -167,7 +178,7 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     }
 }
 
-@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean){
+@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,onHours:(()->Unit)?){
     Surface(shape=RoundedCornerShape(20.dp),color=Color.White,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth()){
         Column(Modifier.padding(18.dp)){
             Row(verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null,tint=Navy)}
@@ -178,11 +189,24 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
                 Column(Modifier.weight(1f)){Text(shift.name,fontSize=20.sp,fontWeight=FontWeight.Bold);Text(shift.time,color=Slate,fontSize=16.sp)}
                 if(today) AssistChip(onClick={},label={Text("Za 2h 20min")})
             }
-            if(today){Divider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5));InfoLine(Icons.Outlined.Schedule,"Radno vrijeme","12h");InfoLine(Icons.Outlined.Checklist,"Evidentiraj ulaz/izlaz","›");InfoLine(Icons.Outlined.Notes,"Bilješka","›")}
+            if(today){
+                Divider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5))
+                InfoLine(Icons.Outlined.Schedule,"Radno vrijeme",if(shift.hours>0)shift.hours.toString()+"h" else "—")
+                InfoLine(Icons.Outlined.Checklist,"Evidentiraj ulaz/izlaz","›",onHours)
+                InfoLine(Icons.Outlined.Notes,"Bilješka","›",onHours)
+            }
         }
     }
 }
-@Composable private fun InfoLine(icon:ImageVector,label:String,value:String){Row(Modifier.fillMaxWidth().padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Navy,modifier=Modifier.size(22.dp));Spacer(Modifier.width(12.dp));Text(label,modifier=Modifier.weight(1f),color=Slate);Text(value,fontWeight=FontWeight.Bold)}}
+@Composable private fun InfoLine(icon:ImageVector,label:String,value:String,onClick:(()->Unit)?=null){
+    val modifier=if(onClick!=null) Modifier.fillMaxWidth().clickable(onClick=onClick).padding(vertical=7.dp) else Modifier.fillMaxWidth().padding(vertical=5.dp)
+    Row(modifier,verticalAlignment=Alignment.CenterVertically){
+        Icon(icon,null,tint=Navy,modifier=Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label,modifier=Modifier.weight(1f),color=Slate)
+        Text(value,fontWeight=FontWeight.Bold)
+    }
+}
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=Color.White,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
 @Composable private fun CalendarScreen(scheduleCodes:Map<String,String>){
