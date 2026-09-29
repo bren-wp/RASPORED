@@ -1,6 +1,7 @@
 package hr.raspored.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
@@ -381,12 +383,153 @@ private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
 }
 
 @Composable private fun StatsScreen(scheduleCodes:Map<String,String>){
-    val month=YearMonth.from(appDate());val data=scheduleFor(month,scheduleCodes);val worked=data.values.sumOf{it.hours};val night=data.values.filter{it.code=="N"}.sumOf{it.hours};val weeks=weeklyHours(month,data)
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),contentPadding=PaddingValues(top=16.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        item{Row(verticalAlignment=Alignment.CenterVertically){Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.weight(1f));OutlinedButton(onClick={}){Icon(Icons.Outlined.CalendarMonth,null);Text(" "+month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+". ")}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Ukupno odrađeno sati",fontWeight=FontWeight.Bold);Text(worked.toString()+":00 h",fontSize=48.sp,fontWeight=FontWeight.ExtraBold);Text("↗ +8%  u odnosu na rujan",color=Teal,fontWeight=FontWeight.Bold);Spacer(Modifier.height(14.dp));Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){StatMini("Dnevne",(data.values.count{it.code=="D"}*12).toString()+"h",Cyan,Modifier.weight(1f));StatMini("Noćne",night.toString()+"h",Nbg,Modifier.weight(1f));StatMini("GO",(data.values.count{it.code=="GO"}*8).toString()+"h",Teal,Modifier.weight(1f));StatMini("BO",(data.values.count{it.code=="BO"}*8).toString()+"h",Red,Modifier.weight(1f))}}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Raspodjela sati po tjednima",fontSize=20.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(16.dp));Row(Modifier.height(150.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceAround,verticalAlignment=Alignment.Bottom){weeks.take(4).forEachIndexed{i,h->Column(horizontalAlignment=Alignment.CenterHorizontally){Text(h.toString()+"h",fontWeight=FontWeight.Bold);Box(Modifier.width(54.dp).height((h*2).dp).background(Cyan,RoundedCornerShape(7.dp,7.dp,0.dp,0.dp)));Text((i+1).toString()+". tjedan",fontSize=10.sp,color=Slate)}}}}}}
-        item{Surface(shape=RoundedCornerShape(20.dp),color=Color.White){Column(Modifier.padding(18.dp)){Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold);DetailLine(Icons.Outlined.WbSunny,"Dnevne smjene",data.values.count{it.code=="D"}.toString()+" smjena",(data.values.count{it.code=="D"}*12).toString()+"h");DetailLine(Icons.Outlined.DarkMode,"Noćne smjene",data.values.count{it.code=="N"}.toString()+" smjena",night.toString()+"h");DetailLine(Icons.Outlined.CalendarMonth,"GO",data.values.count{it.code=="GO"}.toString()+" dana",(data.values.count{it.code=="GO"}*8).toString()+"h");DetailLine(Icons.Outlined.Event,"BO",data.values.count{it.code=="BO"}.toString()+" dana",(data.values.count{it.code=="BO"}*8).toString()+"h")}}}
+    var month by remember { mutableStateOf(YearMonth.from(appDate())) }
+    var periodMenu by remember { mutableStateOf(false) }
+    val data=scheduleFor(month,scheduleCodes)
+    val previous=scheduleFor(month.minusMonths(1),scheduleCodes)
+    val worked=data.values.sumOf{it.hours}
+    val previousWorked=previous.values.sumOf{it.hours}
+    val dayHours=data.values.filter{it.code=="D"}.sumOf{it.hours}
+    val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
+    val weeks=weeklyHours(month,data)
+    val maxWeek=maxOf(1,weeks.maxOrNull()?:1)
+    val holidays=CroatianHolidays.forYear(month.year)
+    val saturdayCount=data.keys.count{month.atDay(it).dayOfWeek.value==6}
+    val sundayCount=data.keys.count{month.atDay(it).dayOfWeek.value==7}
+    val holidayShiftCount=data.keys.count{holidays.containsKey(month.atDay(it))}
+    val trend=if(previousWorked>0)((worked-previousWorked)*100/previousWorked) else null
+    val monthTitle=month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+"."
+
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal=14.dp),
+        contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
+        verticalArrangement=Arrangement.spacedBy(12.dp)
+    ){
+        item{
+            Row(verticalAlignment=Alignment.CenterVertically){
+                Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.weight(1f))
+                Box{
+                    OutlinedButton(onClick={periodMenu=true}){
+                        Icon(Icons.Outlined.CalendarMonth,null)
+                        Text(" "+monthTitle+" ")
+                        Icon(Icons.Outlined.ExpandMore,null)
+                    }
+                    DropdownMenu(expanded=periodMenu,onDismissRequest={periodMenu=false}){
+                        (0..11).map{YearMonth.from(appDate()).minusMonths(it.toLong())}.forEach{option->
+                            val label=option.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+option.year+"."
+                            DropdownMenuItem(text={Text(label)},onClick={month=option;periodMenu=false})
+                        }
+                    }
+                }
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        Column(Modifier.weight(1f)){
+                            Text("Ukupno odrađeno sati",fontWeight=FontWeight.Bold)
+                            Text(worked.toString()+":00 h",fontSize=48.sp,fontWeight=FontWeight.ExtraBold)
+                            Text(
+                                when{
+                                    trend==null->"Nema podataka za prethodni mjesec"
+                                    trend>0->"↗ +"+trend+"% u odnosu na prethodni mjesec"
+                                    trend<0->"↘ "+trend+"% u odnosu na prethodni mjesec"
+                                    else->"Bez promjene u odnosu na prethodni mjesec"
+                                },
+                                color=if((trend?:0)>=0)Teal else Red,
+                                fontWeight=FontWeight.Bold,
+                                fontSize=13.sp
+                            )
+                        }
+                        HoursDonut(dayHours=dayHours,nightHours=night,total=worked)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
+                        StatMini("Dnevne",dayHours.toString()+"h",Cyan,Modifier.weight(1f))
+                        StatMini("Noćne",night.toString()+"h",Nbg,Modifier.weight(1f))
+                        StatMini("GO",(data.values.count{it.code=="GO"}*8).toString()+"h",Teal,Modifier.weight(1f))
+                        StatMini("BO",(data.values.count{it.code=="BO"}*8).toString()+"h",Red,Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp)){
+                    Text("Raspodjela sati po tjednima",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        Modifier.height(150.dp).fillMaxWidth(),
+                        horizontalArrangement=Arrangement.SpaceAround,
+                        verticalAlignment=Alignment.Bottom
+                    ){
+                        weeks.take(4).forEachIndexed{i,h->
+                            Column(horizontalAlignment=Alignment.CenterHorizontally){
+                                Text(h.toString()+"h",fontWeight=FontWeight.Bold)
+                                Box(
+                                    Modifier.width(54.dp)
+                                        .height(maxOf(6,((h.toFloat()/maxWeek)*100).toInt()).dp)
+                                        .background(Cyan,RoundedCornerShape(7.dp,7.dp,0.dp,0.dp))
+                                )
+                                Text((i+1).toString()+". tjedan",fontSize=10.sp,color=Slate)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp)){
+                    Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    DetailLine(Icons.Outlined.WbSunny,"Dnevne smjene",data.values.count{it.code=="D"}.toString()+" smjena",dayHours.toString()+"h")
+                    DetailLine(Icons.Outlined.DarkMode,"Noćne smjene",data.values.count{it.code=="N"}.toString()+" smjena",night.toString()+"h")
+                    DetailLine(Icons.Outlined.CalendarMonth,"Subote",saturdayCount.toString()+" smjena",(saturdayCount*12).toString()+"h")
+                    DetailLine(Icons.Outlined.Event,"Nedjelje",sundayCount.toString()+" smjena",(sundayCount*12).toString()+"h")
+                    DetailLine(Icons.Outlined.Celebration,"Blagdani",holidayShiftCount.toString()+" smjena",(holidayShiftCount*12).toString()+"h")
+                    DetailLine(Icons.Outlined.BeachAccess,"GO",data.values.count{it.code=="GO"}.toString()+" dana",(data.values.count{it.code=="GO"}*8).toString()+"h")
+                    DetailLine(Icons.Outlined.MedicalServices,"BO",data.values.count{it.code=="BO"}.toString()+" dana",(data.values.count{it.code=="BO"}*8).toString()+"h")
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun HoursDonut(dayHours:Int,nightHours:Int,total:Int){
+    val size=142.dp
+    Box(Modifier.size(size),contentAlignment=Alignment.Center){
+        Canvas(Modifier.fillMaxSize()){
+            val stroke=18.dp.toPx()
+            drawArc(
+                color=Color(0xFFE6EDF5),
+                startAngle=-90f,
+                sweepAngle=360f,
+                useCenter=false,
+                style=Stroke(width=stroke)
+            )
+            if(total>0){
+                val daySweep=360f*(dayHours.toFloat()/total.toFloat())
+                drawArc(
+                    color=Cyan,
+                    startAngle=-90f,
+                    sweepAngle=daySweep,
+                    useCenter=false,
+                    style=Stroke(width=stroke)
+                )
+                drawArc(
+                    color=Nbg,
+                    startAngle=-90f+daySweep,
+                    sweepAngle=360f-daySweep,
+                    useCenter=false,
+                    style=Stroke(width=stroke)
+                )
+            }
+        }
+        Column(horizontalAlignment=Alignment.CenterHorizontally){
+            Text(total.toString()+"h",fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
+            Text("ukupno",fontSize=11.sp,color=Slate)
+        }
     }
 }
 @Composable private fun StatMini(label:String,value:String,color:Color,modifier:Modifier){Column(modifier.padding(4.dp)){Box(Modifier.size(18.dp).background(color,RoundedCornerShape(5.dp)));Text(value,fontSize=18.sp,fontWeight=FontWeight.Bold);Text(label,fontSize=11.sp,color=Slate)}}
