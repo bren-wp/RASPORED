@@ -11,8 +11,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: {node-version: 22}
       - name: PHP syntax
         run: php -l public/index.php
@@ -21,7 +21,7 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Functional and screenshot QA
-        run: npx playwright test tests/capture.spec.ts
+        run: npx playwright test tests/capture.spec.ts tests/smoke.spec.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -32,8 +32,8 @@ jobs:
   android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -41,7 +41,7 @@ jobs:
         with:
           gradle-version: 8.11.1
       - name: Android debug build
-        run: gradle -p android :app:assembleDebug --stacktrace
+        run: gradle -p android :app:assembleDebug :app:compileDebugAndroidTestKotlin :app:lintDebug --stacktrace
       - uses: actions/upload-artifact@v4
         if: success()
         with:
