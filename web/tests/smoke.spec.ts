@@ -59,3 +59,17 @@ test("time evidence records and persists check-in and check-out", async ({page})
   await expect(page.locator("#hoursOutValue")).toHaveText("09:00");
   await expect(page.locator("#hoursHistory")).toContainText("Redovna smjena");
 });
+
+
+test("production scan starts from a real empty state, not the demo table", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await expect(page.locator("#scanEmptyState")).toBeVisible();
+  await expect(page.locator("#fakeSheet")).toBeHidden();
+});
+
+test("production profile does not ship the reference person as a hardcoded user", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("#profileName")).toHaveText("Korisnik");
+  await expect(page.locator("#profileName")).not.toHaveText("Marko Marković");
+});
