@@ -199,7 +199,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - responzivni layout bez framework ovisnosti u runtimeu
 - PWA manifest + service worker
 - gostujući per-instalacijski JSON podaci u `storage/data` iza zaštićenog PHP API-ja
-- opcionalna registracija/prijava za Web/PWA te isti backend račun za Android mrežne funkcije; lozinke koriste `password_hash`, Web koristi HttpOnly/SameSite session cookie, a Android kratkotrajni bearer credential ne ulazi u APK
+- opcionalna registracija/prijava za Web/PWA te isti backend račun za Android mrežne funkcije; lozinke koriste `password_hash`, Web koristi HttpOnly/SameSite session cookie, a Android istekom ograničeni bearer credential ne ulazi u APK
 - Web račun koristi zaseban privatni per-account JSON pod `storage/data`
 - Web voditeljski profil može spremiti više djelatnika kao odvojene rasporede tima
 - JSON sigurnosna kopija i mjesečni pregled za ispis / spremanje kao PDF
