@@ -431,3 +431,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   .print-report th,.print-report td{border:1px solid #CCD5E2;padding:2.2mm;text-align:left;vertical-align:top}
   .print-report th{background:#F2F6FA}.print-report-note{margin-top:5mm!important;font-size:8pt;color:#475569}
 }
+
+.manual-shift-editor{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.manual-shift-editor>div:first-child{display:flex;flex-direction:column;gap:2px}
+.manual-shift-editor>div:first-child b{font-size:13px}
+.manual-shift-editor>div:first-child small{color:var(--muted);font-size:11px;line-height:1.4}
+.manual-shift-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin-top:10px}
+.manual-shift-btn{min-height:44px;border:1px solid var(--border);border-radius:11px;background:var(--surface);cursor:pointer;padding:5px;transition:var(--ease)}
+.manual-shift-btn:hover,.manual-shift-btn:focus-visible{border-color:#75D8FF;outline:none;box-shadow:0 0 0 3px rgba(0,194,255,.12)}
+.manual-shift-btn.is-selected{border:2px solid #00AEEF;background:rgba(0,194,255,.06)}
+.manual-shift-btn .shift{margin:auto}
+.manual-shift-clear{margin-top:8px}
+.manual-shift-clear:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:540px){.manual-shift-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
