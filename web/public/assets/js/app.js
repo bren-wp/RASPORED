@@ -193,6 +193,9 @@ function holidays(y){var map={};function add(m,d,n){map[y+"-"+String(m).padStart
 function loadSchedule(){try{state.schedule=sanitizeSchedule(JSON.parse(localStorage.getItem("raspored.schedule")||"{}"))}catch(e){state.schedule={}}}
 function save(){localStorage.setItem("raspored.schedule",JSON.stringify(state.schedule))}
 function appNow(){return new Date()}
+function punctuatedDate(date,options){
+  return date.toLocaleDateString("hr-HR",options).replace(/[.\s]+$/,"")+".";
+}
 function loadTimeEntries(){
   try{
     var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");
@@ -382,7 +385,7 @@ function markNotificationsRead(){
 function renderMobileHome(){
   var date=appNow(),entry=currentShiftFor(date),code=entry?entry.code:null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
   var title=document.getElementById("mobileTodayTitle");
-  if(title){var dateText=date.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)+"."}
+  if(title){var dateText=punctuatedDate(date,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)}
   var currentEl=document.getElementById("mobileCurrentShift");
   if(currentEl){currentEl.innerHTML='<div class="mobile-shift-card-head"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</div><div class="mobile-shift-card-body">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code?'<span class="shift-countdown">'+shiftStatus(entry?entry.date:date,code)+'</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("check")+'<span>Evidentiraj ulaz/izlaz</span>'+icon("chevron-right")+'</button><div>'+icon("note")+'<span>Bilješka</span>'+icon("chevron-right")+'</div></div>'}
   var next=null;
@@ -393,7 +396,7 @@ function renderMobileHome(){
   if(metrics){var weekendMinutes=data.weekendHolidayMinutes,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""],["moon","Noćni sati",hoursText(data.nightMinutes),"Ovaj mjesec","night"],["holiday","Vikendi i blagdani",hoursText(weekendMinutes),"Ovaj mjesec","weekend"]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
 }
 function nextShifts(){var list=[],start=appNow();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c&&c!=="GO"&&c!=="BO")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<div class="next-shift"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
-function renderSelected(){var el=document.getElementById("selectedDayCard");if(!el)return;var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+d.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'.</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}
+function renderSelected(){var el=document.getElementById("selectedDayCard");if(!el)return;var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}
 function renderRecognition(){
   var el=document.getElementById("recognitionDays");if(!el)return;
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate(),selected=selectedScanSchedule();
