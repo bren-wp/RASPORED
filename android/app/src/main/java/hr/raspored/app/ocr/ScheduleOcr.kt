@@ -1046,7 +1046,13 @@ object ScheduleOcrEngine {
         val mapped = baseline.rows.sumOf { it.dayShifts.size }
         val maxDay = baseline.month?.lengthOfMonth() ?: 31
         val target = maxOf(24, baseline.rows.size * minOf(maxDay, 18))
-        if (mapped >= target && !hasMissingNumberedRows(baseline)) {
+        val sparseNumberedRow = baseline.rows.any { row ->
+            row.rowNumber != null && row.dayShifts.size < 3
+        }
+        if (mapped >= target &&
+            !hasMissingNumberedRows(baseline) &&
+            !sparseNumberedRow
+        ) {
             recognizeRosterColumn(source, baseline, onSuccess)
             return
         }
