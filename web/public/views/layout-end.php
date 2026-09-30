@@ -46,6 +46,49 @@
   </form>
 </dialog>
 
+<dialog class="app-dialog" id="loginDialog">
+  <form class="dialog-card" id="loginForm">
+    <div class="dialog-head">
+      <div><h2>Prijava</h2><p>Pristupi svom RASPORED računu i spremljenim podacima.</p></div>
+      <button class="icon-btn" type="button" data-close-auth aria-label="Zatvori">×</button>
+    </div>
+    <label class="dialog-field"><span>E-mail</span><input id="loginEmail" type="email" maxlength="160" autocomplete="email" required></label>
+    <label class="dialog-field"><span>Lozinka</span><input id="loginPassword" type="password" minlength="10" maxlength="200" autocomplete="current-password" required></label>
+    <p class="auth-error" id="loginError" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button class="secondary-btn" type="button" data-close-auth>Odustani</button>
+      <button class="primary-btn" type="submit">Prijavi se</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="app-dialog" id="registerDialog">
+  <form class="dialog-card" id="registerForm">
+    <div class="dialog-head">
+      <div><h2>Registracija</h2><p>Račun čuva podatke u zaštićenom <code>storage/data</code> spremištu ove instalacije.</p></div>
+      <button class="icon-btn" type="button" data-close-auth aria-label="Zatvori">×</button>
+    </div>
+    <div class="auth-grid">
+      <label class="dialog-field"><span>Ime</span><input id="registerFirstName" maxlength="60" autocomplete="given-name" required></label>
+      <label class="dialog-field"><span>Prezime</span><input id="registerLastName" maxlength="60" autocomplete="family-name" required></label>
+    </div>
+    <label class="dialog-field"><span>E-mail</span><input id="registerEmail" type="email" maxlength="160" autocomplete="email" required></label>
+    <label class="dialog-field"><span>Broj telefona</span><input id="registerPhone" type="tel" maxlength="30" autocomplete="tel" required></label>
+    <label class="dialog-field"><span>Lozinka</span><input id="registerPassword" type="password" minlength="10" maxlength="200" autocomplete="new-password" required><small>Najmanje 10 znakova, jedno slovo i jedan broj.</small></label>
+    <label class="dialog-field"><span>Vrsta profila</span>
+      <select id="registerAccountType">
+        <option value="individual">Djelatnik / osobni raspored</option>
+        <option value="manager">Voditelj tima / više djelatnika</option>
+      </select>
+    </label>
+    <p class="auth-error" id="registerError" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button class="secondary-btn" type="button" data-close-auth>Odustani</button>
+      <button class="primary-btn" type="submit">Izradi račun</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog class="app-dialog" id="colleagueDialog">
   <form class="dialog-card" id="colleagueForm">
     <div class="dialog-head">
@@ -66,6 +109,7 @@
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/data-store.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/payroll.js', ENT_QUOTES) ?>" defer></script>
+<script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/auth.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/app.js', ENT_QUOTES) ?>" defer></script>
 </body>
 </html>
