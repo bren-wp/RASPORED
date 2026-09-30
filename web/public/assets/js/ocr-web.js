@@ -614,6 +614,41 @@ async function prepareDayBandComposite(file,startRatio,endRatio){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
+async function prepareRosterBand(file,startRatio,endRatio){
+  if(typeof createImageBitmap!=="function")return file;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var top=Math.max(0,Math.min(bitmap.height-1,Math.round(bitmap.height*startRatio)));
+    var bottom=Math.max(top+1,Math.min(bitmap.height,Math.round(bitmap.height*endRatio)));
+    var cropHeight=bottom-top;
+    var pixelScale=Math.sqrt(4500000/(cropWidth*cropHeight));
+    var edgeScale=3200/cropWidth;
+    var scale=Math.max(1,Math.min(2.80,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(cropWidth*scale));
+    canvas.height=Math.max(1,Math.round(cropHeight*scale));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return file;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.48)";
+    context.drawImage(
+      bitmap,
+      0,top,cropWidth,cropHeight,
+      0,0,canvas.width,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.97);
+    });
+  }catch(error){
+    return file;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
 async function prepareRosterColumn(file){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
@@ -735,11 +770,22 @@ async function recognizeScheduleNow(file,onProgress){
       }
     }
 
-    if(onProgress)onProgress(.98,"roster-column");
+    if(onProgress)onProgress(.97,"roster-column");
     var rosterSource=await prepareRosterColumn(file);
     var rosterResult=await worker.recognize(rosterSource,{}, {text:true,blocks:true});
     var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
     merged.people=mergeRows((merged.people||[]).concat(rosterRows));
+
+    var rosterBands=[[0,.44],[.28,.73],[.57,1]];
+    for(var r=0;r<rosterBands.length;r++){
+      if(onProgress)onProgress(.98+r*.006,"roster-band-"+(r+1));
+      var rosterBandSource=await prepareRosterBand(file,rosterBands[r][0],rosterBands[r][1]);
+      var rosterBandResult=await worker.recognize(rosterBandSource,{}, {text:true,blocks:true});
+      var rosterBandRows=parseRosterRows(
+        rosterBandResult&&rosterBandResult.data?rosterBandResult.data.blocks:null
+      );
+      merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
+    }
     return merged;
   }finally{
     activeProgressCallback=null;
