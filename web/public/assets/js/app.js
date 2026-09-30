@@ -441,9 +441,46 @@ function bind(){
   var scanPersonButton=document.getElementById("scanPersonButton"),scanPersonMenu=document.getElementById("scanPersonMenu");
   if(scanPersonButton&&scanPersonMenu){
     scanPersonButton.addEventListener("click",function(e){e.stopPropagation();if(this.disabled)return;var opening=scanPersonMenu.hidden;scanPersonMenu.hidden=!opening;this.setAttribute("aria-expanded",opening?"true":"false")});
-    scanPersonMenu.addEventListener("click",function(e){var b=e.target.closest("[data-scan-person]");if(!b)return;state.scanSelected=Number(b.dataset.scanPerson);scanPersonMenu.hidden=true;scanPersonButton.setAttribute("aria-expanded","false");renderScanPersonPicker();renderRecognition()});
+    scanPersonMenu.addEventListener("click",function(e){var b=e.target.closest("[data-scan-person]");if(!b)return;state.scanSelected=Number(b.dataset.scanPerson);state.editRecognition=false;saveScanSession();scanPersonMenu.hidden=true;scanPersonButton.setAttribute("aria-expanded","false");renderScanPersonPicker();renderRecognition()});
     document.addEventListener("click",function(e){if(!scanPersonMenu.hidden&&!e.target.closest(".scan-person-picker")){scanPersonMenu.hidden=true;scanPersonButton.setAttribute("aria-expanded","false")}});
   }
+  var editRecognition=document.getElementById("editRecognitionBtn"),recognitionDays=document.getElementById("recognitionDays");
+  if(editRecognition){
+    editRecognition.addEventListener("click",function(){
+      if(!scanPerson())return;
+      state.editRecognition=!state.editRecognition;renderRecognition();
+    });
+  }
+  if(recognitionDays){
+    recognitionDays.addEventListener("click",function(e){
+      var button=e.target.closest("[data-scan-day]");if(!button||!state.editRecognition)return;
+      var person=scanPerson(),day=Number(button.dataset.scanDay);if(!person||!day)return;
+      var next=cycleScanCode(person.dayShifts[day]||"");
+      if(next)person.dayShifts[day]=next;else delete person.dayShifts[day];
+      saveScanSession();renderRecognition();
+    });
+  }
+  var profileInput=document.getElementById("profileNameInput"),saveProfileBtn=document.getElementById("saveProfileBtn");
+  if(saveProfileBtn&&profileInput){
+    saveProfileBtn.addEventListener("click",function(){
+      var value=profileInput.value.trim().replace(/\s+/g," ").slice(0,80);
+      if(value.length>0&&value.length<2){toast("Unesi valjano ime i prezime.");return}
+      if(value)localStorage.setItem("raspored.profile.name",value);else localStorage.removeItem("raspored.profile.name");
+      configureProfile();toast("Profil je spremljen.");
+    });
+  }
+  var notificationBtn=document.getElementById("notificationBtn"),notificationPanel=document.getElementById("notificationPanel"),closeNotificationBtn=document.getElementById("closeNotificationBtn");
+  function setNotificationPanel(open){if(!notificationPanel||!notificationBtn)return;notificationPanel.hidden=!open;notificationBtn.setAttribute("aria-expanded",open?"true":"false")}
+  if(notificationBtn)notificationBtn.addEventListener("click",function(e){e.stopPropagation();setNotificationPanel(notificationPanel?notificationPanel.hidden:false);if(profilePanel)profilePanel.hidden=true});
+  if(closeNotificationBtn)closeNotificationBtn.addEventListener("click",function(){setNotificationPanel(false)});
+  var profileButton=document.getElementById("profileButton"),profilePanel=document.getElementById("profilePanel"),closeProfileBtn=document.getElementById("closeProfileBtn");
+  function setProfilePanel(open){if(!profilePanel||!profileButton)return;profilePanel.hidden=!open}
+  if(profileButton)profileButton.addEventListener("click",function(e){e.stopPropagation();setProfilePanel(profilePanel?profilePanel.hidden:false);if(notificationPanel)setNotificationPanel(false)});
+  if(closeProfileBtn)closeProfileBtn.addEventListener("click",function(){setProfilePanel(false)});
+  document.addEventListener("click",function(e){
+    if(notificationPanel&&!notificationPanel.hidden&&!e.target.closest("#notificationPanel")&&!e.target.closest("#notificationBtn"))setNotificationPanel(false);
+    if(profilePanel&&!profilePanel.hidden&&!e.target.closest("#profilePanel")&&!e.target.closest("#profileButton"))setProfilePanel(false);
+  });
   function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
   var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
