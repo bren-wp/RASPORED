@@ -57,6 +57,24 @@ class OcrAiMergeTest {
     }
 
     @Test
+    fun localMonthWinsWhenAiReturnsDifferentMonth() {
+        val local = RecognizedSchedule(
+            month = month,
+            rows = listOf(RecognizedScheduleRow(1, "Test Osoba", mapOf(1 to "D"))),
+            rawText = "lokalno"
+        )
+        val ai = RecognizedSchedule(
+            month = YearMonth.of(2026, 11),
+            rows = listOf(RecognizedScheduleRow(1, "Test Osoba", mapOf(1 to "D"))),
+            rawText = ""
+        )
+
+        val merged = mergeForAiReview(local, ai)
+
+        assertEquals(month, merged.schedule.month)
+    }
+
+    @Test
     fun aiCanAddMissingPersonWithoutCompressingDayIndex() {
         val local = RecognizedSchedule(
             month = month,
