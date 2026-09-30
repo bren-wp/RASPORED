@@ -936,14 +936,14 @@ function bind(){
 }
 async function initApp(){
   if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
-  bind();
-  route(state.route);
-  renderAll();
+  document.body.dataset.appReady="loading";
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
   await window.RasporedDataStore.init();
+  bind();
   if(window.RasporedPayroll)await window.RasporedPayroll.init();
   loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();
   syncAuthenticatedProfile();
+  route(state.route);
   renderAll();
   document.body.dataset.appReady=window.RasporedDataStore.isAvailable()?"true":"storage-unavailable";
   if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
