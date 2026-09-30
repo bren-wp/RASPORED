@@ -1,10 +1,13 @@
 package hr.raspored.app.data
 
 import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import hr.raspored.app.BuildConfig
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 
 data class RemoteAccount(
     val firstName: String,
@@ -19,24 +22,58 @@ data class RemoteAccount(
 
 data class RemoteSession(
     val account: RemoteAccount,
-    val token: String
+    val token: String,
+    val expiresAtEpochSeconds: Long
 )
 
-class RemoteAccountStore(context: Context) {
-    private val preferences =
-        context.getSharedPreferences("raspored.remote_account", Context.MODE_PRIVATE)
+class RemoteSessionInvalidException(message: String) : IllegalStateException(message)
 
-    var token: String?
-        get() = preferences.getString(KEY_TOKEN, null)
-            ?.takeIf { it.matches(Regex("""^[a-f0-9]{64}$""")) }
-        set(value) {
-            preferences.edit().apply {
-                if (value.isNullOrBlank()) remove(KEY_TOKEN) else putString(KEY_TOKEN, value)
-            }.apply()
+class RemoteAccountStore(context: Context) {
+    private val appContext = context.applicationContext
+    private val preferences =
+        appContext.getSharedPreferences("raspored.remote_account", Context.MODE_PRIVATE)
+    private val securePreferences by lazy {
+        val masterKey = MasterKey.Builder(appContext)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            appContext,
+            "raspored.remote_account.secure",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    val token: String?
+        get() {
+            val expiresAt = securePreferences.getLong(KEY_EXPIRES_AT, 0L)
+            if (expiresAt > 0L && expiresAt <= Instant.now().epochSecond) {
+                clearCredentials()
+                return null
+            }
+
+            securePreferences.getString(KEY_TOKEN, null)
+                ?.takeIf { TOKEN.matches(it) }
+                ?.let { return it }
+
+            val legacy = preferences.getString(KEY_TOKEN, null)
+                ?.takeIf { TOKEN.matches(it) }
+                ?: return null
+
+            return runCatching {
+                securePreferences.edit().putString(KEY_TOKEN, legacy).commit()
+                preferences.edit().remove(KEY_TOKEN).commit()
+                legacy
+            }.getOrElse {
+                clearCredentials()
+                null
+            }
         }
 
     var account: RemoteAccount?
         get() {
+            if (token == null) return null
             val email = preferences.getString(KEY_EMAIL, null).orEmpty()
             if (email.isBlank()) return null
             return RemoteAccount(
@@ -47,7 +84,7 @@ class RemoteAccountStore(context: Context) {
                 accountType = preferences.getString(KEY_TYPE, "individual").orEmpty()
             )
         }
-        set(value) {
+        private set(value) {
             preferences.edit().apply {
                 if (value == null) {
                     remove(KEY_FIRST)
@@ -66,21 +103,35 @@ class RemoteAccountStore(context: Context) {
         }
 
     fun save(session: RemoteSession) {
-        token = session.token
+        require(TOKEN.matches(session.token)) { "Pristupni token nije valjan." }
+        require(session.expiresAtEpochSeconds > Instant.now().epochSecond) { "Pristupna sesija je već istekla." }
+        securePreferences.edit()
+            .putString(KEY_TOKEN, session.token)
+            .putLong(KEY_EXPIRES_AT, session.expiresAtEpochSeconds)
+            .commit()
+        preferences.edit().remove(KEY_TOKEN).apply()
         account = session.account
     }
 
+    fun clearCredentials() {
+        runCatching { securePreferences.edit().clear().commit() }
+        preferences.edit().remove(KEY_TOKEN).apply()
+    }
+
     fun clear() {
+        clearCredentials()
         preferences.edit().clear().apply()
     }
 
     private companion object {
         const val KEY_TOKEN = "token"
+        const val KEY_EXPIRES_AT = "expires_at"
         const val KEY_FIRST = "first_name"
         const val KEY_LAST = "last_name"
         const val KEY_EMAIL = "email"
         const val KEY_PHONE = "phone"
         const val KEY_TYPE = "account_type"
+        val TOKEN = Regex("""^[a-f0-9]{64}$""")
     }
 }
 
@@ -115,6 +166,19 @@ object RemoteAccountClient {
                 .put("accountType", if (manager) "manager" else "individual")
         )
 
+    fun current(token: String): RemoteAccount {
+        val json = request(method = "GET", token = token)
+        val accountJson = json.optJSONObject("account")
+            ?: throw RemoteSessionInvalidException("Prijava više nije valjana.")
+        return RemoteAccount(
+            firstName = accountJson.optString("firstName"),
+            lastName = accountJson.optString("lastName"),
+            email = accountJson.optString("email"),
+            phone = accountJson.optString("phone"),
+            accountType = accountJson.optString("accountType", "individual")
+        )
+    }
+
     fun logout(token: String) {
         request(
             method = "POST",
@@ -131,6 +195,11 @@ object RemoteAccountClient {
         if (!token.matches(Regex("""^[a-f0-9]{64}$"""))) {
             throw IllegalStateException("Poslužitelj nije vratio valjan pristupni token.")
         }
+        val expiresAt = json.optString("expiresAt")
+            .takeIf { it.isNotBlank() }
+            ?.let { runCatching { Instant.parse(it).epochSecond }.getOrNull() }
+            ?.takeIf { it > Instant.now().epochSecond }
+            ?: throw IllegalStateException("Poslužitelj nije vratio valjan istek pristupne sesije.")
         return RemoteSession(
             account = RemoteAccount(
                 firstName = accountJson.optString("firstName"),
@@ -139,7 +208,8 @@ object RemoteAccountClient {
                 phone = accountJson.optString("phone"),
                 accountType = accountJson.optString("accountType", "individual")
             ),
-            token = token
+            token = token,
+            expiresAtEpochSeconds = expiresAt
         )
     }
 
@@ -175,10 +245,12 @@ object RemoteAccountClient {
 
         val json = runCatching { JSONObject(raw) }.getOrNull() ?: JSONObject()
         if (status !in 200..299 || json.optBoolean("ok", false) != true) {
-            throw IllegalStateException(
-                json.optString("error").takeIf { it.isNotBlank() }
-                    ?: "Povezivanje s RASPORED računom nije uspjelo."
-            )
+            val message = json.optString("error").takeIf { it.isNotBlank() }
+                ?: "Povezivanje s RASPORED računom nije uspjelo."
+            if (token != null && status in setOf(401, 403)) {
+                throw RemoteSessionInvalidException(message)
+            }
+            throw IllegalStateException(message)
         }
         return json
     }
