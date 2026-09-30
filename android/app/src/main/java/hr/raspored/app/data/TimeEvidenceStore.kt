@@ -47,6 +47,24 @@ class TimeEvidenceStore(context: Context) {
             )
         }.sortedBy { it.startedAt }
 
+    fun replaceAll(entries: List<TimeEvidenceEntry>) {
+        val editor = preferences.edit().clear()
+        entries
+            .distinctBy { it.startedAt }
+            .sortedBy { it.startedAt }
+            .takeLast(3000)
+            .forEach { entry ->
+                val safe = entry.copy(
+                    id = entry.startedAt,
+                    endedAt = entry.endedAt?.coerceAtLeast(entry.startedAt),
+                    note = entry.note.take(500),
+                    workType = WorkType.normalized(entry.workType)
+                )
+                editor.putString(PREFIX + safe.id, encode(safe))
+            }
+        editor.apply()
+    }
+
     fun active(): TimeEvidenceEntry? = load().lastOrNull { it.endedAt == null }
 
     fun clockIn(now: Long, workType: String = WorkType.REGULAR): TimeEvidenceEntry? {
