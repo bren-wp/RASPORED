@@ -526,6 +526,8 @@ private fun largeMinutesLabel(minutes:Long):String {
     var selected by remember { mutableStateOf(today) }
     var customCodeDialog by remember { mutableStateOf(false) }
     var customCode by remember { mutableStateOf("") }
+    var monthPickerDialog by remember { mutableStateOf(false) }
+    var pickerYear by remember { mutableIntStateOf(month.year) }
     val data=scheduleFor(month,scheduleCodes)
     val holidays=CroatianHolidays.forYear(month.year)
     val analytics=EvidenceAnalytics.summarize(
@@ -552,13 +554,23 @@ private fun largeMinutesLabel(minutes:Long):String {
                             month=month.minusMonths(1)
                             selected=month.atDay(1)
                         }){Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")}
-                        Text(
-                            month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",
-                            fontSize=25.sp,
-                            fontWeight=FontWeight.Bold,
-                            modifier=Modifier.weight(1f),
-                            textAlign=androidx.compose.ui.text.style.TextAlign.Center
-                        )
+                        TextButton(
+                            onClick={
+                                pickerYear=month.year
+                                monthPickerDialog=true
+                            },
+                            modifier=Modifier.weight(1f).testTag("calendar-month-picker"),
+                            contentPadding=PaddingValues(horizontal=4.dp,vertical=2.dp)
+                        ){
+                            Text(
+                                month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",
+                                fontSize=24.sp,
+                                fontWeight=FontWeight.Bold,
+                                textAlign=androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Outlined.ExpandMore,"Odaberi mjesec")
+                        }
                         IconButton(onClick={
                             month=month.plusMonths(1)
                             selected=month.atDay(1)
@@ -751,6 +763,79 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         )
     }
+
+    if(monthPickerDialog){
+        val minYear=today.year-ScheduleStore.ARCHIVE_GUARANTEE_YEARS
+        val maxYear=today.year+5
+        AlertDialog(
+            onDismissRequest={monthPickerDialog=false},
+            title={Text("Odaberi mjesec")},
+            text={
+                Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+                    Row(
+                        modifier=Modifier.fillMaxWidth(),
+                        verticalAlignment=Alignment.CenterVertically,
+                        horizontalArrangement=Arrangement.SpaceBetween
+                    ){
+                        IconButton(
+                            onClick={pickerYear=(pickerYear-1).coerceAtLeast(minYear)},
+                            enabled=pickerYear>minYear
+                        ){Icon(Icons.Outlined.ChevronLeft,"Prethodna godina")}
+                        Text(
+                            pickerYear.toString(),
+                            fontSize=22.sp,
+                            fontWeight=FontWeight.Bold
+                        )
+                        IconButton(
+                            onClick={pickerYear=(pickerYear+1).coerceAtMost(maxYear)},
+                            enabled=pickerYear<maxYear
+                        ){Icon(Icons.Outlined.ChevronRight,"Sljedeća godina")}
+                    }
+                    Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+                        (1..12).chunked(3).forEach{row->
+                            Row(
+                                modifier=Modifier.fillMaxWidth(),
+                                horizontalArrangement=Arrangement.spacedBy(6.dp)
+                            ){
+                                row.forEach{monthValue->
+                                    val target=YearMonth.of(pickerYear,monthValue)
+                                    OutlinedButton(
+                                        onClick={
+                                            month=target
+                                            selected=target.atDay(1)
+                                            monthPickerDialog=false
+                                        },
+                                        modifier=Modifier.weight(1f),
+                                        border=BorderStroke(
+                                            if(target==month) 2.dp else 1.dp,
+                                            if(target==month) Cyan else MaterialTheme.colorScheme.outlineVariant
+                                        ),
+                                        contentPadding=PaddingValues(horizontal=4.dp,vertical=8.dp)
+                                    ){
+                                        Text(
+                                            java.time.Month.of(monthValue)
+                                                .getDisplayName(TextStyle.SHORT,Locale("hr","HR"))
+                                                .replaceFirstChar{it.titlecase(Locale("hr","HR"))},
+                                            maxLines=1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        "Kalendar čuva najmanje 10 godina lokalne povijesti rasporeda. Uvoz novog mjeseca ne briše prethodne mjesece.",
+                        fontSize=11.sp,
+                        color=MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton={
+                TextButton(onClick={monthPickerDialog=false}){Text("Zatvori")}
+            }
+        )
+    }
+
 }
 
 @Composable private fun ManualShiftButton(
