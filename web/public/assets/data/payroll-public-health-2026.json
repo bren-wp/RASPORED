@@ -88,14 +88,14 @@
     },
     {
       "id": "nurse-bacc-1",
-      "label": "Medicinska sestra/tehničar prvostupnik — bolnica 1",
+      "label": "Viša medicinska sestra / prvostupnik sestrinstva — bolnica 1",
       "official": "Medicinska sestra/medicinski tehničar prvostupnik / zdravstveni radnik prvostupnik u bolnici 1",
       "code": "16.11.1",
       "coefficient": 1.95
     },
     {
       "id": "nurse-bacc-2",
-      "label": "Medicinska sestra/tehničar prvostupnik — bolnica 2",
+      "label": "Viša medicinska sestra / prvostupnik sestrinstva — bolnica 2",
       "official": "Medicinska sestra/medicinski tehničar prvostupnik / zdravstveni radnik prvostupnik u bolnici 2",
       "code": "16.11.2",
       "coefficient": 1.87
@@ -123,14 +123,14 @@
     },
     {
       "id": "physio-bacc-1",
-      "label": "Prvostupnik fizioterapije — bolnica 1",
+      "label": "Viši fizioterapeut / prvostupnik fizioterapije — bolnica 1",
       "official": "Zdravstveni radnik prvostupnik u bolnici 1",
       "code": "16.11.1",
       "coefficient": 1.95
     },
     {
       "id": "physio-bacc-2",
-      "label": "Prvostupnik fizioterapije — bolnica 2",
+      "label": "Viši fizioterapeut / prvostupnik fizioterapije — bolnica 2",
       "official": "Zdravstveni radnik prvostupnik u bolnici 2",
       "code": "16.11.2",
       "coefficient": 1.87,
