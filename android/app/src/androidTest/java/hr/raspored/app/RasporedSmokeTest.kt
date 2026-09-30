@@ -11,7 +11,7 @@ class RasporedSmokeTest {
     @get:Rule val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test fun glavneNavigacijeOtvarajuReferentneEkrane() {
-        composeRule.onNodeWithText("Četvrtak, 16.10.2026.").assertIsDisplayed()
+        composeRule.onNodeWithText("Dobar dan! 👋").assertIsDisplayed()
 
         composeRule.onNodeWithText("Kalendar").performClick()
         composeRule.onNodeWithText("Sažetak za mjesec").assertIsDisplayed()
