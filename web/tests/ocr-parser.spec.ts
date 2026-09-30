@@ -347,7 +347,7 @@ test("OCR finalization fills one missing dense-roster slot with repeated unnumbe
       }));
     return api.finalizeRows(numbered.concat([
       {row:null,name:"MAJA PERIĆ",dayShifts:{"1":"N","16":"GO","31":"D"},supportCount:4},
-      {row:null,name:"NASLOV TABLICE",dayShifts:{"2":"D"},supportCount:3}
+      {row:null,name:"NAPOMENA GODISNJI",dayShifts:{"12":"GO"},supportCount:8}
     ]));
   });
 
