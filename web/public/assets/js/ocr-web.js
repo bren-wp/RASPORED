@@ -7,6 +7,8 @@ var MONTHS={
 };
 var VALID=new Set(["D","N","GO","BO","PD","SD"]);
 var workerPromise=null;
+var recognitionChain=Promise.resolve();
+var activeProgressCallback=null;
 
 function normalize(value){
   return String(value||"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
@@ -341,27 +343,58 @@ async function prepareImage(file){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
-async function getWorker(onProgress){
+async function getWorker(){
   if(workerPromise)return workerPromise;
   workerPromise=(async function(){
     var mod=await import("https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.esm.min.js");
     return mod.createWorker(["hrv","eng"],1,{logger:function(message){
-      if(onProgress&&message&&typeof message.progress==="number"){
-        onProgress(message.progress,message.status||"");
+      if(activeProgressCallback&&message&&typeof message.progress==="number"){
+        activeProgressCallback(message.progress,message.status||"");
       }
     }});
   })();
   try{return await workerPromise}catch(error){workerPromise=null;throw error}
 }
-async function recognizeSchedule(file,onProgress){
-  var worker=await getWorker(onProgress);
-  var source=await prepareImage(file);
-  var result=await worker.recognize(source,{}, {text:true,blocks:true});
+function parsedResult(result){
   var text=result&&result.data?result.data.text:"";
   var month=detectMonth(text);
   var geometryRows=parseGeometry(result&&result.data?result.data.blocks:null,daysInMonth(month));
   var textRows=parseText(text);
   return {month:month,people:mergeRows(geometryRows.concat(textRows)),rawText:text};
+}
+function sparseResult(parsed){
+  var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
+  if(!rows.length)return true;
+  var mapped=rows.reduce(function(sum,row){return sum+Object.keys(row.dayShifts||{}).length},0);
+  var expected=Math.min(daysInMonth(parsed.month),8);
+  return mapped<Math.max(12,rows.length*expected);
+}
+function mergeRecognized(first,second){
+  return {
+    month:first.month||second.month,
+    people:mergeRows((first.people||[]).concat(second.people||[])),
+    rawText:(second.rawText||"").length>(first.rawText||"").length?second.rawText:first.rawText
+  };
+}
+async function recognizeScheduleNow(file,onProgress){
+  activeProgressCallback=onProgress||null;
+  try{
+    var worker=await getWorker();
+    var source=await prepareImage(file);
+    var first=parsedResult(await worker.recognize(source,{}, {text:true,blocks:true}));
+    if(!sparseResult(first))return first;
+    if(onProgress)onProgress(.86,"recovery");
+    var second=parsedResult(await worker.recognize(file,{}, {text:true,blocks:true}));
+    return mergeRecognized(first,second);
+  }finally{
+    activeProgressCallback=null;
+  }
+}
+function recognizeSchedule(file,onProgress){
+  recognitionChain=recognitionChain.catch(function(){}).then(function(){
+    return recognizeScheduleNow(file,onProgress);
+  });
+  return recognitionChain;
 }
 window.RasporedWebOcr={
   recognizeSchedule:recognizeSchedule,
