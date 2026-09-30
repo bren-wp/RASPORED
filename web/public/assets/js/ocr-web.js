@@ -373,7 +373,9 @@ function anchoredRows(tokens,geometry,tolerance){
       name:anchor.name,
       dayShifts:mapShiftTokens(rowTokens,geometry)
     };
-  }).filter(function(row){return Object.keys(row.dayShifts).length>0});
+  }).filter(function(row){
+    return row.row!=null||Object.keys(row.dayShifts).length>0;
+  });
 }
 function parseGeometry(blocks,maxDay){
   var lines=flattenLines(blocks);
@@ -445,8 +447,8 @@ function sparseResult(parsed){
   var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
   if(!rows.length)return true;
   var mapped=rows.reduce(function(sum,row){return sum+Object.keys(row.dayShifts||{}).length},0);
-  var expected=Math.min(daysInMonth(parsed.month),8);
-  return mapped<Math.max(12,rows.length*expected);
+  var expected=Math.min(daysInMonth(parsed.month),12);
+  return mapped<Math.max(18,rows.length*expected);
 }
 function mergeRecognized(first,second){
   return {
