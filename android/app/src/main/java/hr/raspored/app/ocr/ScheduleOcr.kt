@@ -332,7 +332,7 @@ object ScheduleOcrParser {
     internal fun detectMonth(text: String): YearMonth? {
         val upper = normalizeAscii(text.replace('\u00A0', ' '))
 
-        val yearFirst = Regex("""\b(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])\b""")
+        val yearFirst = Regex("""\b(20\d{2})[ \\t]*[./-][ \\t]*(0?[1-9]|1[0-2])\b""")
             .find(upper)
         if (yearFirst != null) {
             val year = yearFirst.groupValues[1].toInt()
@@ -340,7 +340,7 @@ object ScheduleOcrParser {
             return YearMonth.of(year, month)
         }
 
-        val monthFirst = Regex("""\b(0?[1-9]|1[0-2])\s*[./-]\s*(20\d{2})\b""")
+        val monthFirst = Regex("""\b(0?[1-9]|1[0-2])[ \\t]*[./-][ \\t]*(20\d{2})\b""")
             .find(upper)
         if (monthFirst != null) {
             val month = monthFirst.groupValues[1].toInt()
