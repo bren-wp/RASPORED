@@ -937,7 +937,7 @@ function bind(){
 async function initApp(){
   if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
   bind();
-  document.body.dataset.routeCurrent=state.route;
+  route(state.route);
   renderAll();
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
   await window.RasporedDataStore.init();
@@ -951,7 +951,7 @@ async function initApp(){
   if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
 }
 initApp().catch(function(){
-  document.body.dataset.routeCurrent=state.route;
+  route(state.route);
   document.body.dataset.appReady="error";
   renderAll();
   toast("Podatkovni sloj nije dostupan. Spremanje je onemogućeno.");
