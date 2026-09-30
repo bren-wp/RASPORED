@@ -25,7 +25,7 @@ function endpoint(){return base()+"/api/state.php"}
 
 function normalizeScheduleCode(raw){
   if(typeof raw!=="string")return "";
-  var value=raw.trim().toLocaleUpperCase("hr-HR").replace(/\s+/g,"");
+  var value=raw.trim().toLocaleUpperCase("hr-HR");
   return /^[\p{L}\p{N}]{1,8}$/u.test(value)?value:"";
 }
 function sanitizeSchedule(raw){
