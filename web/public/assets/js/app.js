@@ -525,11 +525,11 @@ function saveHoursNote(){
 async function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
   if(file.size>10*1024*1024){toast("Slika je prevelika. Najveća dopuštena veličina je 10 MB.");return}
+  clearScanSession();
   var generation=++state.scanGeneration;
   var preview=document.getElementById("scanPreview"),img=document.getElementById("scanPreviewImage"),status=document.getElementById("scanStatus"),progress=status.querySelector(".scan-progress i");
-  if(img.dataset.objectUrl)URL.revokeObjectURL(img.dataset.objectUrl);
   var url=URL.createObjectURL(file);img.dataset.objectUrl=url;img.src=url;preview.classList.add("has-image");
-  clearScanSession();renderScanPersonPicker();renderRecognition();
+  renderScanPersonPicker();renderRecognition();
   status.classList.remove("is-success","is-error");status.classList.add("is-scanning");
   status.querySelector("span").textContent="Automatsko prepoznavanje rasporeda...";
   if(progress)progress.style.width="4%";
