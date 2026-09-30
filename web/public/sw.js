@@ -1,4 +1,4 @@
-const CACHE="raspored-v1.0.3";
+const CACHE="raspored-v1.0.4";
 const ASSETS=[
   "./",
   "./version.txt",
@@ -7,7 +7,7 @@ const ASSETS=[
   "./assets/js/app.js",
   "./assets/js/ocr-web.js",
   "./assets/js/payroll.js",
-  "./assets/data/payroll-public-health-2026.json",
+  "./assets/data/payroll-public-sector-2026.json",
   "./assets/brand/logo.svg",
   "./assets/brand/icon-maskable.svg",
   "./assets/brand/icons.svg",
