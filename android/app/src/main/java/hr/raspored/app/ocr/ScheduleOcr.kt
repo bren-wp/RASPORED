@@ -21,7 +21,8 @@ import kotlin.math.roundToInt
 data class RecognizedScheduleRow(
     val rowNumber: Int?,
     val name: String,
-    val dayShifts: Map<Int, String>
+    val dayShifts: Map<Int, String>,
+    val supportCount: Int = 1
 ) {
     val shifts: List<String>
         get() = dayShifts.toSortedMap().values.toList()
@@ -774,12 +775,28 @@ object ScheduleOcrParser {
     }
 
     private fun validName(name: String): Boolean {
-        if (name.length < 3 || name.count(Char::isLetter) < 3) return false
+        if (name.length !in 3..64 || name.count(Char::isLetter) < 3) return false
         val normalized = normalizeAscii(name)
-        if (normalized in setOf("IME PREZIME", "IME I PREZIME", "DJELATNIK", "ZAPOSLENIK")) {
+        if (normalized in setOf(
+                "IME PREZIME",
+                "IME I PREZIME",
+                "DJELATNIK",
+                "ZAPOSLENIK",
+                "RADNIK",
+                "RB",
+                "NOSAC BOLESNIKA",
+                "NOSAC BOLESNIKA PREZIME IME"
+            )
+        ) {
             return false
         }
-        return true
+        val letters = name.count(Char::isLetter)
+        val digits = name.count(Char::isDigit)
+        if (digits > 2 || letters.toDouble() / name.length.coerceAtLeast(1) < 0.52) return false
+        val words = normalizeAscii(name)
+            .split(Regex("""[^A-Z]+"""))
+            .filter { it.length >= 2 }
+        return words.isNotEmpty()
     }
 
     private fun nameFingerprint(value: String): String =
@@ -789,34 +806,147 @@ object ScheduleOcrParser {
             .sorted()
             .joinToString("")
 
+    private fun nameWords(value: String): Set<String> =
+        normalizeAscii(value)
+            .split(Regex("""[^A-Z]+"""))
+            .filter { it.length >= 2 }
+            .toSet()
+
+    private fun editSimilarity(left: String, right: String): Double {
+        val a = normalizeAscii(left).filter(Char::isLetterOrDigit)
+        val b = normalizeAscii(right).filter(Char::isLetterOrDigit)
+        if (a.isEmpty() || b.isEmpty()) return 0.0
+        if (a == b) return 1.0
+        val previous = IntArray(b.length + 1) { it }
+        val current = IntArray(b.length + 1)
+        for (i in a.indices) {
+            current[0] = i + 1
+            for (j in b.indices) {
+                val cost = if (a[i] == b[j]) 0 else 1
+                current[j + 1] = minOf(
+                    current[j] + 1,
+                    previous[j + 1] + 1,
+                    previous[j] + cost
+                )
+            }
+            for (j in previous.indices) previous[j] = current[j]
+        }
+        val distance = previous[b.length]
+        return 1.0 - distance.toDouble() / maxOf(a.length, b.length).toDouble()
+    }
+
+    private fun namesProbablySame(left: String, right: String): Boolean {
+        if (!validName(left) || !validName(right)) return false
+        if (nameFingerprint(left) == nameFingerprint(right)) return true
+        val leftWords = nameWords(left)
+        val rightWords = nameWords(right)
+        val overlap = leftWords.intersect(rightWords).size
+        val union = leftWords.union(rightWords).size.coerceAtLeast(1)
+        val jaccard = overlap.toDouble() / union.toDouble()
+        val edit = editSimilarity(left, right)
+        return edit >= 0.84 || (overlap >= 1 && jaccard >= 0.34 && edit >= 0.72)
+    }
+
+    private fun nameQuality(value: String): Int {
+        if (!validName(value)) return Int.MIN_VALUE / 4
+        val words = nameWords(value)
+        val letters = value.count(Char::isLetter)
+        val punctuation = value.count { !it.isLetter() && !it.isWhitespace() && it != '-' && it != ''' }
+        return letters +
+            when (words.size) {
+                2 -> 28
+                3 -> 24
+                4 -> 16
+                1 -> 2
+                else -> -8
+            } -
+            punctuation * 8 -
+            value.count(Char::isDigit) * 10 -
+            maxOf(0, value.length - 42)
+    }
+
+    private fun betterName(left: String, right: String): String = when {
+        !validName(left) -> right
+        !validName(right) -> left
+        nameQuality(right) > nameQuality(left) -> right
+        nameQuality(right) < nameQuality(left) -> left
+        right.length < left.length -> right
+        else -> left
+    }
+
     internal fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
         val merged = mutableListOf<RecognizedScheduleRow>()
         rows.forEach { row ->
-            val normalizedName = nameFingerprint(row.name)
+            val valid = validName(row.name)
+            val numbered = row.rowNumber?.let { it in 1..100 } == true
+            if (!valid && !numbered) return@forEach
+
             val index = merged.indexOfFirst { existing ->
                 val sameRow = row.rowNumber != null &&
                     existing.rowNumber != null &&
                     row.rowNumber == existing.rowNumber
-                val sameName = nameFingerprint(existing.name) == normalizedName
                 val conflictingRows = row.rowNumber != null &&
                     existing.rowNumber != null &&
                     row.rowNumber != existing.rowNumber
-                sameRow || (sameName && !conflictingRows)
+                val sameName = !conflictingRows && namesProbablySame(existing.name, row.name)
+                sameRow || sameName
             }
             if (index < 0) {
-                merged += row
+                merged += row.copy(
+                    name = if (valid) row.name.trim() else "",
+                    supportCount = row.supportCount.coerceAtLeast(1)
+                )
             } else {
                 val existing = merged[index]
                 merged[index] = existing.copy(
                     rowNumber = existing.rowNumber ?: row.rowNumber,
-                    name = if (existing.name.length >= row.name.length) existing.name else row.name,
+                    name = betterName(existing.name, row.name),
                     // Ranije geometrijski rezultat ima prednost kod konflikta istog dana.
-                    dayShifts = (row.dayShifts + existing.dayShifts).toSortedMap()
+                    dayShifts = (row.dayShifts + existing.dayShifts).toSortedMap(),
+                    supportCount = existing.supportCount + row.supportCount.coerceAtLeast(1)
                 )
             }
         }
         val filtered = filterRowNumberOutliers(merged)
         return filtered.sortedWith(
+            compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
+                .thenBy { normalizeAscii(it.name) }
+        )
+    }
+
+    internal fun finalizeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
+        val merged = mergeRows(rows)
+        val numbered = merged.filter { it.rowNumber != null }
+        if (numbered.size < 5) return merged
+
+        val numbers = numbered.mapNotNull { it.rowNumber }.distinct().sorted()
+        val first = numbers.firstOrNull() ?: return merged
+        val last = numbers.lastOrNull() ?: return merged
+        val span = (last - first + 1).coerceAtLeast(1)
+        val denseRoster = first <= 3 && numbers.size.toDouble() / span.toDouble() >= 0.72
+
+        val authoritative = numbered.toMutableList()
+        val leftovers = merged.filter { it.rowNumber == null }
+        leftovers.forEach { row ->
+            val targetIndex = authoritative.indices
+                .map { index -> index to editSimilarity(authoritative[index].name, row.name) }
+                .filter { (_, score) -> score >= 0.78 }
+                .maxByOrNull { it.second }
+                ?.first
+
+            if (targetIndex != null) {
+                val target = authoritative[targetIndex]
+                authoritative[targetIndex] = target.copy(
+                    name = betterName(target.name, row.name),
+                    dayShifts = (row.dayShifts + target.dayShifts).toSortedMap(),
+                    supportCount = target.supportCount + row.supportCount
+                )
+            } else if (!denseRoster && row.supportCount >= 3 && validName(row.name)) {
+                authoritative += row
+            }
+        }
+
+        return authoritative.sortedWith(
             compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
                 .thenBy { normalizeAscii(it.name) }
         )
@@ -931,9 +1061,10 @@ object ScheduleOcrEngine {
                     recycleTemporary(recoverySource, bitmap)
                     onSuccess(
                         schedule.copy(
-                            rows = schedule.rows.filter { row ->
-                                row.name.count(Char::isLetter) >= 3
-                            }
+                            rows = ScheduleOcrParser.finalizeRows(schedule.rows)
+                                .filter { row ->
+                                    row.name.count(Char::isLetter) >= 3
+                                }
                         )
                     )
                 }
