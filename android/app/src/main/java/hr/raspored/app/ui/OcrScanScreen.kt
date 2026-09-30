@@ -419,9 +419,10 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () 
             Spacer(Modifier.height(7.dp))
             Surface(shape = RoundedCornerShape(9.dp), color = bg, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    code,
+                    if (code.isBlank()) "slobodno" else code,
                     color = fg,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = if (code.isBlank()) FontWeight.Medium else FontWeight.ExtraBold,
+                    fontSize = if (code.isBlank()) 10.sp else 14.sp,
                     modifier = Modifier.padding(vertical = 10.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
