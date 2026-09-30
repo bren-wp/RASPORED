@@ -149,6 +149,26 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun filtersDistantRowNumberNoiseFromDenseRoster() {
+        val rows = (1..12).map { number ->
+            RecognizedScheduleRow(
+                rowNumber = number,
+                name = "Osoba Primjer $number",
+                dayShifts = mapOf(1 to "D")
+            )
+        } + RecognizedScheduleRow(
+            rowNumber = 80,
+            name = "Lažni Rubni Tekst",
+            dayShifts = emptyMap()
+        )
+
+        val merged = ScheduleOcrParser.mergeRows(rows)
+
+        assertEquals(12, merged.size)
+        assertEquals((1..12).toList(), merged.mapNotNull { it.rowNumber })
+    }
+
+    @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
         assertEquals(YearMonth.of(2027, 1), result.month)
