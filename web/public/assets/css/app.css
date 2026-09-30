@@ -391,7 +391,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .payroll-net-box strong{display:block;margin:3px 0;font-size:30px;letter-spacing:-.035em;color:#0F9F84}
 .payroll-net-box span{font-size:11px}
 .payroll-day-note{margin:12px 2px 0;color:var(--muted);font-size:11px;line-height:1.45}
-.payroll-custom-institution[hidden]{display:none}
+.payroll-custom-institution[hidden],.payroll-custom-residence[hidden]{display:none}
 .payroll-role-note b{overflow-wrap:anywhere}
 .payroll-role-note span{overflow-wrap:anywhere}
 [data-theme="dark"] .payroll-net-box{background:linear-gradient(135deg,rgba(20,184,166,.16),rgba(0,194,255,.10));border-color:rgba(45,212,191,.22)}
