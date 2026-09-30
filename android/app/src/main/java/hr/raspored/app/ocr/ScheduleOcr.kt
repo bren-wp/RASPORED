@@ -34,10 +34,6 @@ object ScheduleOcrParser {
         """(?<![\p{L}])(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?(?![\p{L}])""",
         RegexOption.IGNORE_CASE
     )
-    private val exactShiftRegex = Regex(
-        """^(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?$""",
-        RegexOption.IGNORE_CASE
-    )
     private val rowNumberRegex = Regex("""^\s*(\d{1,3})[.)]?\s*""")
     private val explicitDayShiftRegex = Regex(
         """(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)\-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?![\p{L}])""",
@@ -431,8 +427,7 @@ object ScheduleOcrParser {
         maxDistance: Double
     ): RecognizedScheduleRow? {
         val shiftTokens = tokens.mapNotNull { token ->
-            val code = if (exactShiftRegex.matches(token.text)) canonicalShift(token.text) else null
-            if (code != null) token to code else null
+            canonicalShift(token.text)?.let { token to it }
         }
         if (shiftTokens.isEmpty()) return null
 
@@ -440,7 +435,7 @@ object ScheduleOcrParser {
         val nameBoundary = minOf(firstShiftX, minDayX)
         val leftText = tokens
             .filter { token ->
-                token.centerX < nameBoundary && !exactShiftRegex.matches(token.text)
+                token.centerX < nameBoundary && canonicalShift(token.text) == null
             }
             .joinToString(" ") { it.text }
             .replace(spaces, " ")
@@ -496,11 +491,9 @@ object ScheduleOcrParser {
         val name = cleanName(line)
         if (!validName(name)) return null
 
-        val dayShifts = if (explicitPairs.isNotEmpty()) {
-            explicitPairs
-        } else {
-            shifts.mapIndexed { index, code -> (index + 1) to code }.toMap()
-        }
+        // Bez geometrije tablice ne komprimiramo prepoznate oznake ulijevo.
+        // Time izbjegavamo pogrešno spremanje npr. dana 4 kao dana 3 kada je dan 3 prazan.
+        val dayShifts = explicitPairs
         return RecognizedScheduleRow(
             rowNumber = rowNumber,
             name = name,
@@ -528,20 +521,34 @@ object ScheduleOcrParser {
     }
 
     private fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
-        val merged = linkedMapOf<String, RecognizedScheduleRow>()
+        val merged = mutableListOf<RecognizedScheduleRow>()
         rows.forEach { row ->
-            val key = normalizeAscii(row.name).replace(spaces, " ").trim()
-            val existing = merged[key]
-            if (existing == null) {
-                merged[key] = row
+            val normalizedName = normalizeAscii(row.name).replace(spaces, " ").trim()
+            val index = merged.indexOfFirst { existing ->
+                val sameRow = row.rowNumber != null &&
+                    existing.rowNumber != null &&
+                    row.rowNumber == existing.rowNumber
+                val sameName = normalizeAscii(existing.name)
+                    .replace(spaces, " ")
+                    .trim() == normalizedName
+                sameRow || sameName
+            }
+            if (index < 0) {
+                merged += row
             } else {
-                merged[key] = existing.copy(
+                val existing = merged[index]
+                merged[index] = existing.copy(
                     rowNumber = existing.rowNumber ?: row.rowNumber,
-                    dayShifts = (existing.dayShifts + row.dayShifts).toSortedMap()
+                    name = if (existing.name.length >= row.name.length) existing.name else row.name,
+                    // Ranije geometrijski rezultat ima prednost kod konflikta istog dana.
+                    dayShifts = (row.dayShifts + existing.dayShifts).toSortedMap()
                 )
             }
         }
-        return merged.values.toList()
+        return merged.sortedWith(
+            compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
+                .thenBy { normalizeAscii(it.name) }
+        )
     }
 
     internal fun detectMonth(text: String): YearMonth? {
