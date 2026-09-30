@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false,scanGeneration:0};
+var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -236,7 +236,9 @@ function saveScanSession(){
   storageSet("raspored.scan.v1",JSON.stringify({
     people:state.scanPeople,
     selected:state.scanSelected,
-    month:state.scanMonth
+    month:state.scanMonth,
+    expectedRows:state.scanExpectedRows,
+    incomplete:state.scanIncomplete
   }));
 }
 function loadScanSession(){
@@ -246,6 +248,8 @@ function loadScanSession(){
       state.scanPeople=sanitizeScanPeople(raw.people);
       state.scanSelected=Number.isInteger(raw.selected)?raw.selected:-1;
       state.scanMonth=raw.month&&Number.isInteger(raw.month.year)&&Number.isInteger(raw.month.month)?raw.month:null;
+      state.scanExpectedRows=Number.isInteger(Number(raw.expectedRows))?Math.max(0,Number(raw.expectedRows)):0;
+      state.scanIncomplete=!!raw.incomplete;
     }
   }catch(e){}
 }
@@ -260,7 +264,7 @@ function releaseScanPreview(){
 }
 function clearScanSession(){
   state.scanGeneration++;
-  state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.editRecognition=false;
+  state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;
   releaseScanPreview();
   storageRemove("raspored.scan.v1");
 }
@@ -301,11 +305,11 @@ function renderScanPersonPicker(){
     var target=scanTargetMonth();
     monthLabel.textContent=months[target.getMonth()]+" "+target.getFullYear()+".";
   }
-  if(saveBtn)saveBtn.disabled=!person||Object.keys(person.dayShifts||{}).length===0;
+  if(saveBtn)saveBtn.disabled=state.scanIncomplete||!person||Object.keys(person.dayShifts||{}).length===0;
   var teamBtn=document.getElementById("saveTeamSchedules"),teamNote=document.getElementById("teamImportNote");
   if(teamBtn){
     teamBtn.hidden=policy.restricted||state.scanPeople.length===0;
-    teamBtn.disabled=policy.restricted||state.scanPeople.length===0;
+    teamBtn.disabled=state.scanIncomplete||policy.restricted||state.scanPeople.length===0;
   }
   if(teamNote)teamNote.hidden=policy.restricted||state.scanPeople.length<=1;
 }
@@ -742,8 +746,9 @@ async function handleScanFile(file){
     if(generation!==state.scanGeneration)return;
     state.scanPeople=sanitizeScanPeople(result.people);
     state.scanMonth=result.month||null;
+    state.scanExpectedRows=Math.max(0,Number(result.expectedRows)||0);
     state.scanSelected=state.scanPeople.length===1?0:-1;
-    saveScanSession();
+    state.scanIncomplete=false;
     status.classList.remove("is-scanning");
     if(progress)progress.style.width="100%";
     if(state.scanPeople.length){
@@ -757,16 +762,26 @@ async function handleScanFile(file){
       var rowNumbers=Array.from(new Set(state.scanPeople.map(function(person){return Number(person.row)}).filter(function(value){
         return Number.isInteger(value)&&value>=1&&value<=100;
       }))).sort(function(a,b){return a-b});
-      var rosterWarning="";
+      var inferredExpected=0;
       if(rowNumbers.length>=5&&rowNumbers[0]<=3){
-        var expectedRows=rowNumbers[rowNumbers.length-1]-rowNumbers[0]+1;
-        if(expectedRows>=8&&rowNumbers.length*100<expectedRows*88){
-          rosterWarning=" Upozorenje: prepoznato je "+rowNumbers.length+" od najmanje "+expectedRows+" numeriranih redaka; za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra.";
-        }
+        var numberedExpected=rowNumbers[rowNumbers.length-1]-rowNumbers[0]+1;
+        if(numberedExpected>=8)inferredExpected=numberedExpected;
       }
+      var expectedRows=Math.max(state.scanExpectedRows||0,inferredExpected);
+      state.scanExpectedRows=expectedRows;
+      state.scanIncomplete=expectedRows>=8&&state.scanPeople.length*100<expectedRows*65;
+      var rosterWarning="";
+      if(expectedRows>=8&&state.scanPeople.length*100<expectedRows*88){
+        rosterWarning=" Tablica izgleda kao raspored s približno "+expectedRows+" redaka, a pouzdano je očitano "+state.scanPeople.length+". Za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra.";
+      }
+      saveScanSession();
       if(recognizedDays===0){
         status.classList.add("is-error");
         status.querySelector("span").textContent="Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."+monthWarning;
+      }else if(state.scanIncomplete){
+        status.classList.add("is-error");
+        status.querySelector("span").textContent="Skeniranje nije dovoljno potpuno."+rosterWarning+
+          " Rezultat je zadržan za pregled, ali spremanje je blokirano kako se ne bi izgubile osobe ili smjene."+monthWarning;
       }else{
         status.classList.add("is-success");
         var emptyWarning=emptyRows

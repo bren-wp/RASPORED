@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import java.time.YearMonth
 import org.junit.Rule
 import org.junit.Test
 
@@ -16,6 +17,12 @@ class RasporedSmokeTest {
     fun glavneNavigacijeOtvarajuProdukcijskeEkrane() {
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
         composeRule.onNodeWithTag("calendar-set-d").performScrollTo().performClick()
+        val currentMonth=YearMonth.now()
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(1)).performClick()
+        composeRule.onNodeWithText("Više dana").performClick()
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(2)).performClick()
+        composeRule.onNodeWithTag("calendar-set-n").performClick()
+        composeRule.onNodeWithText("Završi").performClick()
 
         composeRule.onNodeWithTag("nav-home").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()

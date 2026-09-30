@@ -81,7 +81,7 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('public/assets/data/payroll-public-sector-2026.json','utf8'))"
           npm install
           npx playwright install --with-deps chromium
-          npx playwright test tests/smoke.spec.ts tests/capture.spec.ts tests/export-history.spec.ts
+          npx playwright test tests/smoke.spec.ts tests/capture.spec.ts tests/export-history.spec.ts tests/ocr-parser.spec.ts
 
       - name: Package Web/PWA
         shell: bash
@@ -92,8 +92,7 @@ jobs:
           mkdir -p dist/web-package/storage/data
           cp -R web/public/. dist/web-package/
           cp web/storage/.htaccess dist/web-package/storage/.htaccess
-          printf '%s
-' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
+          printf '%s\\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
           (
             cd dist/web-package
             zip -r "../RASPORED-web-v${VERSION}.zip" . \

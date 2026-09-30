@@ -1112,13 +1112,24 @@ object ScheduleOcrEngine {
     ) {
         recognizer.process(InputImage.fromBitmap(bitmap, 0))
             .addOnSuccessListener { firstResult ->
-                val first = ScheduleOcrParser.parse(firstResult)
+                val parsedFirst = ScheduleOcrParser.parse(firstResult)
                 // Pixel-grid detection is intentionally independent from OCR.
-                // A detected dense table forces the full recovery pipeline even
-                // when the first pass already found many rows, because a 20–30
-                // person schedule must not be accepted after only a partial read.
+                // Count real employee-row intervals before deciding that a
+                // seemingly good first OCR pass is complete. A full 27-row
+                // roster must never stop after only 16–20 readable names.
+                val detectedExpectedRows = ScheduleTableDetector
+                    .detectEmployeeRowBands(bitmap, rowsPerBand = 1)
+                    .size
+                    .takeIf { it >= 3 }
+                val first = parsedFirst.copy(expectedRowCount = detectedExpectedRows)
                 val detectedTable = ScheduleTableDetector.cropForRecovery(bitmap)
-                if (!needsDeepRecovery(first, bitmap) && detectedTable == null) {
+                val geometrySaysIncomplete = detectedExpectedRows?.let { expected ->
+                    first.rows.size * 100 < expected * 88
+                } == true
+                if (!geometrySaysIncomplete &&
+                    !needsDeepRecovery(first, bitmap) &&
+                    detectedTable == null
+                ) {
                     onSuccess(first)
                     return@addOnSuccessListener
                 }
@@ -1126,7 +1137,7 @@ object ScheduleOcrEngine {
                 // Recovery OCR works on the detected table instead of spending
                 // pixels on monitor chrome, desk area and page margins.
                 val recoverySource = detectedTable ?: bitmap
-                val forceDenseRecovery = detectedTable != null
+                val forceDenseRecovery = detectedTable != null || geometrySaysIncomplete
                 fun finish(schedule: RecognizedSchedule) {
                     val detectedRows = ScheduleTableDetector
                         .detectEmployeeRowBands(recoverySource, rowsPerBand = 1)

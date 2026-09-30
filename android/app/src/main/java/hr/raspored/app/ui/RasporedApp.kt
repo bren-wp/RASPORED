@@ -524,10 +524,14 @@ private fun largeMinutesLabel(minutes:Long):String {
     val today=appDate()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     var selected by remember { mutableStateOf(today) }
+    var quickCode by remember { mutableStateOf<String?>(null) }
+    var multiEdit by remember { mutableStateOf(false) }
+    val multiSelected=remember { mutableStateListOf<LocalDate>() }
     var customCodeDialog by remember { mutableStateOf(false) }
     var customCode by remember { mutableStateOf("") }
     var monthPickerDialog by remember { mutableStateOf(false) }
     var pickerYear by remember { mutableIntStateOf(month.year) }
+
     val data=scheduleFor(month,scheduleCodes)
     val holidays=CroatianHolidays.forYear(month.year)
     val analytics=EvidenceAnalytics.summarize(
@@ -539,180 +543,328 @@ private fun largeMinutesLabel(minutes:Long):String {
     val selectedShift=if(YearMonth.from(selected)==month) data[selected.dayOfMonth] else null
     val selectedHoliday=holidays[selected]
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
-    val selectedTitle=if(selected==today)"Danas" else selected.dayOfWeek.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}
+    val selectedTitle=if(selected==today)"Danas" else selected.dayOfWeek
+        .getDisplayName(TextStyle.FULL,Locale("hr","HR"))
+        .replaceFirstChar{it.titlecase(Locale("hr","HR"))}
+
+    fun moveTo(target:YearMonth){
+        month=target
+        selected=target.atDay(1)
+        multiSelected.clear()
+    }
+
+    fun applyQuickShift(shift:Shift){
+        if(multiEdit&&multiSelected.isNotEmpty()){
+            multiSelected.toList().forEach{date->onShiftChange(date,shift.code)}
+            selected=multiSelected.last()
+            multiSelected.clear()
+            quickCode=null
+        }else{
+            quickCode=if(quickCode==shift.code)null else shift.code
+        }
+    }
+
+    fun handleDateTap(date:LocalDate){
+        val targetMonth=YearMonth.from(date)
+        if(targetMonth!=month){
+            moveTo(targetMonth)
+            selected=date
+            return
+        }
+        selected=date
+        if(multiEdit){
+            if(multiSelected.contains(date)) multiSelected.remove(date)
+            else multiSelected.add(date)
+        }else{
+            quickCode?.let{code->onShiftChange(date,code)}
+        }
+    }
 
     LazyColumn(
-        Modifier.fillMaxSize().testTag("screen-calendar").padding(horizontal=14.dp),
-        contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
-        verticalArrangement=Arrangement.spacedBy(12.dp)
+        Modifier.fillMaxSize().testTag("screen-calendar").padding(horizontal=12.dp),
+        contentPadding=PaddingValues(top=12.dp,bottom=22.dp),
+        verticalArrangement=Arrangement.spacedBy(10.dp)
     ){
         item{
-            Surface(shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=2.dp){
-                Column(Modifier.padding(14.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        IconButton(onClick={
-                            month=month.minusMonths(1)
-                            selected=month.atDay(1)
-                        }){Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")}
-                        TextButton(
-                            onClick={
-                                pickerYear=month.year
-                                monthPickerDialog=true
-                            },
-                            modifier=Modifier.weight(1f).testTag("calendar-month-picker"),
-                            contentPadding=PaddingValues(horizontal=4.dp,vertical=2.dp)
+            Surface(
+                shape=RoundedCornerShape(24.dp),
+                color=MaterialTheme.colorScheme.surface,
+                shadowElevation=2.dp
+            ){
+                Column{
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha=.08f))
+                            .padding(horizontal=10.dp,vertical=10.dp)
+                    ){
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment=Alignment.CenterVertically
                         ){
-                            Text(
-                                month.month.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",
-                                fontSize=24.sp,
-                                fontWeight=FontWeight.Bold,
-                                textAlign=androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Outlined.ExpandMore,"Odaberi mjesec")
+                            IconButton(onClick={moveTo(month.minusMonths(1))}){
+                                Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")
+                            }
+                            TextButton(
+                                onClick={
+                                    pickerYear=month.year
+                                    monthPickerDialog=true
+                                },
+                                modifier=Modifier.weight(1f).testTag("calendar-month-picker"),
+                                contentPadding=PaddingValues(horizontal=4.dp,vertical=0.dp)
+                            ){
+                                Column(horizontalAlignment=Alignment.CenterHorizontally){
+                                    Text(
+                                        month.month
+                                            .getDisplayName(TextStyle.FULL,Locale("hr","HR"))
+                                            .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",
+                                        fontSize=24.sp,
+                                        fontWeight=FontWeight.ExtraBold,
+                                        textAlign=TextAlign.Center
+                                    )
+                                    Text(
+                                        "Dodirni dan za pregled ili koristi brzi unos",
+                                        fontSize=10.sp,
+                                        color=MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Outlined.ExpandMore,"Odaberi mjesec")
+                            }
+                            IconButton(onClick={moveTo(month.plusMonths(1))}){
+                                Icon(Icons.Outlined.ChevronRight,"Sljedeći mjesec")
+                            }
                         }
-                        IconButton(onClick={
-                            month=month.plusMonths(1)
-                            selected=month.atDay(1)
-                        }){Icon(Icons.Outlined.ChevronRight,"Sljedeći mjesec")}
                     }
-                    CalendarGrid(
-                        month=month,
-                        data=data,
-                        holidays=holidays,
-                        selected=selected,
-                        today=today,
-                        onSelect={ date ->
-                            if(YearMonth.from(date)!=month) month=YearMonth.from(date)
-                            selected=date
+
+                    Column(Modifier.padding(horizontal=10.dp,vertical=9.dp)){
+                        CalendarGrid(
+                            month=month,
+                            data=data,
+                            holidays=holidays,
+                            selected=selected,
+                            today=today,
+                            multiSelected=multiSelected.toSet(),
+                            onSelect=::handleDateTap
+                        )
+
+                        HorizontalDivider(Modifier.padding(top=10.dp,bottom=8.dp))
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment=Alignment.CenterVertically
+                        ){
+                            Column(Modifier.weight(1f)){
+                                Text(
+                                    if(multiEdit)"Višestruki odabir" else "Brzi unos",
+                                    fontSize=15.sp,
+                                    fontWeight=FontWeight.Bold
+                                )
+                                Text(
+                                    when{
+                                        multiEdit&&multiSelected.isNotEmpty()->
+                                            "Odabrano "+multiSelected.size+" dana · dodirni oznaku za primjenu na sve."
+                                        multiEdit->
+                                            "Dodirni više dana, zatim odaberi oznaku."
+                                        quickCode!=null->
+                                            "Aktivno "+quickCode+". Dodiruj datume za brzo označavanje."
+                                        else->
+                                            "Odaberi oznaku pa dodiruj datume kao kistom."
+                                    },
+                                    fontSize=10.sp,
+                                    color=MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TextButton(
+                                onClick={
+                                    multiEdit=!multiEdit
+                                    quickCode=null
+                                    if(!multiEdit)multiSelected.clear()
+                                }
+                            ){
+                                Icon(
+                                    if(multiEdit) Icons.Outlined.Close else Icons.Outlined.DoneAll,
+                                    null,
+                                    modifier=Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(if(multiEdit)"Završi" else "Više dana")
+                            }
                         }
-                    )
+
+                        Row(
+                            Modifier.fillMaxWidth().padding(top=5.dp),
+                            horizontalArrangement=Arrangement.spacedBy(6.dp)
+                        ){
+                            listOf(D,N,GO).forEach{shift->
+                                ManualShiftButton(
+                                    shift=shift,
+                                    selected=quickCode==shift.code,
+                                    modifier=Modifier.weight(1f),
+                                    onClick={applyQuickShift(shift)}
+                                )
+                            }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().padding(top=6.dp),
+                            horizontalArrangement=Arrangement.spacedBy(6.dp)
+                        ){
+                            listOf(BO,PD,SD).forEach{shift->
+                                ManualShiftButton(
+                                    shift=shift,
+                                    selected=quickCode==shift.code,
+                                    modifier=Modifier.weight(1f),
+                                    onClick={applyQuickShift(shift)}
+                                )
+                            }
+                        }
+
+                        Row(
+                            Modifier.fillMaxWidth().padding(top=7.dp),
+                            horizontalArrangement=Arrangement.spacedBy(8.dp)
+                        ){
+                            OutlinedButton(
+                                onClick={
+                                    if(multiEdit&&multiSelected.isNotEmpty()){
+                                        val affected=multiSelected.toList()
+                                        affected.forEach{date->onShiftChange(date,null)}
+                                        selected=affected.last()
+                                        multiSelected.clear()
+                                    }else{
+                                        onShiftChange(selected,null)
+                                    }
+                                },
+                                enabled=if(multiEdit)multiSelected.isNotEmpty() else selectedShift!=null,
+                                modifier=Modifier.weight(1f),
+                                contentPadding=PaddingValues(horizontal=8.dp,vertical=6.dp)
+                            ){
+                                Icon(Icons.Outlined.DeleteOutline,null,modifier=Modifier.size(18.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Text(if(multiEdit)"Očisti odabrane" else "Očisti dan",fontSize=12.sp)
+                            }
+                            OutlinedButton(
+                                onClick={
+                                    month=YearMonth.from(today)
+                                    selected=today
+                                    multiSelected.clear()
+                                },
+                                modifier=Modifier.weight(1f),
+                                contentPadding=PaddingValues(horizontal=8.dp,vertical=6.dp)
+                            ){
+                                Icon(Icons.Outlined.Today,null,modifier=Modifier.size(18.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Text("Danas",fontSize=12.sp)
+                            }
+                        }
+                    }
                 }
             }
         }
+
         item{
-            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
-                Column(Modifier.padding(16.dp)){
-                    Row{
+            Surface(
+                shape=RoundedCornerShape(20.dp),
+                color=MaterialTheme.colorScheme.surface,
+                shadowElevation=1.dp
+            ){
+                Column(Modifier.padding(15.dp)){
+                    Row(verticalAlignment=Alignment.Top){
                         Column(Modifier.weight(1f)){
-                            Text(selectedTitle,fontSize=24.sp,fontWeight=FontWeight.Bold)
+                            Text(selectedTitle,fontSize=21.sp,fontWeight=FontWeight.Bold)
                             Text(
-                                selected.format(formatter).replaceFirstChar{it.titlecase(Locale("hr","HR"))},
-                                color=Slate
+                                selected.format(formatter)
+                                    .replaceFirstChar{it.titlecase(Locale("hr","HR"))},
+                                color=MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize=12.sp
                             )
                         }
                         if(selectedHoliday!=null){
-                            Text("▦ Blagdan\n"+selectedHoliday,color=Red,fontWeight=FontWeight.Bold,fontSize=12.sp)
+                            Surface(
+                                shape=RoundedCornerShape(999.dp),
+                                color=BObg
+                            ){
+                                Text(
+                                    selectedHoliday,
+                                    modifier=Modifier.padding(horizontal=9.dp,vertical=5.dp),
+                                    color=Red,
+                                    fontWeight=FontWeight.Bold,
+                                    fontSize=10.sp
+                                )
+                            }
                         }
                     }
-                    HorizontalDivider(Modifier.padding(vertical=12.dp))
+
+                    HorizontalDivider(Modifier.padding(vertical=11.dp))
+
                     Row(verticalAlignment=Alignment.CenterVertically){
                         if(selectedShift!=null){
-                            ShiftBadge(selectedShift,62.dp)
+                            ShiftBadge(selectedShift,54.dp)
                         }else{
                             Surface(
                                 shape=RoundedCornerShape(14.dp),
-                                color=if(selectedHoliday!=null) Color(0xFFFFE8E6) else Color(0xFFF1F5F9),
-                                modifier=Modifier.size(62.dp)
-                            ){Box(contentAlignment=Alignment.Center){Text(if(selectedHoliday!=null)"✣" else "—",fontWeight=FontWeight.Bold,color=if(selectedHoliday!=null)Red else Slate)}}
+                                color=MaterialTheme.colorScheme.surfaceVariant,
+                                modifier=Modifier.size(54.dp)
+                            ){
+                                Box(contentAlignment=Alignment.Center){
+                                    Text("—",fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
-                        Spacer(Modifier.width(14.dp))
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)){
                             Text(
-                                selectedShift?.name ?: if(selectedHoliday!=null)"Blagdan (neradni dan)" else "Redovni slobodni dan",
+                                selectedShift?.name
+                                    ?: if(selectedHoliday!=null)"Blagdan / neradni dan"
+                                    else "Redovni slobodni dan",
                                 fontWeight=FontWeight.Bold,
-                                fontSize=18.sp
+                                fontSize=17.sp
                             )
-                            Text(selectedShift?.time ?: "—",color=Slate)
-                        }
-                        Icon(Icons.Outlined.ChevronRight,null)
-                    }
-                    HorizontalDivider(Modifier.padding(vertical=12.dp))
-                    Text("Ručno postavi oznaku",fontSize=13.sp,fontWeight=FontWeight.Bold)
-                    Text(
-                        "Dodirni oznaku za odabrani datum. Promjena se odmah sprema i ostaje dostupna u prošlim mjesecima.",
-                        fontSize=11.sp,
-                        color=Slate,
-                        modifier=Modifier.padding(top=2.dp,bottom=8.dp)
-                    )
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement=Arrangement.spacedBy(7.dp)
-                    ){
-                        listOf(D,N,GO).forEach{shift->
-                            ManualShiftButton(
-                                shift=shift,
-                                selected=selectedShift?.code==shift.code,
-                                modifier=Modifier.weight(1f),
-                                onClick={onShiftChange(selected,shift.code)}
-                            )
+                            Text(selectedShift?.time ?: "—",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
                         }
                     }
+
                     Row(
-                        Modifier.fillMaxWidth().padding(top=7.dp),
-                        horizontalArrangement=Arrangement.spacedBy(7.dp)
-                    ){
-                        listOf(BO,PD,SD).forEach{shift->
-                            ManualShiftButton(
-                                shift=shift,
-                                selected=selectedShift?.code==shift.code,
-                                modifier=Modifier.weight(1f),
-                                onClick={onShiftChange(selected,shift.code)}
-                            )
-                        }
-                    }
-                    Row(
-                        modifier=Modifier.fillMaxWidth().padding(top=8.dp),
-                        horizontalArrangement=Arrangement.spacedBy(8.dp),
-                        verticalAlignment=Alignment.CenterVertically
+                        Modifier.fillMaxWidth().padding(top=11.dp),
+                        horizontalArrangement=Arrangement.spacedBy(8.dp)
                     ){
                         OutlinedButton(
                             onClick={
                                 customCode=selectedShift?.code
-                                    ?.takeUnless { it in ScheduleStore.BUILT_IN_CODES }
+                                    ?.takeUnless{it in ScheduleStore.BUILT_IN_CODES}
                                     .orEmpty()
                                 customCodeDialog=true
                             },
                             modifier=Modifier.weight(1f)
                         ){
-                            Icon(Icons.Outlined.Edit,null)
+                            Icon(Icons.Outlined.Edit,null,modifier=Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Vlastita oznaka")
                         }
-                        TextButton(
-                            onClick={onShiftChange(selected,null)},
-                            enabled=selectedShift!=null
-                        ){
-                            Text("Očisti")
+                        if(quickCode!=null){
+                            TextButton(onClick={quickCode=null}){Text("Ugasi brzi unos")}
                         }
                     }
-                    Text(
-                        "Možeš upisati i vlastitu oznaku do 8 slova/brojeva, npr. J, P1 ili EDU. D/N/GO/BO/PD/SD zadržavaju svoje posebno značenje u statistici.",
-                        fontSize=10.sp,
-                        color=Slate,
-                        modifier=Modifier.padding(top=4.dp)
-                    )
                 }
             }
         }
-        item{
-            ShiftLegendGrid()
-        }
+
+        item{ShiftLegendGrid()}
+
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
-                Column(Modifier.padding(16.dp)){
-                    Text("Sažetak za mjesec",fontSize=20.sp,fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
+                Column(Modifier.padding(15.dp)){
+                    Text("Sažetak za mjesec",fontSize=19.sp,fontWeight=FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
                     Row{
                         listOf(
                             "Planirano" to minutesLabel(analytics.plannedMinutes),
                             "Odrađeno" to minutesLabel(analytics.workedMinutes),
                             "Saldo" to signedMinutesLabel(analytics.balanceMinutes),
-                            "Noćni sati" to minutesLabel(analytics.nightMinutes)
+                            "Noćni" to minutesLabel(analytics.nightMinutes)
                         ).forEach{
                             Column(Modifier.weight(1f)){
-                                Text(it.first,fontSize=11.sp,color=Slate)
-                                Text(it.second,fontWeight=FontWeight.Bold,fontSize=18.sp)
+                                Text(it.first,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(it.second,fontWeight=FontWeight.Bold,fontSize=16.sp)
                             }
                         }
                     }
@@ -720,7 +872,6 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         }
     }
-
 
     if(customCodeDialog){
         AlertDialog(
@@ -758,9 +909,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                     enabled=ScheduleStore.normalizeCode(customCode)!=null
                 ){Text("Spremi")}
             },
-            dismissButton={
-                TextButton(onClick={customCodeDialog=false}){Text("Odustani")}
-            }
+            dismissButton={TextButton(onClick={customCodeDialog=false}){Text("Odustani")}}
         )
     }
 
@@ -781,11 +930,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                             onClick={pickerYear=(pickerYear-1).coerceAtLeast(minYear)},
                             enabled=pickerYear>minYear
                         ){Icon(Icons.Outlined.ChevronLeft,"Prethodna godina")}
-                        Text(
-                            pickerYear.toString(),
-                            fontSize=22.sp,
-                            fontWeight=FontWeight.Bold
-                        )
+                        Text(pickerYear.toString(),fontSize=22.sp,fontWeight=FontWeight.Bold)
                         IconButton(
                             onClick={pickerYear=(pickerYear+1).coerceAtMost(maxYear)},
                             enabled=pickerYear<maxYear
@@ -801,14 +946,13 @@ private fun largeMinutesLabel(minutes:Long):String {
                                     val target=YearMonth.of(pickerYear,monthValue)
                                     OutlinedButton(
                                         onClick={
-                                            month=target
-                                            selected=target.atDay(1)
+                                            moveTo(target)
                                             monthPickerDialog=false
                                         },
                                         modifier=Modifier.weight(1f),
                                         border=BorderStroke(
-                                            if(target==month) 2.dp else 1.dp,
-                                            if(target==month) Cyan else MaterialTheme.colorScheme.outlineVariant
+                                            if(target==month)2.dp else 1.dp,
+                                            if(target==month)Cyan else MaterialTheme.colorScheme.outlineVariant
                                         ),
                                         contentPadding=PaddingValues(horizontal=4.dp,vertical=8.dp)
                                     ){
@@ -830,12 +974,9 @@ private fun largeMinutesLabel(minutes:Long):String {
                     )
                 }
             },
-            confirmButton={
-                TextButton(onClick={monthPickerDialog=false}){Text("Zatvori")}
-            }
+            confirmButton={TextButton(onClick={monthPickerDialog=false}){Text("Zatvori")}}
         )
     }
-
 }
 
 @Composable private fun ManualShiftButton(
@@ -846,23 +987,41 @@ private fun largeMinutesLabel(minutes:Long):String {
 ){
     OutlinedButton(
         onClick=onClick,
-        modifier=modifier.height(46.dp).testTag("calendar-set-"+shift.code.lowercase()),
+        modifier=modifier.height(44.dp).testTag("calendar-set-"+shift.code.lowercase()),
         shape=RoundedCornerShape(12.dp),
         border=BorderStroke(
-            if(selected) 2.dp else 1.dp,
-            if(selected) Cyan else MaterialTheme.colorScheme.outlineVariant
+            if(selected)2.dp else 1.dp,
+            if(selected)Cyan else MaterialTheme.colorScheme.outlineVariant
         ),
-        contentPadding=PaddingValues(horizontal=6.dp,vertical=0.dp)
+        colors=ButtonDefaults.outlinedButtonColors(
+            containerColor=if(selected)shiftBg(shift).copy(alpha=.35f) else Color.Transparent
+        ),
+        contentPadding=PaddingValues(horizontal=5.dp,vertical=0.dp)
     ){
         Surface(
             shape=RoundedCornerShape(8.dp),
             color=shiftBg(shift),
-            modifier=Modifier.size(30.dp)
+            modifier=Modifier.size(29.dp)
         ){
             Box(contentAlignment=Alignment.Center){
-                Text(shift.code,color=shiftFg(shift),fontWeight=FontWeight.ExtraBold,fontSize=11.sp)
+                Text(
+                    shift.code,
+                    color=shiftFg(shift),
+                    fontWeight=FontWeight.ExtraBold,
+                    fontSize=10.sp
+                )
             }
         }
+        Spacer(Modifier.width(5.dp))
+        Text(
+            when(shift.code){
+                "D"->"Dan"
+                "N"->"Noć"
+                else->shift.code
+            },
+            fontSize=10.sp,
+            maxLines=1
+        )
     }
 }
 
@@ -872,63 +1031,107 @@ private fun largeMinutesLabel(minutes:Long):String {
     holidays:Map<LocalDate,String>,
     selected:LocalDate,
     today:LocalDate,
+    multiSelected:Set<LocalDate>,
     onSelect:(LocalDate)->Unit
 ){
     val firstOffset=month.atDay(1).dayOfWeek.value-1
     val start=month.atDay(1).minusDays(firstOffset.toLong())
     val cells=List(42){start.plusDays(it.toLong())}
+    val neutral=MaterialTheme.colorScheme.surfaceVariant
+    val weekend=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.66f)
+
     Row(Modifier.fillMaxWidth()){
-        listOf("Pon","Uto","Sri","Čet","Pet","Sub","Ned").forEach{
+        listOf("P","U","S","Č","P","S","N").forEachIndexed{index,label->
             Text(
-                it,
-                modifier=Modifier.weight(1f).padding(vertical=8.dp),
-                fontSize=12.sp,
-                color=Slate,
-                textAlign=androidx.compose.ui.text.style.TextAlign.Center
+                label,
+                modifier=Modifier.weight(1f).padding(vertical=6.dp),
+                fontSize=11.sp,
+                fontWeight=FontWeight.Bold,
+                color=if(index>=5)Red else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign=TextAlign.Center
             )
         }
     }
+
     cells.chunked(7).forEach{week->
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)){
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement=Arrangement.spacedBy(3.dp)
+        ){
             week.forEach{date->
                 val inside=YearMonth.from(date)==month
                 val shift=if(inside)data[date.dayOfMonth] else null
                 val holiday=holidays[date]
                 val isWeekend=date.dayOfWeek.value>=6
+                val isMulti=multiSelected.contains(date)
                 val bg=when{
                     shift!=null->shiftBg(shift)
-                    holiday!=null->BObg
-                    isWeekend->Color(0xFFF6F8FB)
-                    else->Color(0xFFF1F5F9)
+                    holiday!=null->BObg.copy(alpha=.72f)
+                    isWeekend->weekend
+                    else->neutral.copy(alpha=.48f)
                 }
                 val fg=when{
                     shift!=null->shiftFg(shift)
                     holiday!=null->Red
-                    else->Navy
+                    else->MaterialTheme.colorScheme.onSurface
                 }
+
                 Surface(
                     onClick={onSelect(date)},
-                    shape=RoundedCornerShape(10.dp),
+                    shape=RoundedCornerShape(9.dp),
                     color=bg,
                     border=when{
+                        isMulti->BorderStroke(2.dp,Teal)
                         date==selected->BorderStroke(2.dp,Cyan)
-                        date==today->BorderStroke(1.dp,Color(0x6600C2FF))
-                        else->null
+                        date==today->BorderStroke(1.dp,Cyan.copy(alpha=.55f))
+                        else->BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.45f))
                     },
-                    modifier=Modifier.weight(1f).aspectRatio(.9f).alpha(if(inside)1f else .38f)
+                    modifier=Modifier
+                        .weight(1f)
+                        .aspectRatio(.82f)
+                        .alpha(if(inside)1f else .30f)
+                        .testTag("calendar-day-"+date.toString())
                 ){
-                    Box(contentAlignment=Alignment.Center){
-                        Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            Text(date.dayOfMonth.toString(),fontWeight=FontWeight.Bold,color=fg)
-                            when{
-                                shift!=null->Text(shift.code,fontWeight=FontWeight.Bold,color=fg)
-                                holiday!=null->Text("✣",fontWeight=FontWeight.Bold,color=Red)
+                    Box(Modifier.fillMaxSize().padding(3.dp)){
+                        Text(
+                            date.dayOfMonth.toString(),
+                            fontSize=10.sp,
+                            fontWeight=if(date==today)FontWeight.ExtraBold else FontWeight.Medium,
+                            color=fg,
+                            modifier=Modifier.align(Alignment.TopStart)
+                        )
+                        when{
+                            shift!=null->Text(
+                                shift.code,
+                                fontWeight=FontWeight.ExtraBold,
+                                fontSize=if(shift.code.length>2)10.sp else 13.sp,
+                                color=fg,
+                                modifier=Modifier.align(Alignment.Center)
+                            )
+                            holiday!=null->Text(
+                                "✣",
+                                fontWeight=FontWeight.Bold,
+                                fontSize=12.sp,
+                                color=Red,
+                                modifier=Modifier.align(Alignment.Center)
+                            )
+                        }
+                        if(isMulti){
+                            Surface(
+                                shape=RoundedCornerShape(99.dp),
+                                color=Teal,
+                                modifier=Modifier.size(13.dp).align(Alignment.TopEnd)
+                            ){
+                                Box(contentAlignment=Alignment.Center){
+                                    Text("✓",fontSize=8.sp,color=Color.White,fontWeight=FontWeight.Black)
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        Spacer(Modifier.height(3.dp))
     }
 }
 

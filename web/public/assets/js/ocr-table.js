@@ -188,6 +188,39 @@ function detectGridBounds(bitmap){
   var side=Math.round(spacing*1.4);
   var left=Math.max(0,widest[0]-side);
   var right=Math.min(width,widest[1]+side+1);
+
+  // Horizontal lines in photographed schedules can be fragmented at every
+  // cell boundary. In that case the widest horizontal-support run can start at
+  // the day grid and accidentally cut off row numbers / employee names. Recover
+  // the real outer table edges from long vertical rules, matching Android.
+  var verticalCandidates=[];
+  var verticalHeight=Math.max(1,bottom-top);
+  for(var vx=0;vx<width;vx++){
+    var hits=0;
+    for(var vy=top;vy<bottom;vy++){
+      if(isDark(vx,vy))hits++;
+    }
+    if(hits/verticalHeight>=.32)verticalCandidates.push(vx);
+  }
+  var verticalCenters=groupCenters(verticalCandidates).filter(function(x){
+    return x>=2&&x<width-2;
+  });
+  if(verticalCenters.length>=8){
+    var maxExtension=Math.round(width*.24);
+    var leftEdges=verticalCenters.filter(function(x){
+      return x<=widest[0]&&widest[0]-x<=maxExtension;
+    });
+    var rightEdges=verticalCenters.filter(function(x){
+      return x>=widest[1]&&x-widest[1]<=maxExtension;
+    });
+    if(leftEdges.length){
+      left=Math.min(left,Math.max(0,Math.min.apply(Math,leftEdges)-side));
+    }
+    if(rightEdges.length){
+      right=Math.max(right,Math.min(width,Math.max.apply(Math,rightEdges)+side+1));
+    }
+  }
+
   if(right-left<width*.45||bottom-top<height*.25)return null;
 
   var scaleX=bitmap.width/width,scaleY=bitmap.height/height;
