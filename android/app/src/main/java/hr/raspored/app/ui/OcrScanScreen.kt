@@ -890,12 +890,12 @@ private fun nextShiftCode(current: String): String {
 }
 
 
-private data class AiMergeResult(
+internal data class AiMergeResult(
     val schedule: RecognizedSchedule,
     val cells: List<RecognitionCellReview>
 )
 
-private fun mergeForAiReview(
+internal fun mergeForAiReview(
     local: RecognizedSchedule?,
     ai: RecognizedSchedule
 ): AiMergeResult {
