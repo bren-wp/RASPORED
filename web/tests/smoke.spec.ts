@@ -216,7 +216,8 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator("#scanHelpDialog")).toBeVisible();
   await page.locator("#scanHelpDialog").getByRole("button",{name:"Zatvori"}).click();
 
-  await page.locator(".scan-header .back-btn").click();
+  if(width<=820) await page.locator(".scan-header .back-btn").click();
+  else await page.locator('.side-nav [data-route="home"]').click();
   await page.locator('[data-route="settings"]:visible').first().click();
   await page.locator("#themeToggle").check();
   await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
