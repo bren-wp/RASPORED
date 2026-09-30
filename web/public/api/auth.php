@@ -107,11 +107,37 @@ function auth_migrate_guest_state(string $accountId): void
     if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
         return;
     }
+
     $guest = raspored_guest_state_path($token);
     $account = raspored_account_state_path($accountId);
-    if (!is_file($account) && is_file($guest)) {
-        @copy($guest, $account);
-        @chmod($account, 0600);
+    if (is_file($account) || !is_file($guest)) {
+        return;
+    }
+
+    $lockPath = raspored_storage_directory() . '/.write.lock';
+    $lock = @fopen($lockPath, 'c');
+    if ($lock === false || !flock($lock, LOCK_EX)) {
+        if (is_resource($lock)) {
+            fclose($lock);
+        }
+        return;
+    }
+
+    try {
+        if (is_file($account) || !is_file($guest)) {
+            return;
+        }
+        if (@rename($guest, $account)) {
+            @chmod($account, 0600);
+            return;
+        }
+        if (@copy($guest, $account)) {
+            @chmod($account, 0600);
+            @unlink($guest);
+        }
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
     }
 }
 
