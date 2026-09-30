@@ -73,14 +73,16 @@ internal fun OcrScanScreen(
                 selectedRow = 0
                 editedShifts.putAll(recognized.rows.first().dayShifts)
                 phase = OcrPhase.Success
-                message = "Prepoznata je 1 osoba. Provjeri raspored prije spremanja." +
+                val recognizedDays = recognized.rows.first().dayShifts.size
+                message = "Prepoznata je 1 osoba i $recognizedDays oznaka dana. Provjeri raspored prije spremanja." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
             else -> {
                 selectedRow = -1
                 phase = OcrPhase.Success
                 val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
-                message = "Prepoznate su $countLabel. Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                val recognizedDays = recognized.rows.sumOf { it.dayShifts.size }
+                message = "Prepoznate su $countLabel i ukupno $recognizedDays oznaka dana. Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }

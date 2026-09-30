@@ -8,7 +8,7 @@ import java.time.YearMonth
 class ScheduleOcrParserTest {
     @Test
     fun parsesEmployeeRowAndShiftCodes() {
-        val result = ScheduleOcrParser.parse("6 ANA HORVAT D N D GO BO")
+        val result = ScheduleOcrParser.parse("6 ANA HORVAT 1 D 2 N 3 D 4 GO 5 BO")
         assertEquals(1, result.rows.size)
         assertEquals(6, result.rows.single().rowNumber)
         assertEquals("ANA HORVAT", result.rows.single().name)
@@ -29,7 +29,7 @@ class ScheduleOcrParserTest {
     @Test
     fun keepsMultipleEmployeesAsSeparateSelectableRows() {
         val result = ScheduleOcrParser.parse(
-            "6 ANA HORVAT D N D GO\n7 LUKA BABIĆ GO D N BO"
+            "6 ANA HORVAT 1 D 2 N 3 D 4 GO\n7 LUKA BABIĆ 1 GO 2 D 3 N 4 BO"
         )
 
         assertEquals(2, result.rows.size)
@@ -42,7 +42,7 @@ class ScheduleOcrParserTest {
 
     @Test
     fun normalizesCommonOcrConfusionsForGoAndBo() {
-        val result = ScheduleOcrParser.parse("3 ANA HORVAT G0 B0 D N PD SD")
+        val result = ScheduleOcrParser.parse("3 ANA HORVAT 1 G0 2 B0 3 D 4 N 5 PD 6 SD")
         assertEquals(listOf("GO", "BO", "D", "N", "PD", "SD"), result.rows.single().shifts)
     }
 
@@ -65,6 +65,26 @@ class ScheduleOcrParserTest {
             YearMonth.of(2026, 10),
             ScheduleOcrParser.parse("2026-10\n6 ANA HORVAT D N").month
         )
+    }
+
+    @Test
+    fun doesNotInventCalendarDaysWhenGeometryIsMissing() {
+        val result = ScheduleOcrParser.parse("6 ANA HORVAT D N GO BO")
+        assertEquals(1, result.rows.size)
+        assertEquals(emptyMap<Int, String>(), result.rows.single().dayShifts)
+    }
+
+    @Test
+    fun interpolatesMissingDayCentersFromFragmentedHeader() {
+        val centers = ScheduleOcrParser.inferAllDayCenters(
+            mapOf(1 to 100, 16 to 400, 31 to 700),
+            31
+        )
+        requireNotNull(centers)
+        assertEquals(120, centers[2])
+        assertEquals(400, centers[16])
+        assertEquals(680, centers[30])
+        assertEquals(31, centers.size)
     }
 
     @Test
