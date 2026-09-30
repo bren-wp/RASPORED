@@ -119,7 +119,7 @@ function interval(entry){
 }
 function evidenceForMonth(year,monthIndex){
   var data=snapshot(),entries=Array.isArray(data.evidence)?data.evidence:[],holidays=holidayMap(year);
-  var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,active:false,workedDates:{}};
+  var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,goDays:0,boDays:0,pdDays:0,sdDays:0,compensated:0,active:false,workedDates:{}};
   entries.forEach(function(entry){
     var span=interval(entry);if(!span)return;
     if(!entry.out&&entry.endedAt==null)result.active=true;
@@ -144,6 +144,17 @@ function evidenceForMonth(year,monthIndex){
       else if(workType==="callout")result.callout++;
     }
   });
+  var schedule=data&&data.schedule&&typeof data.schedule==="object"?data.schedule:{};
+  Object.keys(schedule).forEach(function(dateKey){
+    var d=new Date(dateKey+"T12:00:00");
+    if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
+    var code=schedule[dateKey];
+    if(code==="GO")result.goDays++;
+    else if(code==="BO")result.boDays++;
+    else if(code==="PD")result.pdDays++;
+    else if(code==="SD")result.sdDays++;
+  });
+  result.compensated=(result.goDays+result.boDays+result.pdDays)*8*60;
   result.workedDays=Object.keys(result.workedDates).length;
   return result;
 }
@@ -328,7 +339,7 @@ function render(){
   var basicGross=base*coefficient*(1+years*0.005);
   var hourly=fund>0?basicGross/fund:0;
   var rates=regime&&regime.additions||{};
-  var overtime=Math.max(0,evidence.total-fund*60);
+  var overtime=Math.max(0,evidence.total+evidence.compensated-fund*60);
   var secondEnabled=!!qs("payrollSecondShift").checked&&rates.secondShift!=null;
   var turnusEnabled=!!qs("payrollTurnus").checked&&rates.turnus!=null;
   var turnusMinutes=turnusEnabled?evidence.turnus:0;
@@ -344,12 +355,13 @@ function render(){
   addComponent("Rad subotom",evidence.saturday,rates.saturday);
   addComponent("Rad nedjeljom",evidence.sunday,rates.sunday);
   addComponent("Rad blagdanom / neradnim danom",evidence.holiday,rates.holiday);
-  addComponent("Prekovremeni rad iznad mjesečnog fonda",overtime,rates.overtime);
+  addComponent("Dodatak za prekovremeni rad",overtime,rates.overtime);
   if(secondEnabled)addComponent("Druga smjena",secondShiftMinutes,rates.secondShift);
   if(turnusEnabled)addComponent("Rad u turnusu",turnusMinutes,rates.turnus);
+  var overtimeBase=hourly*(overtime/60);
   var additions=components.reduce(function(sum,item){return sum+item.value},0);
   var customAddition=basicGross*(extraPercent/100);
-  var gross=basicGross+additions+customAddition;
+  var gross=basicGross+overtimeBase+additions+customAddition;
   var lower=numeric("payrollTaxLower",20,0,50),higher=numeric("payrollTaxHigher",30,0,50);
   var allowance=numeric("payrollPersonalAllowance",config.tax.basicPersonalAllowance||600,0,10000);
   var net=estimateNet(gross,allowance,lower,higher);
@@ -370,7 +382,7 @@ function render(){
   qs("payrollDailyGross").textContent=base>0?money(dailyGross):"—";
   qs("payrollDailyNet").textContent=base>0?money(dailyNet):"—";
   qs("payrollBasicGross").textContent=base>0?money(basicGross):"—";
-  qs("payrollAdditions").textContent=base>0?money(additions+customAddition):"—";
+  qs("payrollAdditions").textContent=base>0?money(overtimeBase+additions+customAddition):"—";
   qs("payrollEvidenceHint").textContent=evidence.total
     ?("Iz "+hours(evidence.total)+" evidentiranog rada"+(evidence.active?" uključujući aktivnu evidenciju.":"."))
     :"Nema evidentiranih sati; prikazana je osnovna mjesečna procjena bez dodataka iz rada.";
@@ -387,7 +399,17 @@ function render(){
       (note.length?"<small>"+escapeHtml(note.join(" "))+"</small>":"");
   }
 
-  var rows=[{label:"Ukupno evidentirano",minutes:evidence.total,value:null,rate:null}].concat(components);
+  var rows=[{label:"Ukupno evidentirano",minutes:evidence.total,value:null,rate:null}];
+  if(evidence.goDays||evidence.boDays||evidence.pdDays||evidence.sdDays){
+    rows.push({
+      label:"Planirani izostanci: GO "+evidence.goDays+" · BO "+evidence.boDays+" · PD "+evidence.pdDays+" · SD "+evidence.sdDays,
+      minutes:evidence.compensated,
+      value:null,
+      rate:null
+    });
+  }
+  if(overtime>0)rows.push({label:"Osnovna satnica prekovremenih sati",minutes:overtime,value:overtimeBase,rate:null});
+  rows=rows.concat(components);
   if(evidence.shift1)rows.push({label:"1. smjena — evidentirano",minutes:evidence.shift1,rate:null,value:null});
   if(evidence.shift2)rows.push({label:"2. smjena — evidentirano",minutes:evidence.shift2,rate:null,value:null});
   if(evidence.shift3)rows.push({label:"3. smjena — evidentirano",minutes:evidence.shift3,rate:null,value:null});
@@ -409,7 +431,7 @@ function render(){
   });
   qs("payrollLegalText").textContent=(regime?regime.label:"Ručni obračun")+" — osnovna bruto plaća računa se kao osnovica × koeficijent + 0,5% za svaku navršenu godinu staža. "+
     (autoRates.length?"Automatski obračunski postoci u ovom presetu: "+autoRates.join(", ")+". ":"Dodaci nisu automatski pretpostavljeni za ovaj režim. ")+
-    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
+    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. GO, BO i PD iz kalendara koriste se samo kao 8-satna ekvivalencija za procjenu mjesečnog fonda i prekovremenih sati; naknada po prosjeku se ne izmišlja. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
 }
 function refreshInstitutionAndRole(preferredRole){
   populateInstitutions("",null);
