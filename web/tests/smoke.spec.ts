@@ -249,6 +249,48 @@ test("web OCR parser keeps exact day columns and normalizes common OCR errors", 
   expect(parsed.monthNumeric).toEqual({year:2026,month:10});
 });
 
+test("Web OCR geometry recovers all people and all 31 day columns from a fragmented header", async ({page}) => {
+  await page.goto("/");
+  const parsed=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const box=(x:number,y:number,w=18,h=14)=>({x0:x,y0:y,x1:x+w,y1:y+h});
+    const dayX=(day:number)=>240+(day-1)*28;
+    const headerLines=[0,1,2].map(group=>({
+      bbox:box(230,50+group*8,900,14),
+      words:Array.from({length:31},(_,index)=>index+1)
+        .filter(day=>(day-1)%3===group)
+        .map(day=>({text:String(day),bbox:box(dayX(day),50+group*8,16,14)}))
+    }));
+    const names=[
+      "ANA HORVAT","LUKA BABIĆ","PETRA NOVAK","IVANA RADIĆ",
+      "NIKOLA JURIĆ","MAJA PERIĆ","TOMISLAV MARIĆ","SARA KOVAČ",
+      "DARIO HORVAT","MARTA NOVAK","FILIP RADIĆ","LANA JURIĆ"
+    ];
+    const codes=["D","N","GO","BO","PD","SD"];
+    const rows=names.map((name,rowIndex)=>{
+      const y=110+rowIndex*34;
+      const words:any[]=[
+        {text:String(rowIndex+1),bbox:box(24,y,18,16)},
+        {text:name.split(" ")[0],bbox:box(58,y,72,16)},
+        {text:name.split(" ").slice(1).join(" "),bbox:box(136,y,86,16)}
+      ];
+      for(let day=1;day<=31;day++){
+        words.push({text:codes[(rowIndex+day)%codes.length],bbox:box(dayX(day),y,18,16)});
+      }
+      return {bbox:box(20,y,1100,18),words};
+    });
+    const blocks=[{paragraphs:[{lines:[...headerLines,...rows]}]}];
+    return api.parseGeometry(blocks,31);
+  });
+  expect(parsed).toHaveLength(12);
+  for(const row of parsed){
+    expect(Object.keys(row.dayShifts)).toHaveLength(31);
+    expect(row.dayShifts["1"]).toBeTruthy();
+    expect(row.dayShifts["16"]).toBeTruthy();
+    expect(row.dayShifts["31"]).toBeTruthy();
+  }
+});
+
 test("overnight time evidence can be closed after midnight", async ({page}) => {
   await page.goto("/");
   await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
