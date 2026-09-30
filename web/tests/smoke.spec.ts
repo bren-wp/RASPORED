@@ -134,10 +134,10 @@ test("profile, notifications and colleagues controls work", async ({page}) => {
   await expect(page.locator("#profileNameInput")).toHaveValue("Sara Kovač");
 });
 
-test("no reference-person names or development labels ship in production UI", async ({page}) => {
+test("no demo or development labels ship in production UI", async ({page}) => {
   await page.goto("/");
-  await expect(page.locator("body")).not.toContainText("Marko Marković");
-  await expect(page.locator("body")).not.toContainText("MARIO EGIMOVIĆ");
+  await expect(page.locator("body")).not.toContainText("Demo korisnik");
+  await expect(page.locator("body")).not.toContainText("Lorem");
   await expect(page.locator("body")).not.toContainText("-dev");
 });
 
