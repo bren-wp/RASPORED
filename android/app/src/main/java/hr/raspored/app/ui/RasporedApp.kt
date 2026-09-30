@@ -284,10 +284,9 @@ private fun nextWorkShift(after:LocalDate,codes:Map<String,String>):Pair<LocalDa
         shiftAt(date,codes)?.takeIf{it.code=="D"||it.code=="N"}?.let{date to it}
     }
 
-private fun nextShiftStatus(today:LocalDate,day:Int,shift:Shift):String {
-    val start=today.withDayOfMonth(day)
+private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String {
     val end=if(shift.code=="N") start.plusDays(1) else start
-    val prefix=if(day==today.dayOfMonth+1)"Sutra" else start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+    val prefix=if(start==today.plusDays(1))"Sutra" else start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
     return if(shift.code=="N") {
         prefix+"\n"+start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))+" → "+end.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
     } else prefix
@@ -361,7 +360,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(currentDate,current,now),onHours={go(Screen.Hours)})}
-        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first.dayOfMonth,it.second)},onHours=null)}
+        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onHours=null)}
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                 listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
