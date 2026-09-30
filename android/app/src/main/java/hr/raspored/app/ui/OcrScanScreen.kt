@@ -188,7 +188,7 @@ internal fun OcrScanScreen(
                 Column(Modifier.weight(1f)) {
                     Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Slikaj raspored s papira ili učitaj fotografiju.\nMi ćemo automatski prepoznati podatke.",
+                        "Slikaj cijelu tablicu ili učitaj fotografiju. Važno je da su vidljivi svi redci osoba i zaglavlje sa svim danima.",
                         color = RasporedTokens.Slate
                     )
                 }
@@ -218,7 +218,7 @@ internal fun OcrScanScreen(
                                 bitmap = bitmap!!.asImageBitmap(),
                                 contentDescription = "Fotografija rasporeda za OCR",
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Fit
                             )
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -233,6 +233,22 @@ internal fun OcrScanScreen(
                             }
                         }
                         ScanFrame()
+                        if (bitmap != null) {
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                                shape = RoundedCornerShape(999.dp),
+                                color = Color(0xD90B1F44)
+                            ) {
+                                Text(
+                                    "OCR obrađuje cijelu fotografiju — provjeri da je cijela tablica vidljiva.",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    color = Color.White,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
                     }
 
                     Row(
@@ -496,7 +512,8 @@ internal fun OcrScanScreen(
             title = { Text("Kako dobiti dobar rezultat") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("• Obuhvati cijelu tablicu i zaglavlje s brojevima dana.")
+                    Text("• Obuhvati cijelu tablicu: prvi i zadnji redak osobe te sve stupce od 1. do zadnjeg dana mjeseca.")
+                    Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Ako je na rasporedu više osoba, odaberi samo jedno ime i prezime.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.")
