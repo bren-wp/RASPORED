@@ -45,6 +45,34 @@ object ScheduleOcrParser {
         "PROSINAC" to Month.DECEMBER
     )
 
+    fun parse(result: Text): RecognizedSchedule {
+        val lines = result.textBlocks.flatMap { it.lines }
+        val header = lines
+            .map { line ->
+                val days = line.elements.mapNotNull { element ->
+                    val day = element.text.trim().toIntOrNull()?.takeIf { it in 1..31 }
+                    val box = element.boundingBox
+                    if (day != null && box != null) day to box.centerX() else null
+                }
+                line to days
+            }
+            .maxByOrNull { it.second.distinctBy { point -> point.first }.size }
+
+        val geometryRows = if (header != null && header.second.distinctBy { it.first }.size >= 5) {
+            parseGeometryRows(
+                lines = lines,
+                headerBottom = header.first.boundingBox?.bottom ?: Int.MIN_VALUE,
+                dayCenters = header.second.toMap()
+            )
+        } else emptyList()
+
+        return RecognizedSchedule(
+            month = detectMonth(result.text),
+            rows = if (geometryRows.isNotEmpty()) geometryRows else parse(result.text).rows,
+            rawText = result.text.replace('\u00A0', ' ')
+        )
+    }
+
     fun parse(text: String): RecognizedSchedule {
         val normalized = text.replace('\u00A0', ' ')
         val rows = normalized.lineSequence()
@@ -60,6 +88,55 @@ object ScheduleOcrParser {
             rows = rows,
             rawText = normalized
         )
+    }
+
+    private fun parseGeometryRows(
+        lines: List<Text.Line>,
+        headerBottom: Int,
+        dayCenters: Map<Int, Int>
+    ): List<RecognizedScheduleRow> {
+        val minDayX = dayCenters.values.minOrNull() ?: return emptyList()
+        return lines.asSequence()
+            .filter { (it.boundingBox?.top ?: Int.MIN_VALUE) > headerBottom }
+            .mapNotNull { line ->
+                val shiftElements = line.elements.mapNotNull { element ->
+                    val code = element.text.trim().uppercase(Locale.ROOT)
+                    val box = element.boundingBox
+                    if (box != null && exactShiftRegex.matches(code) && code in setOf("D","N","GO","BO")) {
+                        Triple(element.text, code, box.centerX())
+                    } else null
+                }
+                if (shiftElements.isEmpty()) return@mapNotNull null
+
+                val firstShiftX = shiftElements.minOf { it.third }
+                val leftText = line.elements
+                    .filter { element ->
+                        val box = element.boundingBox
+                        box != null && box.centerX() < minOf(firstShiftX, minDayX) && !exactShiftRegex.matches(element.text.trim())
+                    }
+                    .joinToString(" ") { it.text.trim() }
+                    .replace(spaces, " ")
+                    .trim()
+
+                val rowNumber = rowNumberRegex.find(leftText)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                val name = leftText
+                    .replaceFirst(rowNumberRegex, "")
+                    .replace(Regex("""\b\d{1,2}([./-]\d{1,2})?\b"""), " ")
+                    .replace(spaces, " ")
+                    .trim(' ', '-', '|', ':', ';')
+
+                if (name.length < 3 || name.count(Char::isLetter) < 3) return@mapNotNull null
+
+                val dayShifts = buildMap<Int, String> {
+                    shiftElements.forEach { (_, code, x) ->
+                        val day = dayCenters.minByOrNull { (_, center) -> abs(center - x) }?.key
+                        if (day != null) put(day, code)
+                    }
+                }
+                if (dayShifts.isEmpty()) null else RecognizedScheduleRow(rowNumber, name, dayShifts)
+            }
+            .distinctBy { it.name.uppercase(Locale("hr", "HR")) }
+            .toList()
     }
 
     internal fun parseRow(line: String): RecognizedScheduleRow? {
@@ -101,7 +178,7 @@ object ScheduleOcrEngine {
         onError: (Throwable) -> Unit
     ) {
         recognizer.process(InputImage.fromBitmap(bitmap, 0))
-            .addOnSuccessListener { result -> onSuccess(ScheduleOcrParser.parse(result.text)) }
+            .addOnSuccessListener { result -> onSuccess(ScheduleOcrParser.parse(result)) }
             .addOnFailureListener(onError)
     }
 }
