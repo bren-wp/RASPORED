@@ -43,6 +43,6 @@
       <section class="card scan-card"><div class="card-head"><div><h2>Provjera rasporeda</h2><p>Pregledaj prepoznate smjene i po potrebi ih ispravi.</p></div><span class="success-pill" id="recognitionStatus">Odaberi osobu</span></div><div class="recognition-days" id="recognitionDays"></div><div class="scan-edit-actions"><button id="editRecognitionBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-edit"></use></svg>Uredi</button><button id="rescanSecondary"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>Ponovno skeniraj</button></div></section>
       <button class="primary-btn primary-btn--full" id="saveSchedule"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Spremi raspored</button>
       <button class="secondary-btn primary-btn--full team-import-btn" id="saveTeamSchedules" hidden><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Uvezi sve djelatnike u tim</button>
-      <p class="team-import-note" id="teamImportNote" hidden>Voditeljski profil može spremiti sve prepoznate djelatnike odvojeno. Rasporedi se nikada ne spajaju među osobama.</p>
+      <p class="team-import-note" id="teamImportNote" hidden>Možeš spremiti sve pouzdano prepoznate djelatnike kao odvojene rasporede tima i bez korisničkog računa. Rasporedi se nikada ne spajaju među osobama.</p>
     </section>
 
