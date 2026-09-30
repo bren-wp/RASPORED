@@ -118,7 +118,7 @@ internal object ScheduleTableDetector {
             }
             bridgeSmallGaps(
                 supportedXs,
-                maxGap = max(6, (spacing * 0.55).roundToInt())
+                maxGap = max(8, (spacing * 1.65).roundToInt())
             )
             val runs = trueRuns(supportedXs)
             val widest = runs.maxByOrNull { it.last - it.first } ?: return null
