@@ -278,6 +278,76 @@ test("Web account registration stays optional and manager import keeps employees
   expect(team[0].schedule).not.toEqual(team[1].schedule);
 });
 
+test("Android bearer account API stores schedule state in storage data", async ({request},testInfo) => {
+  const suffix=(testInfo.project.name+"-"+Date.now()).replace(/[^a-z0-9]+/gi,"-").toLowerCase();
+  const email="android-"+suffix+"@example.test";
+  const headers={
+    "X-Raspored-Client":"android",
+    "X-Raspored-Request":"1",
+    "Content-Type":"application/json"
+  };
+  const registered=await request.post("/api/auth.php",{
+    headers,
+    data:{
+      action:"register",
+      firstName:"Petra",
+      lastName:"Novak",
+      email,
+      phone:"+385 91 555 0110",
+      password:"RasporedAndroid2026",
+      accountType:"individual"
+    }
+  });
+  expect(registered.ok()).toBeTruthy();
+  const auth=await registered.json();
+  expect(auth.account.firstName).toBe("Petra");
+  expect(auth.token).toMatch(/^[a-f0-9]{64}$/);
+
+  const mobileHeaders={
+    ...headers,
+    "Authorization":"Bearer "+auth.token
+  };
+  const saved=await request.put("/api/state.php",{
+    headers:mobileHeaders,
+    data:{
+      patch:true,
+      state:{
+        schedule:{"2026-10-01":"D","2026-10-02":"N","2026-10-03":"PD","2026-10-04":"SD"},
+        evidence:[{
+          id:"1790847600000",
+          date:"2026-10-01",
+          in:"07:00",
+          out:"15:00",
+          note:"Test",
+          workType:"shift1",
+          startedAt:1790847600000,
+          endedAt:1790876400000
+        }]
+      }
+    }
+  });
+  expect(saved.ok()).toBeTruthy();
+  const savedBody=await saved.json();
+  expect(savedBody.state.schedule["2026-10-03"]).toBe("PD");
+  expect(savedBody.state.evidence[0].workType).toBe("shift1");
+  expect(savedBody.state.profile.name).toBe("Petra Novak");
+
+  const fetched=await request.get("/api/state.php",{headers:mobileHeaders});
+  expect(fetched.ok()).toBeTruthy();
+  const fetchedBody=await fetched.json();
+  expect(fetchedBody.authenticated).toBeTruthy();
+  expect(fetchedBody.state.schedule["2026-10-04"]).toBe("SD");
+
+  const logout=await request.post("/api/auth.php",{
+    headers:mobileHeaders,
+    data:{action:"logout"}
+  });
+  expect(logout.ok()).toBeTruthy();
+
+  const afterLogout=await request.get("/api/state.php",{headers:mobileHeaders});
+  expect(afterLogout.status()).toBe(401);
+});
+
 test("individual Web account can import only its own recognized row", async ({page},testInfo) => {
   await mockOcr(page);
   await page.goto("/");
