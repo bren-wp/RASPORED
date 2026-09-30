@@ -77,6 +77,12 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
     }
+    val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
+        val date = appDate().plusDays(offset)
+        shiftFromCode(scheduleCodes[date.toString()].orEmpty())
+            ?.takeIf { it.code == "D" || it.code == "N" }
+            ?.let { date to it }
+    }
     val colors = if(darkMode) {
         darkColorScheme(
             primary=Cyan,
@@ -114,7 +120,14 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                 else BrandHeader(
                     screen=screen,
                     onScan={screen=Screen.Scan},
-                    onNotify={scope.launch{snackbarHostState.showSnackbar("Nema novih obavijesti.")}},
+                    hasNotification=upcomingHeaderShift!=null,
+                    onNotify={
+                        val message=upcomingHeaderShift?.let { (date,shift) ->
+                            val whenText=if(date==appDate()) "Danas" else date.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+                            whenText+" · "+shift.name+" · "+shift.time
+                        } ?: "Nema novih obavijesti."
+                        scope.launch{snackbarHostState.showSnackbar(message)}
+                    },
                     onSync={
                         scheduleCodes.clear()
                         scheduleCodes.putAll(store.load())
@@ -166,7 +179,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
     }
 }
 
-@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit,onNotify:()->Unit,onSync:()->Unit){
+@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit,hasNotification:Boolean,onNotify:()->Unit,onSync:()->Unit){
     Surface(color=Navy,modifier=Modifier.fillMaxWidth()){
         Row(
             Modifier.statusBarsPadding().height(76.dp).padding(horizontal=18.dp),
@@ -190,7 +203,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
             }else{
                 IconButton(onClick=onNotify){
                     BadgedBox(
-                        badge={ if(screen==Screen.Home||screen==Screen.Calendar) Badge(containerColor=Color(0xFFFF4861)) }
+                        badge={ if(hasNotification&&(screen==Screen.Home||screen==Screen.Calendar)) Badge(containerColor=Color(0xFFFF4861)) }
                     ){
                         Icon(Icons.Outlined.Notifications,"Obavijesti",tint=Color.White)
                     }
