@@ -3,6 +3,15 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val releaseVersion = rootProject.projectDir.parentFile.resolve("VERSION").readText().trim()
+val versionMatch = Regex("""^(\d+)\.(\d+)\.(\d+)$""").matchEntire(releaseVersion)
+    ?: error("VERSION must use semantic version format x.y.z")
+val releaseVersionCode =
+    versionMatch.groupValues[1].toInt() * 10_000 +
+    versionMatch.groupValues[2].toInt() * 100 +
+    versionMatch.groupValues[3].toInt()
+
 android {
     namespace = "hr.raspored.app"
     compileSdk = 35
@@ -10,8 +19,8 @@ android {
         applicationId = "hr.raspored.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = releaseVersionCode
+        versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
