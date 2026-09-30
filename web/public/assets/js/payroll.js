@@ -168,6 +168,9 @@ function populateResidence(selected,county){
     '<option value="'+OTHER+'">Drugo mjesto — ručni unos poreznih stopa</option>';
   var exists=list.some(function(item){return item.name===selected});
   el.value=exists?selected:OTHER;
+  var wrap=qs("payrollResidenceCustomWrap"),custom=qs("payrollResidenceCustom");
+  if(wrap)wrap.hidden=exists;
+  if(custom&&!exists&&selected&&selected!=="Drugo")custom.value=selected;
 }
 function selectedTaxLocality(){
   var name=qs("payrollResidence")?qs("payrollResidence").value:"";
@@ -176,6 +179,8 @@ function selectedTaxLocality(){
 function applyTaxLocality(){
   var locality=selectedTaxLocality();
   var lower=qs("payrollTaxLower"),higher=qs("payrollTaxHigher"),note=qs("payrollTaxNote");
+  var wrap=qs("payrollResidenceCustomWrap");
+  if(wrap)wrap.hidden=!!locality;
   if(locality){
     if(lower)lower.value=String(locality.lower);
     if(higher)higher.value=String(locality.higher);
@@ -239,9 +244,10 @@ function syncWorkPatternControls(){
 function persist(){
   if(applying||!window.RasporedDataStore)return;
   var institution=currentInstitution(),custom=qs("payrollInstitutionCustom"),residence=qs("payrollResidence").value;
+  var customResidence=qs("payrollResidenceCustom");
   var payload={
     county:text(qs("payrollCounty").value,80),
-    residence:residence===OTHER?"Drugo":text(residence,100),
+    residence:residence===OTHER?text(customResidence&&customResidence.value||"Drugo",100):text(residence,100),
     taxLower:numeric("payrollTaxLower",20,0,50),
     taxHigher:numeric("payrollTaxHigher",30,0,50),
     sector:text(qs("payrollSector").value,100),
@@ -266,6 +272,7 @@ function applySaved(){
   populateCounties(county);
   populateResidence(p.residence||"Rijeka",county);
   if(qs("payrollResidence").value===OTHER){
+    if(qs("payrollResidenceCustom")&&p.residence&&p.residence!=="Drugo")qs("payrollResidenceCustom").value=p.residence;
     qs("payrollTaxLower").value=String(Number.isFinite(Number(p.taxLower))?p.taxLower:20);
     qs("payrollTaxHigher").value=String(Number.isFinite(Number(p.taxHigher))?p.taxHigher:30);
   }
@@ -401,7 +408,11 @@ function bind(){
     refreshInstitutionAndRole();
     persist();
   });
-  qs("payrollResidence").addEventListener("change",function(){applyTaxLocality();persist();render()});
+  qs("payrollResidence").addEventListener("change",function(){
+    if(this.value!==OTHER&&qs("payrollResidenceCustom"))qs("payrollResidenceCustom").value="";
+    applyTaxLocality();persist();render();
+  });
+  if(qs("payrollResidenceCustom"))qs("payrollResidenceCustom").addEventListener("change",function(){persist();render()});
   ["payrollTaxLower","payrollTaxHigher"].forEach(function(id){qs(id).addEventListener("input",render);qs(id).addEventListener("change",persist)});
   qs("payrollSector").addEventListener("change",function(){refreshInstitutionAndRole();persist()});
   qs("payrollInstitution").addEventListener("change",function(){
