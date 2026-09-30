@@ -20,7 +20,7 @@ class ScheduleStoreInstrumentedTest {
         try {
             val store = ScheduleStore(context)
             val recent = YearMonth.of(2026, 10)
-            val old = recent.minusYears(ScheduleStore.ARCHIVE_GUARANTEE_YEARS)
+            val old = recent.minusYears(ScheduleStore.ARCHIVE_GUARANTEE_YEARS.toLong())
 
             store.saveMonth(old, mapOf(1 to "D", 2 to "N", 3 to "J"))
             store.saveMonth(recent, mapOf(1 to "GO", 2 to "SD"))
