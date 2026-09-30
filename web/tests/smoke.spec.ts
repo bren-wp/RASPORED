@@ -139,6 +139,26 @@ test("web OCR infers a dense full-month grid when header numbers are missed", as
   expect(Math.round(result.centers["31"])).toBe(1380);
 });
 
+test("web OCR rejects an ambiguous leading blank day without a header anchor", async ({page}) => {
+  await page.goto("/");
+  const result=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const xs:number[]=[];
+    for(let day=2;day<=31;day++){
+      const center=120+(day-1)*42;
+      xs.push(center-2,center,center+2);
+    }
+    return {
+      ambiguous:api.inferDayCentersFromShiftXs(xs,31),
+      anchored:api.inferDayCentersFromShiftXs(xs,31,{"2":[162]})
+    };
+  });
+  expect(result.ambiguous).toBeNull();
+  expect(Math.round(result.anchored.centers["1"])).toBe(120);
+  expect(Math.round(result.anchored.centers["2"])).toBe(162);
+  expect(Math.round(result.anchored.centers["31"])).toBe(1380);
+});
+
 test("profile, notifications and colleagues controls work", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
