@@ -183,6 +183,10 @@ function durationMinutes(entry,now){
   return Math.max(0,end-start);
 }
 function durationLabel(mins){return Math.floor(mins/60)+"h "+String(mins%60).padStart(2,"0")+"min"}
+function activeTimeEntry(entries){
+  for(var i=entries.length-1;i>=0;i--)if(!entries[i].out)return entries[i];
+  return null;
+}
 function currentTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey&&!entries[i].out)return entries[i]}return null}
 function latestTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey)return entries[i]}return null}
 function shiftMeta(code){return {D:{name:"Dnevna smjena",time:"07:00 – 19:00 (12h)",hours:12},N:{name:"Noćna smjena",time:"19:00 – 07:00 (12h)",hours:12},GO:{name:"Slobodan dan",time:"—",hours:0},BO:{name:"Bolovanje",time:"—",hours:0}}[code]||{name:"Slobodno",time:"—",hours:0}}
@@ -385,11 +389,11 @@ function renderStats(){
 }
 function renderHours(){
   var root=document.getElementById("view-hours");if(!root)return;
-  var now=appNow(),today=iso(now),entries=loadTimeEntries(),active=currentTimeEntry(entries,today),latest=latestTimeEntry(entries,today);
-  var planned=shiftMeta(state.schedule[today]||"");
+  var now=appNow(),today=iso(now),entries=loadTimeEntries(),active=activeTimeEntry(entries),latest=active||latestTimeEntry(entries,today);
+  var currentShift=currentShiftFor(now),plannedKey=currentShift?iso(currentShift.date):today,planned=shiftMeta(state.schedule[plannedKey]||"");
   var dateEl=document.getElementById("hoursDate");if(dateEl)dateEl.textContent=now.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
   var monthLabel=document.getElementById("hoursMonthLabel");if(monthLabel)monthLabel.textContent=months[now.getMonth()]+" "+now.getFullYear()+".";
-  var plannedEl=document.getElementById("hoursPlannedShift");if(plannedEl)plannedEl.textContent=(state.schedule[today]?planned.name+" · "+planned.time:"Nema planirane smjene");
+  var plannedEl=document.getElementById("hoursPlannedShift");if(plannedEl)plannedEl.textContent=(state.schedule[plannedKey]?planned.name+" · "+planned.time:"Nema planirane smjene");
   var status=document.getElementById("hoursStatus"),pill=document.getElementById("hoursStatusPill"),inEl=document.getElementById("hoursInValue"),outEl=document.getElementById("hoursOutValue"),durationEl=document.getElementById("hoursDurationValue"),note=document.getElementById("hoursNote");
   if(status)status.textContent=active?"Rad je u tijeku":latest&&latest.out?"Današnja evidencija je spremljena":"Nema evidentiranog ulaza";
   if(pill){pill.textContent=active?"U tijeku":latest&&latest.out?"Završeno":"Spremno";pill.classList.toggle("is-active",!!active);pill.classList.toggle("is-done",!!(latest&&latest.out))}
@@ -407,19 +411,19 @@ function renderHours(){
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
 function clockIn(){
   var entries=loadTimeEntries(),now=appNow(),today=iso(now);
-  if(currentTimeEntry(entries,today)){toast("Ulaz je već evidentiran.");return}
+  if(activeTimeEntry(entries)){toast("Ulaz je već evidentiran.");return}
   entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:""});
   saveTimeEntries(entries);renderAll();toast("Ulaz je evidentiran.")
 }
 function clockOut(){
-  var entries=loadTimeEntries(),now=appNow(),today=iso(now),active=currentTimeEntry(entries,today);
+  var entries=loadTimeEntries(),now=appNow(),active=activeTimeEntry(entries);
   if(!active){toast("Nema aktivne evidencije za izlaz.");return}
   active.out=hhmm(now);
   var note=document.getElementById("hoursNote");active.note=note?note.value.trim().slice(0,500):active.note||"";
   saveTimeEntries(entries);renderAll();toast("Izlaz je evidentiran.")
 }
 function saveHoursNote(){
-  var entries=loadTimeEntries(),today=iso(appNow()),entry=currentTimeEntry(entries,today)||latestTimeEntry(entries,today),note=document.getElementById("hoursNote");
+  var entries=loadTimeEntries(),today=iso(appNow()),entry=activeTimeEntry(entries)||latestTimeEntry(entries,today),note=document.getElementById("hoursNote");
   if(!entry||!note)return;
   entry.note=note.value.trim().slice(0,500);saveTimeEntries(entries)
 }
