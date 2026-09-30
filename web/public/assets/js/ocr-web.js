@@ -23,6 +23,16 @@ function canonicalShift(raw){
   if(value==="B0")return "BO";
   return VALID.has(value)?value:null;
 }
+function canonicalGridCode(raw){
+  var known=canonicalShift(raw);
+  if(known)return known;
+  var value=normalize(raw).toLocaleUpperCase("hr-HR")
+    .replace(/^[.,;:|\[\](){}_\-]+|[.,;:|\[\](){}_\-]+$/g,"");
+  if(!/^[\p{L}\p{N}]{1,3}$/u.test(value))return null;
+  if(/^\d+$/.test(value)&&!["1","2","3"].includes(value))return null;
+  if(["RB","OD","DO"].includes(value))return null;
+  return value;
+}
 function centerX(bbox){return bbox?(Number(bbox.x0)+Number(bbox.x1))/2:NaN}
 function centerY(bbox){return bbox?(Number(bbox.y0)+Number(bbox.y1))/2:NaN}
 function boxHeight(bbox){return bbox?Math.max(1,Number(bbox.y1)-Number(bbox.y0)):1}
@@ -504,14 +514,14 @@ function bestRowAlignment(xs,geometry){
 function mapShiftTokens(tokens,geometry){
   var dayShifts={},maxDistance=Math.max(12,geometry.spacing*.52);
   var shiftTokens=tokens.filter(function(token){
-    return token&&token.bbox&&canonicalShift(token.text);
+    return token&&token.bbox&&canonicalGridCode(token.text);
   });
   var alignment=bestRowAlignment(
     shiftTokens.map(function(token){return centerX(token.bbox)}),
     geometry
   );
   shiftTokens.forEach(function(token){
-    var code=canonicalShift(token.text);
+    var code=canonicalGridCode(token.text);
     var rawX=centerX(token.bbox);
     var x=alignment.pivot+(rawX-alignment.pivot)*alignment.scale+alignment.offset;
     var nearest=null,best=Infinity;
@@ -524,7 +534,7 @@ function mapShiftTokens(tokens,geometry){
   return dayShifts;
 }
 function parseTokenRow(tokens,geometry){
-  var shifts=tokens.filter(function(token){return token.bbox&&canonicalShift(token.text)});
+  var shifts=tokens.filter(function(token){return token.bbox&&canonicalGridCode(token.text)});
   if(!shifts.length)return null;
   var firstShiftX=Math.min.apply(null,shifts.map(function(item){return centerX(item.bbox)}));
   var boundary=Math.min(firstShiftX,geometry.minX);
@@ -961,14 +971,22 @@ async function recognizeScheduleNow(file,onProgress){
     var mappedAfterBands=(merged.people||[]).reduce(function(sum,row){
       return sum+Object.keys(row.dayShifts||{}).length;
     },0);
-    var minimumMapped=Math.max(24,(merged.people||[]).length*8);
-    if((merged.people||[]).length>=4&&mappedAfterBands<minimumMapped){
-      // Extremely dense photographed schedules can yield the roster but almost
-      // no one-letter cell codes. Cross-tiling both axes is slower, so it is
-      // reserved for this failure mode. Each pass keeps the header + roster and
-      // enlarges only one row band and one day band.
-      var rowBands=[[.10,.36],[.30,.58],[.52,.80],[.74,1]];
-      var focusedDayBands=[[.16,.48],[.42,.74],[.68,1]];
+    var denseRoster=(merged.people||[]).length>=12;
+    var minimumMapped=Math.max(24,(merged.people||[]).length*(denseRoster?12:8));
+    if((merged.people||[]).length>=4&&(mappedAfterBands<minimumMapped||missingNumberedRows(merged))){
+      // Dense 27–31 row schedules from a monitor are deliberately expensive:
+      // accuracy wins over speed. If only a few cells per employee survive the
+      // first passes, use finer overlapping row/day tiles rather than accepting
+      // an incomplete roster.
+      var severeDenseFailure=denseRoster&&(
+        mappedAfterBands<(merged.people||[]).length*6||missingNumberedRows(merged)
+      );
+      var rowBands=severeDenseFailure
+        ?[[.08,.29],[.24,.45],[.40,.61],[.56,.77],[.72,.93],[.86,1]]
+        :[[.10,.36],[.30,.58],[.52,.80],[.74,1]];
+      var focusedDayBands=severeDenseFailure
+        ?[[.14,.34],[.30,.50],[.46,.66],[.62,.82],[.78,1]]
+        :[[.16,.48],[.42,.74],[.68,1]];
       var pass=0,totalPasses=rowBands.length*focusedDayBands.length;
       for(var rb=0;rb<rowBands.length;rb++){
         for(var db=0;db<focusedDayBands.length;db++){
