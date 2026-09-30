@@ -246,3 +246,23 @@ test("security headers are enabled", async ({page}) => {
   expect(headers["content-security-policy"]).toContain("default-src 'self'");
   expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
 });
+
+
+test("PWA manifest and install assets are available", async ({request}) => {
+  const manifest=await request.get("/manifest.webmanifest");
+  expect(manifest.ok()).toBeTruthy();
+  const data=await manifest.json();
+  expect(data.name).toContain("RASPORED");
+  expect(data.start_url).toBe("./");
+  expect(data.scope).toBe("./");
+  for(const path of [
+    "/assets/brand/icon-192.png",
+    "/assets/brand/icon-512.png",
+    "/assets/brand/icon-maskable-192.png",
+    "/assets/brand/icon-maskable-512.png",
+    "/sw.js"
+  ]){
+    const response=await request.get(path);
+    expect(response.ok(),path).toBeTruthy();
+  }
+});
