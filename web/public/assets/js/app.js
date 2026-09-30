@@ -11,6 +11,12 @@ function icon(name,extra){
   return '<svg class="ui-icon '+(extra||"")+'" aria-hidden="true"><use href="'+base+'"></use></svg>';
 }
 
+function storageSet(key,value){
+  try{localStorage.setItem(key,value);return true}catch(e){return false}
+}
+function storageRemove(key){
+  try{localStorage.removeItem(key);return true}catch(e){return false}
+}
 function sanitizeSchedule(raw){
   var clean={};
   if(!raw||typeof raw!=="object"||Array.isArray(raw))return clean;
@@ -57,7 +63,7 @@ function loadColleagues(){
     return Array.isArray(raw)?raw.filter(function(x){return x&&typeof x.name==="string"}).slice(0,30):[];
   }catch(e){return []}
 }
-function saveColleagues(items){localStorage.setItem("raspored.colleagues.v1",JSON.stringify(items.slice(0,30)))}
+function saveColleagues(items){return storageSet("raspored.colleagues.v1",JSON.stringify(items.slice(0,30)))}
 function renderColleagues(){
   var el=document.getElementById("colleaguesList");if(!el)return;
   var items=loadColleagues();
@@ -84,8 +90,9 @@ function submitColleague(){
   if(name.length<2){toast("Unesi valjano ime i prezime.");if(nameInput)nameInput.focus();return false}
   var items=loadColleagues();
   if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return false}
-  items.push({name:name,note:note||"Raspored kolege"});saveColleagues(items);renderColleagues();
-  if(dialog)dialog.close();toast("Kolega je dodan.");return true;
+  items.push({name:name,note:note||"Raspored kolege"});
+  if(!saveColleagues(items)){toast("Podatke nije moguće spremiti u pregledniku.");return false}
+  renderColleagues();if(dialog)dialog.close();toast("Kolega je dodan.");return true;
 }
 function yearMonthKey(y,m){return y+"-"+String(m+1).padStart(2,"0")}
 function renderPeriodMenu(){
@@ -184,14 +191,15 @@ function importSelectedScanSchedule(){
     if(n>=1&&n<=days&&["D","N","GO","BO"].indexOf(code)>=0)state.schedule[iso(new Date(y,m,n))]=code;
   });
   state.cursor=new Date(y,m,1);state.selected=new Date(y,m,1);
-  save();clearScanSession();renderAll();toast("Uvezen je samo raspored za "+person.name+".");route("calendar");
+  if(!save()){loadSchedule();renderAll();toast("Raspored nije spremljen. Provjeri dopuštenja preglednika.");return}
+  clearScanSession();renderAll();toast("Uvezen je samo raspored za "+person.name+".");route("calendar");
 }
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,da=((h+l-7*m+114)%31)+1;return new Date(y,mo,da)}
 function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x}
 function holidays(y){var map={};function add(m,d,n){map[y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0")]=n}add(1,1,"Nova godina");add(1,6,"Bogojavljenje");add(5,1,"Praznik rada");add(5,30,"Dan državnosti");add(6,22,"Dan antifašističke borbe");add(8,5,"Dan pobjede i domovinske zahvalnosti i Dan hrvatskih branitelja");add(8,15,"Velika Gospa");add(11,1,"Svi sveti");add(11,18,"Dan sjećanja na žrtve Domovinskog rata");add(12,25,"Božić");add(12,26,"Sveti Stjepan");var e=easter(y);map[iso(e)]="Uskrs";map[iso(addDays(e,1))]="Uskrsni ponedjeljak";map[iso(addDays(e,60))]="Tijelovo";return map}
 function loadSchedule(){try{state.schedule=sanitizeSchedule(JSON.parse(localStorage.getItem("raspored.schedule")||"{}"))}catch(e){state.schedule={}}}
-function save(){localStorage.setItem("raspored.schedule",JSON.stringify(state.schedule))}
+function save(){return storageSet("raspored.schedule",JSON.stringify(state.schedule))}
 function appNow(){return new Date()}
 function punctuatedDate(date,options){
   return date.toLocaleDateString("hr-HR",options).replace(/[.\s]+$/,"")+".";
@@ -211,7 +219,7 @@ function loadTimeEntries(){
     });
   }catch(e){return []}
 }
-function saveTimeEntries(entries){localStorage.setItem("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
+function saveTimeEntries(entries){return storageSet("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
 function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function durationMinutes(entry,now){
   if(!entry||!entry.in)return 0;
@@ -483,19 +491,21 @@ function clockIn(){
   var entries=loadTimeEntries(),now=appNow(),today=iso(now);
   if(activeTimeEntry(entries)){toast("Ulaz je već evidentiran.");return}
   entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:"",startedAt:now.getTime(),endedAt:null});
-  saveTimeEntries(entries);renderAll();toast("Ulaz je evidentiran.")
+  if(!saveTimeEntries(entries)){toast("Ulaz nije spremljen. Provjeri dopuštenja preglednika.");return}
+  renderAll();toast("Ulaz je evidentiran.")
 }
 function clockOut(){
   var entries=loadTimeEntries(),now=appNow(),active=activeTimeEntry(entries);
   if(!active){toast("Nema aktivne evidencije za izlaz.");return}
   active.out=hhmm(now);active.endedAt=now.getTime();
   var note=document.getElementById("hoursNote");active.note=note?note.value.trim().slice(0,500):active.note||"";
-  saveTimeEntries(entries);renderAll();toast("Izlaz je evidentiran.")
+  if(!saveTimeEntries(entries)){toast("Izlaz nije spremljen. Provjeri dopuštenja preglednika.");return}
+  renderAll();toast("Izlaz je evidentiran.")
 }
 function saveHoursNote(){
   var entries=loadTimeEntries(),today=iso(appNow()),entry=activeTimeEntry(entries)||latestTimeEntry(entries,today),note=document.getElementById("hoursNote");
   if(!entry||!note)return;
-  entry.note=note.value.trim().slice(0,500);saveTimeEntries(entries)
+  entry.note=note.value.trim().slice(0,500);if(!saveTimeEntries(entries))toast("Bilješku nije moguće spremiti.")
 }
 async function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
@@ -570,12 +580,12 @@ function bind(){
   ["prevMonth","calPrev"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(-1)})});
   ["nextMonth","calNext"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(1)})});
   document.getElementById("todayBtn").addEventListener("click",function(){var n=appNow();state.cursor=new Date(n.getFullYear(),n.getMonth(),1);state.selected=n;renderAll()});
-  document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";localStorage.setItem("raspored.theme",document.documentElement.dataset.theme)});
+  document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";if(!storageSet("raspored.theme",document.documentElement.dataset.theme))toast("Postavku izgleda nije moguće spremiti.")});
   var motion=document.getElementById("motionToggle");
   if(motion){
     motion.checked=localStorage.getItem("raspored.reducedMotion")==="1";
     document.body.dataset.reducedMotion=motion.checked?"true":"false";
-    motion.addEventListener("change",function(){localStorage.setItem("raspored.reducedMotion",this.checked?"1":"0");document.body.dataset.reducedMotion=this.checked?"true":"false"});
+    motion.addEventListener("change",function(){if(!storageSet("raspored.reducedMotion",this.checked?"1":"0"))toast("Postavku animacija nije moguće spremiti.");document.body.dataset.reducedMotion=this.checked?"true":"false"});
   }
   document.getElementById("saveSchedule").addEventListener("click",importSelectedScanSchedule);
   document.getElementById("clockInBtn").addEventListener("click",clockIn);
@@ -648,7 +658,8 @@ function bind(){
     saveProfileBtn.addEventListener("click",function(){
       var value=profileInput.value.trim().replace(/\s+/g," ").slice(0,80);
       if(value.length>0&&value.length<2){toast("Unesi valjano ime i prezime.");return}
-      if(value)localStorage.setItem("raspored.profile.name",value);else localStorage.removeItem("raspored.profile.name");
+      var stored=value?storageSet("raspored.profile.name",value):storageRemove("raspored.profile.name");
+      if(!stored){toast("Profil nije moguće spremiti u pregledniku.");return}
       configureProfile();toast("Profil je spremljen.");
     });
   }
