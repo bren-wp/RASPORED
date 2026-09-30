@@ -43,6 +43,8 @@ if ($base === '.') { $base = ''; }
     <header class="topbar">
       <a class="brand brand--mobile" href="#" data-route="home"><img src="assets/brand/logo.svg" alt="" width="42"><span><strong>RASPORED</strong><small>Shift planner & evidencija sati</small></span></a>
       <div class="top-actions">
+        <button class="icon-btn mobile-header-action" id="mobileScanHeaderBtn" data-route="scan" aria-label="Skeniraj raspored"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg></button>
+        <button class="icon-btn mobile-header-action" id="statsRefreshBtn" aria-label="Osvježi statistiku"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-refresh"></use></svg></button>
         <button class="icon-btn" id="searchBtn" aria-label="Pretraži"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-search"></use></svg></button>
         <button class="icon-btn notification" id="notificationBtn" aria-label="Obavijesti" aria-expanded="false"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span id="notificationDot"></span></button>
         <button class="profile-btn" id="profileButton" aria-label="Korisnički profil"><b id="profileInitials">K</b><span id="profileName">Korisnik</span><i>⌄</i></button>
@@ -268,6 +270,22 @@ if ($base === '.') { $base = ''; }
   <div class="floating-panel-head"><b>Profil</b><button class="icon-btn" id="closeProfileBtn" aria-label="Zatvori">×</button></div>
   <button class="panel-action" data-route="settings">Uredi profil i postavke</button>
 </div>
+
+
+<dialog class="app-dialog" id="scanHelpDialog">
+  <form class="dialog-card" method="dialog">
+    <div class="dialog-head">
+      <div><h2>Kako dobiti dobar rezultat</h2><p>Fotografija rasporeda treba biti jasna i ravna.</p></div>
+      <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
+    </div>
+    <div class="scan-help-list">
+      <p><b>1.</b> Obuhvati cijelu tablicu i zaglavlje s brojevima dana.</p>
+      <p><b>2.</b> Izbjegni sjene, odsjaj i zamućenje.</p>
+      <p><b>3.</b> Ako je na rasporedu više osoba, nakon prepoznavanja odaberi samo jedno ime i prezime.</p>
+      <p><b>4.</b> Provjeri D, N, GO i BO oznake prije spremanja.</p>
+    </div>
+  </form>
+</dialog>
 
 <dialog class="app-dialog" id="searchDialog">
   <form class="dialog-card" method="dialog">
