@@ -41,12 +41,25 @@ object ReportExporter {
         val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 9.5f }
         val smallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 8f }
 
-        val monthEntries = evidence.filter {
-            val instant = Instant.ofEpochMilli(it.startedAt).atZone(zone)
-            YearMonth.from(instant) == month
+        val reportNow = System.currentTimeMillis()
+        val monthStart = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val monthEnd = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        fun safeEnd(entry: TimeEvidenceEntry): Long =
+            minOf(
+                entry.endedAt ?: reportNow,
+                entry.startedAt + 36L * 60L * 60L * 1000L
+            )
+
+        fun overlaps(entry: TimeEvidenceEntry, start: Long, end: Long): Boolean =
+            entry.startedAt < end && safeEnd(entry) > start
+
+        val monthEntries = evidence.filter { overlaps(it, monthStart, monthEnd) }
+        val workedMinutes = monthEntries.sumOf { entry ->
+            val clippedStart = maxOf(entry.startedAt, monthStart)
+            val clippedEnd = minOf(safeEnd(entry), monthEnd)
+            ((clippedEnd - clippedStart).coerceAtLeast(0L) / 60_000L)
         }
-        val workedMinutes = monthEntries.filter { it.endedAt != null }
-            .sumOf { it.durationMinutes(it.endedAt ?: it.startedAt) }
         val counts = listOf("D", "N", "GO", "BO", "PD", "SD")
             .associateWith { code ->
                 (1..month.lengthOfMonth()).count { day ->
@@ -125,19 +138,26 @@ object ReportExporter {
                 "SD" -> "SD · slobodan dan"
                 else -> "—"
             }
-            val entriesForDay = monthEntries.filter {
-                Instant.ofEpochMilli(it.startedAt).atZone(zone).toLocalDate() == date
-            }
+            val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
+            val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val entriesForDay = monthEntries.filter { overlaps(it, dayStart, dayEnd) }
             val evidenceText = if (entriesForDay.isEmpty()) {
                 "—"
             } else {
                 entriesForDay.joinToString(" | ") { entry ->
-                    val start = Instant.ofEpochMilli(entry.startedAt).atZone(zone).toLocalTime().format(timeFormatter)
-                    val end = entry.endedAt?.let {
-                        Instant.ofEpochMilli(it).atZone(zone).toLocalTime().format(timeFormatter)
-                    } ?: "u tijeku"
-                    "$start–$end (${workTypeLabel(entry.workType)})"
-                }.take(58)
+                    val clippedStart = maxOf(entry.startedAt, dayStart)
+                    val clippedEnd = minOf(safeEnd(entry), dayEnd)
+                    val start = Instant.ofEpochMilli(clippedStart)
+                        .atZone(zone)
+                        .toLocalTime()
+                        .format(timeFormatter)
+                    val end = Instant.ofEpochMilli(clippedEnd)
+                        .atZone(zone)
+                        .toLocalTime()
+                        .format(timeFormatter)
+                    val active = if (entry.endedAt == null && clippedEnd == safeEnd(entry)) " · u tijeku" else ""
+                    "$start–$end (${workTypeLabel(entry.workType)})$active"
+                }.take(64)
             }
 
             canvas.drawText(date.format(dateFormatter), 36f, y, bodyPaint)
@@ -153,7 +173,7 @@ object ReportExporter {
         canvas.drawLine(36f, y, 560f, y, paint)
         y += 15f
         canvas.drawText(
-            "Izvještaj je informativan i temelji se na podacima spremljenima u aplikaciji RASPORED.",
+            "Izvještaj je informativan. Noćni rad preko ponoći/mjeseca dijeli se prema stvarnom vremenu.",
             36f,
             y,
             smallPaint
