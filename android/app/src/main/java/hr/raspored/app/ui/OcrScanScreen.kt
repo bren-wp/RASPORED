@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.ocr.RecognizedSchedule
 import hr.raspored.app.ocr.RecognizedScheduleRow
+import hr.raspored.app.ocr.RecognitionCellReview
 import hr.raspored.app.ocr.AiScheduleVerifier
 import hr.raspored.app.ocr.ScheduleOcrEngine
 import hr.raspored.app.ocr.createOcrCaptureUri
@@ -62,10 +63,18 @@ internal fun OcrScanScreen(
     var editMode by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
     var aiBusy by remember { mutableStateOf(false) }
+    val reviewCells = remember { mutableStateListOf<RecognitionCellReview>() }
+    var reviewConflictIndex by remember { mutableIntStateOf(-1) }
+    var customConflictCode by remember { mutableStateOf("") }
     var ocrGeneration by remember { mutableIntStateOf(0) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
-    fun applyResult(recognized: RecognizedSchedule) {
+    fun applyResult(recognized: RecognizedSchedule, keepReviewCells: Boolean = false) {
+        if (!keepReviewCells) {
+            reviewCells.clear()
+            reviewConflictIndex = -1
+            customConflictCode = ""
+        }
         result = recognized
         selectedMonth = recognized.month ?: defaultMonth
         editedShifts.clear()
@@ -751,35 +760,126 @@ private fun nextShiftCode(current: String): String {
 
 private data class AiMergeResult(
     val schedule: RecognizedSchedule,
-    val conflicts: Int
+    val cells: List<RecognitionCellReview>
 )
 
 private fun mergeForAiReview(
     local: RecognizedSchedule?,
     ai: RecognizedSchedule
 ): AiMergeResult {
-    if (local == null) return AiMergeResult(ai, 0)
-
     fun key(row: RecognizedScheduleRow): String =
         row.rowNumber?.let { "row:" + it }
             ?: "name:" + row.name.trim().uppercase(java.util.Locale("hr", "HR"))
 
+    if (local == null) {
+        val aiCells = ai.rows.flatMap { row ->
+            row.dayShifts.map { (day, code) ->
+                RecognitionCellReview(
+                    employeeRow = row.rowNumber,
+                    employeeName = row.name,
+                    day = day,
+                    localCode = null,
+                    aiCode = code,
+                    selectedCode = code,
+                    source = "ai",
+                    confidence = null,
+                    conflict = false,
+                    manuallyConfirmed = false
+                )
+            }
+        }
+        return AiMergeResult(ai, aiCells)
+    }
+
     val mergedRows = linkedMapOf<String, RecognizedScheduleRow>()
     local.rows.forEach { row -> mergedRows[key(row)] = row }
-    var conflicts = 0
+    val cells = linkedMapOf<String, RecognitionCellReview>()
+
+    local.rows.forEach { row ->
+        row.dayShifts.forEach { (day, code) ->
+            cells[key(row) + ":" + day] = RecognitionCellReview(
+                employeeRow = row.rowNumber,
+                employeeName = row.name,
+                day = day,
+                localCode = code,
+                aiCode = null,
+                selectedCode = code,
+                source = "local",
+                confidence = null,
+                conflict = false,
+                manuallyConfirmed = false
+            )
+        }
+    }
 
     ai.rows.forEach { aiRow ->
         val rowKey = key(aiRow)
         val existing = mergedRows[rowKey]
         if (existing == null) {
             mergedRows[rowKey] = aiRow
+            aiRow.dayShifts.forEach { (day, aiCode) ->
+                cells[rowKey + ":" + day] = RecognitionCellReview(
+                    employeeRow = aiRow.rowNumber,
+                    employeeName = aiRow.name,
+                    day = day,
+                    localCode = null,
+                    aiCode = aiCode,
+                    selectedCode = aiCode,
+                    source = "ai",
+                    confidence = null,
+                    conflict = false,
+                    manuallyConfirmed = false
+                )
+            }
         } else {
             val shifts = existing.dayShifts.toMutableMap()
             aiRow.dayShifts.forEach { (day, aiCode) ->
                 val localCode = shifts[day]
+                val cellKey = rowKey + ":" + day
                 when {
-                    localCode == null -> shifts[day] = aiCode
-                    localCode != aiCode -> conflicts++
+                    localCode == null -> {
+                        shifts[day] = aiCode
+                        cells[cellKey] = RecognitionCellReview(
+                            employeeRow = existing.rowNumber ?: aiRow.rowNumber,
+                            employeeName = if (aiRow.name.length > existing.name.length) aiRow.name else existing.name,
+                            day = day,
+                            localCode = null,
+                            aiCode = aiCode,
+                            selectedCode = aiCode,
+                            source = "ai",
+                            confidence = null,
+                            conflict = false,
+                            manuallyConfirmed = false
+                        )
+                    }
+                    localCode == aiCode -> {
+                        cells[cellKey] = RecognitionCellReview(
+                            employeeRow = existing.rowNumber ?: aiRow.rowNumber,
+                            employeeName = existing.name,
+                            day = day,
+                            localCode = localCode,
+                            aiCode = aiCode,
+                            selectedCode = localCode,
+                            source = "local+ai",
+                            confidence = null,
+                            conflict = false,
+                            manuallyConfirmed = false
+                        )
+                    }
+                    else -> {
+                        cells[cellKey] = RecognitionCellReview(
+                            employeeRow = existing.rowNumber ?: aiRow.rowNumber,
+                            employeeName = existing.name,
+                            day = day,
+                            localCode = localCode,
+                            aiCode = aiCode,
+                            selectedCode = localCode,
+                            source = "local+ai",
+                            confidence = null,
+                            conflict = true,
+                            manuallyConfirmed = false
+                        )
+                    }
                 }
             }
             mergedRows[rowKey] = existing.copy(
@@ -801,6 +901,10 @@ private fun mergeForAiReview(
             rawText = local.rawText,
             expectedRowCount = listOfNotNull(local.expectedRowCount, ai.expectedRowCount).maxOrNull()
         ),
-        conflicts = conflicts
+        cells = cells.values.sortedWith(
+            compareBy<RecognitionCellReview> { it.employeeRow ?: Int.MAX_VALUE }
+                .thenBy { it.employeeName }
+                .thenBy { it.day }
+        )
     )
 }
