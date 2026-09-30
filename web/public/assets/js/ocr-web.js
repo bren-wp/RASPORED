@@ -31,9 +31,9 @@ function median(values){
 }
 function detectMonth(text){
   var upper=normalizeAscii(text);
-  var yearFirst=upper.match(/\b(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])\b/);
+  var yearFirst=upper.match(/\b(20\d{2})[ \t]*[./-][ \t]*(0?[1-9]|1[0-2])\b/);
   if(yearFirst)return {year:Number(yearFirst[1]),month:Number(yearFirst[2])};
-  var monthFirst=upper.match(/\b(0?[1-9]|1[0-2])\s*[./-]\s*(20\d{2})\b/);
+  var monthFirst=upper.match(/\b(0?[1-9]|1[0-2])[ \t]*[./-][ \t]*(20\d{2})\b/);
   if(monthFirst)return {year:Number(monthFirst[2]),month:Number(monthFirst[1])};
   var labelled=upper.match(/\b(?:MJESEC|MJESECA|ZA)\s*[:.-]?\s*(0?[1-9]|1[0-2])\s+(20\d{2})\b/);
   if(labelled)return {year:Number(labelled[2]),month:Number(labelled[1])};
