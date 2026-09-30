@@ -250,7 +250,13 @@ object ScheduleOcrParser {
             }
         }
 
-        val observedCenters = clusters
+        val supportedClusters = clusters.filter { it.size >= 2 }
+        val gridClusters = if (supportedClusters.size >= maxOf(10, maxDay / 3)) {
+            supportedClusters
+        } else {
+            clusters
+        }
+        val observedCenters = gridClusters
             .map { cluster -> cluster.average() }
             .sorted()
         if (observedCenters.size < maxOf(12, maxDay / 2)) return null
