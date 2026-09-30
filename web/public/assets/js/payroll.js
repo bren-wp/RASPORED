@@ -3,6 +3,7 @@
 
 var config=null;
 var bound=false;
+var initialized=false;
 
 function qs(id){return document.getElementById(id)}
 function money(value){return new Intl.NumberFormat("hr-HR",{style:"currency",currency:"EUR",minimumFractionDigits:2}).format(Number(value)||0)}
@@ -191,7 +192,8 @@ function bind(){
   });
 }
 async function init(){
-  if(!qs("view-payroll"))return;
+  if(initialized||!qs("view-payroll"))return;
+  initialized=true;
   defaultMonth();
   try{
     var response=await fetch((document.body.dataset.base||"")+"/assets/data/payroll-public-health-2026.json",{cache:"no-store"});
@@ -203,6 +205,5 @@ async function init(){
   }
 }
 window.RasporedPayroll={init:init,render:render};
-init();
 window.addEventListener("raspored:storage-synced",function(){if(document.body.dataset.routeCurrent==="payroll")render()});
 })();
