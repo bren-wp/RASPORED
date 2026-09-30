@@ -168,6 +168,11 @@ test("overnight time evidence can be closed after midnight", async ({page}) => {
 test("main routes have no page-level horizontal overflow or fixed-nav overlap", async ({page}) => {
   await page.goto("/");
   for (const route of ["home","calendar","scan","stats","hours","settings"]) {
+    const current=await page.locator("body").getAttribute("data-route-current");
+    if(current==="scan"&&route!=="scan"){
+      await page.locator(".scan-header .back-btn").click();
+    }
+
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
@@ -177,6 +182,7 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
     }else{
       await page.locator('[data-route="home"]:visible').first().click();
     }
+
     const metrics=await page.evaluate(() => ({
       viewport: window.innerWidth,
       pageWidth: document.documentElement.scrollWidth,
