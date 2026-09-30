@@ -89,11 +89,14 @@ function editSimilarity(left,right){
 function namesProbablySame(left,right){
   if(!validName(left)||!validName(right))return false;
   if(nameFingerprint(left)===nameFingerprint(right))return true;
-  var lw=nameWords(left),rw=nameWords(right),overlap=0,union=new Set();
-  lw.forEach(function(x){union.add(x);if(rw.has(x))overlap++});
-  rw.forEach(function(x){union.add(x)});
-  var jaccard=overlap/Math.max(1,union.size),edit=editSimilarity(left,right);
-  return edit>=.84||(overlap>=1&&jaccard>=.34&&edit>=.72);
+  var lw=nameWords(left),rw=nameWords(right);
+  if(!lw.size||lw.size!==rw.size)return false;
+  var overlap=0;
+  lw.forEach(function(x){if(rw.has(x))overlap++});
+  var edit=editSimilarity(left,right);
+  // Without a trusted row number, identity matching is deliberately strict.
+  // Similar real names (e.g. IVAN / IVANA with the same surname) must stay apart.
+  return edit>=.94&&overlap>=Math.max(1,lw.size-1);
 }
 function nameQuality(value){
   if(!validName(value))return -1000000;
@@ -170,18 +173,25 @@ function mergeRows(rows){
 }
 function finalizeRows(rows){
   var merged=mergeRows(rows),numbered=merged.filter(function(row){return row.row!=null});
-  if(numbered.length<5)return merged;
+  if(numbered.length<5){
+    return merged.filter(function(row){
+      return row.row!=null||(Number(row.supportCount)||1)>=2||merged.length<12;
+    });
+  }
   var numbers=Array.from(new Set(numbered.map(function(row){return Number(row.row)}))).sort(function(a,b){return a-b});
   var first=numbers[0],last=numbers[numbers.length-1],span=Math.max(1,last-first+1);
   var denseRoster=first<=3&&numbers.length/span>=.72;
-  var authoritative=numbered.slice();
+  var missingSlots=Math.max(0,span-numbers.length);
+  var authoritative=numbered.slice(),unmatched=[];
+
   merged.filter(function(row){return row.row==null}).forEach(function(row){
     var best=-1,bestScore=0;
     authoritative.forEach(function(target,index){
+      if(!namesProbablySame(target.name,row.name))return;
       var score=editSimilarity(target.name,row.name);
       if(score>bestScore){bestScore=score;best=index}
     });
-    if(best>=0&&bestScore>=.78){
+    if(best>=0){
       var target=authoritative[best];
       authoritative[best]={
         row:target.row,
@@ -189,10 +199,22 @@ function finalizeRows(rows){
         dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},target.dayShifts||{})),
         supportCount:(Number(target.supportCount)||1)+(Number(row.supportCount)||1)
       };
-    }else if(!denseRoster&&(Number(row.supportCount)||1)>=3&&validName(row.name||"")){
-      authoritative.push(row);
+    }else if((Number(row.supportCount)||1)>=3&&validName(row.name||"")){
+      unmatched.push(row);
     }
   });
+
+  if(denseRoster){
+    unmatched.sort(function(a,b){
+      return (Number(b.supportCount)||1)-(Number(a.supportCount)||1)||
+        nameQuality(b.name)-nameQuality(a.name)||
+        Object.keys(b.dayShifts||{}).length-Object.keys(a.dayShifts||{}).length;
+    });
+    authoritative=authoritative.concat(unmatched.slice(0,missingSlots));
+  }else{
+    authoritative=authoritative.concat(unmatched);
+  }
+
   return authoritative.sort(function(a,b){
     var ar=a.row==null?9999:a.row,br=b.row==null?9999:b.row;
     return ar-br||a.name.localeCompare(b.name,"hr");
