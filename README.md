@@ -32,7 +32,7 @@ RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju sm
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
-- **Kalendar smjena** — glavni početni ekran; D, N, GO, BO, PD i SD mogu se uvesti skeniranjem ili ručno postaviti za bilo koji datum.
+- **Kalendar smjena** — glavni početni ekran; D, N, GO, BO, PD i SD mogu se uvesti skeniranjem ili ručno postaviti za bilo koji datum. Android ne briše stare mjesece pri novom uvozu i ima brzi odabir mjeseca kroz najmanje 10 godina lokalne povijesti.
 - **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
 - **Evidencija sati** — ulaz, izlaz, bilješka, trajanje rada i mjesečna povijest.
 - **Statistika** — dnevni/noćni sati, saldo, vikendi, blagdani i raspodjela po tjednima.
@@ -69,7 +69,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | --- | --- |
 | **Mjesečni kalendar** | Početni ekran aplikacije s pregledom smjena, hrvatskih blagdana i ručnim uređivanjem D / N / GO / BO / PD / SD oznaka po danu te vlastitih kratkih oznaka do 8 slova/brojeva. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
-| **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, preklapajući pojasevi, zasebni roster prolazi i fokusirani 2D recovery tileovi za vrlo guste rasporede; osobe i stupci dana spajaju se po broju retka/geometriji bez komprimiranja praznih dana. |
+| **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, preklapajući pojasevi, zasebni roster prolazi i fokusirani 2D recovery tileovi za vrlo guste rasporede; osobe i stupci dana spajaju se po broju retka/geometriji bez komprimiranja praznih dana. Kod izrazito gustih 27–31 rednih tablica aktivira se finiji recovery s užim preklapajućim pojasevima. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
 | **Saldo sati** | Razlika između planiranih i stvarno evidentiranih minuta. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
@@ -85,7 +85,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
-3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
+3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. U dokazanoj ćeliji kalendarske mreže čuva i kratke oznake specifične radnom mjestu (npr. **J, S, P1, 1, 2, 3**) bez izmišljanja njihova značenja. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
 4. U osobni kalendar uvozi se **točno jedna odabrana osoba**. Android za to ne traži račun. Ako je puni raspored gust, OCR koristi broj retka kao primarni identitet i dodatne roster prolaze za ime kako ne bi stvarao duplikate ili gubio smjene.
 5. Android bez registracije može iz istog skeniranja spremiti više prepoznatih djelatnika kao **odvojene lokalne rasporede tima**. Web zadržava opcionalni korisnički račun i voditeljski način. Rasporedi se nikada ne spajaju među osobama.
 6. Prije spremanja moguće je ručno ispraviti svaki dan i oznaku; bez pouzdane geometrije stupaca aplikacija traži ponovno skeniranje umjesto tihog pomicanja dana ulijevo ili udesno.
@@ -111,7 +111,7 @@ Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno od
 
 ## Oznake rasporeda i Evidencija sati
 
-RASPORED razlikuje planirani raspored od stvarne Evidencije sati. Podržane oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
+RASPORED razlikuje planirani raspored od stvarne Evidencije sati. Podržane semantičke oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. Kratke oznake koje ustanova koristi, a RASPORED im nema potvrđenu semantiku, čuvaju se kao vlastite oznake umjesto da se odbace ili pogrešno prevedu. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
 
 Blagdan je svojstvo datuma, a ne posebna oznaka rasporeda. Prazna ćelija na blagdan ostaje prazna i prikazuje se kao blagdan/neradni dan; aplikacija ne dodaje +150 % dodatka ako na taj datum nema stvarno odrađenog rada. Za javne službe TKU predviđa pravo na naknadu plaće kada zaposlenik ne radi zbog državnog blagdana ili neradnog dana, pa taj slučaj ne pretvaramo u BO, SD ili izmišljenu smjenu.
 
