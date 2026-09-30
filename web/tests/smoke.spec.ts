@@ -102,10 +102,22 @@ test("profile, notifications and colleagues controls work", async ({page}) => {
   if(width>820){
     await page.locator("#notificationBtn").click();
     await expect(page.locator("#notificationPanel")).toBeVisible();
+    await expect(page.locator("#notificationText")).toContainText("Sljedeća smjena");
     await page.locator("#profileButton").click();
     await expect(page.locator("#profilePanel")).toBeVisible();
+    await page.locator("#searchBtn").click();
+    await expect(page.locator("#searchDialog")).toBeVisible();
+    await page.locator("#searchInput").fill("statistika");
+    await page.locator('[data-search-route="stats"]').click();
+    await expect(page.locator('[data-view="stats"]')).toBeVisible();
     await page.locator('[data-route="colleagues"]:visible').first().click();
     await expect(page.getByText("Nikola Jurić")).toBeVisible();
+    await page.locator("#addColleagueBtn").click();
+    await expect(page.locator("#colleagueDialog")).toBeVisible();
+    await page.locator("#colleagueNameInput").fill("Tomislav Marić");
+    await page.locator("#colleagueNoteInput").fill("Odjel C");
+    await page.locator("#colleagueForm").getByRole("button",{name:"Spremi kolegu"}).click();
+    await expect(page.getByText("Tomislav Marić")).toBeVisible();
   }
   await page.locator('[data-route="settings"]:visible').first().click();
   await page.locator("#profileNameInput").fill("Sara Kovač");
@@ -118,4 +130,37 @@ test("no reference-person names or development labels ship in production UI", as
   await expect(page.locator("body")).not.toContainText("Marko Marković");
   await expect(page.locator("body")).not.toContainText("MARIO EGIMOVIĆ");
   await expect(page.locator("body")).not.toContainText("-dev");
+});
+
+
+test("web OCR parser normalizes common OCR errors without user data", async ({page}) => {
+  await page.goto("/");
+  const parsed=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    return {
+      rows:api.parseText("3 IVA KOVAČ G0 B0 D N"),
+      month:api.detectMonth("SIJECANJ 2027.")
+    };
+  });
+  expect(parsed.rows).toHaveLength(1);
+  expect(parsed.rows[0].dayShifts).toEqual({"1":"GO","2":"BO","3":"D","4":"N"});
+  expect(parsed.month).toEqual({year:2027,month:1});
+});
+
+test("overnight time evidence can be closed after midnight", async ({page}) => {
+  await page.goto("/");
+  await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
+  await page.evaluate(() => {
+    localStorage.setItem("raspored.timeEntries.v1",JSON.stringify([
+      {id:"night-active",date:"2026-10-16",in:"19:00",out:null,note:"Noćna smjena"}
+    ]));
+  });
+  await page.reload();
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  else await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
+  await expect(page.locator("#clockOutBtn")).toBeEnabled();
+  await page.locator("#clockOutBtn").click();
+  await expect(page.locator("#hoursStatus")).toContainText("spremljena");
 });
