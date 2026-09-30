@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false};
+var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false,scanGeneration:0};
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
 
@@ -500,6 +500,7 @@ function saveHoursNote(){
 async function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
   if(file.size>10*1024*1024){toast("Slika je prevelika. Najveća dopuštena veličina je 10 MB.");return}
+  var generation=++state.scanGeneration;
   var preview=document.getElementById("scanPreview"),img=document.getElementById("scanPreviewImage"),status=document.getElementById("scanStatus"),progress=status.querySelector(".scan-progress i");
   if(img.dataset.objectUrl)URL.revokeObjectURL(img.dataset.objectUrl);
   var url=URL.createObjectURL(file);img.dataset.objectUrl=url;img.src=url;preview.classList.add("has-image");
@@ -510,8 +511,9 @@ async function handleScanFile(file){
   try{
     if(!window.RasporedWebOcr||typeof window.RasporedWebOcr.recognizeSchedule!=="function")throw new Error("OCR modul nije dostupan");
     var result=await window.RasporedWebOcr.recognizeSchedule(file,function(value){
-      if(progress)progress.style.width=Math.max(4,Math.min(96,Math.round(value*100)))+"%";
+      if(generation===state.scanGeneration&&progress)progress.style.width=Math.max(4,Math.min(96,Math.round(value*100)))+"%";
     });
+    if(generation!==state.scanGeneration)return;
     state.scanPeople=sanitizeScanPeople(result.people);
     state.scanMonth=result.month||null;
     state.scanSelected=state.scanPeople.length===1?0:-1;
@@ -529,6 +531,7 @@ async function handleScanFile(file){
       status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO ili BO. Pokušaj s ravnijom i oštrijom fotografijom.";
     }
   }catch(error){
+    if(generation!==state.scanGeneration)return;
     status.classList.remove("is-scanning");status.classList.add("is-error");
     if(progress)progress.style.width="0";
     status.querySelector("span").textContent=navigator.onLine
