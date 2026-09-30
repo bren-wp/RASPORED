@@ -420,3 +420,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 
 .team-import-btn{margin-top:9px!important}.team-import-note{width:min(980px,100%);margin:8px auto 0;text-align:center;color:var(--muted);font-size:11px}.team-card{margin-top:14px}.team-list-head{margin-bottom:8px}.team-members-list{display:grid;gap:8px;margin-top:12px}.team-member-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)}.team-member-row:first-child{border-top:0}.team-member-row span:nth-child(2) b,.team-member-row span:nth-child(2) small{display:block}.team-member-row span:nth-child(2) small{color:var(--muted);margin-top:3px}.team-member-state{font-size:11px;font-weight:700;color:#07865F;background:#D9F9EC;border-radius:999px;padding:7px 9px;white-space:nowrap}
 @media(max-width:620px){.team-member-row{grid-template-columns:44px minmax(0,1fr)}.team-member-state{grid-column:2;justify-self:start}}
+
+.print-report{display:none}
+@media print{
+  body.is-printing-report>*:not(.print-report){display:none!important}
+  body.is-printing-report{background:#fff!important;color:#111!important;min-width:0!important}
+  body.is-printing-report .print-report{display:block!important;padding:18mm;font-family:Inter,Arial,sans-serif}
+  .print-report h1{margin:0 0 4mm;font-size:24pt;color:#0B1F44}.print-report p{margin:0 0 3mm}
+  .print-report table{width:100%;border-collapse:collapse;margin-top:5mm;font-size:9pt}
+  .print-report th,.print-report td{border:1px solid #CCD5E2;padding:2.2mm;text-align:left;vertical-align:top}
+  .print-report th{background:#F2F6FA}.print-report-note{margin-top:5mm!important;font-size:8pt;color:#475569}
+}
