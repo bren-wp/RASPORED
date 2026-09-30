@@ -302,17 +302,21 @@ object ScheduleOcrParser {
             spacing = spacing,
             tolerance = rowTolerance
         )
-        val anchoredRows = anchors.map { anchor ->
+        val anchoredRows = anchors.mapNotNull { anchor ->
             val rowTokens = tokensForAnchor(anchor, anchors, tokens, rowTolerance)
             val shiftTokens = rowTokens.mapNotNull { token ->
                 canonicalShift(token.text)?.let { token to it }
             }
             val dayShifts = mapShiftTokensToDays(shiftTokens, dayCenters, maxDistance)
-            RecognizedScheduleRow(
-                rowNumber = anchor.rowNumber,
-                name = anchor.name,
-                dayShifts = dayShifts
-            )
+            if (dayShifts.isEmpty()) {
+                null
+            } else {
+                RecognizedScheduleRow(
+                    rowNumber = anchor.rowNumber,
+                    name = anchor.name,
+                    dayShifts = dayShifts
+                )
+            }
         }
 
         return mergeRows(anchoredRows + clusterRows + lineRows)
