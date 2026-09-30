@@ -1,87 +1,510 @@
 {
-  "schema": 1,
+  "schema": 2,
   "title": "Javne zdravstvene ustanove RH — obračunski parametri 2026",
-  "disclaimer": "Procjena bruto plaće. Točan obračun ovisi o ugovoru o radu, službenom nazivu radnog mjesta, mjesečnom fondu sati, evidenciji rada i pravima koja se primjenjuju kod poslodavca.",
+  "validYear": 2026,
+  "scopeNote": "Koeficijent je vezan uz službeno radno mjesto prema državnoj Uredbi, a ne uz naziv bolnice. Odabir ustanove služi za mapiranje lokalnog naziva radnog mjesta i eventualnog provjerljivog obračunskog profila. Za ustanove na koje se ne primjenjuje sustav plaća u javnim službama potrebno je koristiti ručne parametre.",
+  "disclaimer": "Procjena bruto plaće. Točan obračun ovisi o ugovoru/rješenju, službenom radnom mjestu, evidenciji rada, naknadama plaće i pravilima koja se primjenjuju kod konkretnog poslodavca.",
   "bases": [
     {
       "from": "2026-01-01",
       "to": "2026-03-31",
-      "amount": 1004.87
+      "amount": 1004.87,
+      "source": "NN 11/2026"
     },
     {
       "from": "2026-04-01",
       "to": "2026-07-31",
-      "amount": 1015
+      "amount": 1015,
+      "source": "NN 11/2026"
     },
     {
       "from": "2026-08-01",
       "to": "2026-11-30",
-      "amount": 1025
+      "amount": 1025,
+      "source": "NN 11/2026"
     },
     {
       "from": "2026-12-01",
-      "to": null,
-      "amount": 1035
+      "to": "2026-12-31",
+      "amount": 1035,
+      "source": "NN 11/2026"
     }
   ],
-  "additions": {
+  "nationalRules": {
     "seniorityPerYear": 0.005,
-    "night": 0.4,
     "overtime": 0.5,
+    "night": 0.4,
+    "secondShift": 0.1,
+    "turnus": 0.05,
     "saturday": 0.25,
     "sunday": 0.5,
     "holiday": 1.5,
-    "secondShift": 0.1
+    "annualLeave": "Povoljnije od prosječne mjesečne plaće ostvarene u prethodna tri mjeseca ili plaće kao da je zaposlenik radio u redovnom radnom vremenu.",
+    "hourlyFormula": "Cijena sata = (osnovna plaća + dodatak za radni staž) / mjesečni fond sati.",
+    "nonCumulative": [
+      "secondShift",
+      "turnus",
+      "splitShift"
+    ],
+    "notes": [
+      "Noćni rad prema TKU-u iznosi 40% u vremenu 22:00–06:00.",
+      "Turnus 5% primjenjuje se u javnim službama temeljem tumačenja članka 109. TKU-a kada je povoljnije za zaposlenika.",
+      "Dodatak za drugu smjenu, turnus i dvokratni rad ne kumuliraju se za iste sate/dan."
+    ]
   },
+  "rateProfiles": [
+    {
+      "id": "national-public",
+      "label": "Javne službe — službeni minimum/propis",
+      "night": 0.4,
+      "overtime": 0.5,
+      "saturday": 0.25,
+      "sunday": 0.5,
+      "holiday": 1.5,
+      "secondShift": 0.1,
+      "turnus": 0.05,
+      "sourceLevel": "official",
+      "note": "Temelji se na TKU-u i službenom tumačenju članka 109."
+    },
+    {
+      "id": "kbc-rijeka-observed-2026",
+      "label": "KBC Rijeka — obračunski profil 2026",
+      "night": 0.5,
+      "overtime": 0.5,
+      "saturday": 0.25,
+      "sunday": 0.5,
+      "holiday": 1.5,
+      "secondShift": 0.1,
+      "turnus": 0.05,
+      "sourceLevel": "employer-payroll-observed",
+      "note": "Noćni dodatak 50% potvrđen je na obračunskim ispravama KBC Rijeka iz 2026. To nije opći TKU minimum; profil je odvojen kako se 50% ne bi pogrešno primijenilo na druge ustanove."
+    }
+  ],
+  "institutions": [
+    {
+      "id": "kbc-zagreb",
+      "name": "KLINIČKI BOLNIČKI CENTAR ZAGREB",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "kbc-rijeka",
+      "name": "KLINIČKI BOLNIČKI CENTAR RIJEKA",
+      "city": "Rijeka",
+      "profileId": "kbc-rijeka-observed-2026"
+    },
+    {
+      "id": "kbc-split",
+      "name": "KLINIČKI BOLNIČKI CENTAR SPLIT",
+      "city": "Split",
+      "profileId": "national-public"
+    },
+    {
+      "id": "kbc-sestre-milosrdnice",
+      "name": "KLINIČKI BOLNIČKI CENTAR SESTRE MILOSRDNICE",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "kbc-osijek",
+      "name": "KLINIČKI BOLNIČKI CENTAR OSIJEK",
+      "city": "Osijek",
+      "profileId": "national-public"
+    },
+    {
+      "id": "kb-dubrava",
+      "name": "KLINIČKA BOLNICA DUBRAVA",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "kb-merkur",
+      "name": "KLINIČKA BOLNICA \"MERKUR\"",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "kb-sveti-duh",
+      "name": "KLINIČKA BOLNICA \"SVETI DUH\"",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "klinika-ortopedija-lovran",
+      "name": "KLINIKA ZA ORTOPEDIJU LOVRAN",
+      "city": "Lovran",
+      "profileId": "national-public"
+    },
+    {
+      "id": "klinika-fran-mihaljevic",
+      "name": "KLINIKA ZA INFEKTIVNE BOLESTI \"DR. FRAN MIHALJEVIĆ\"",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "klinika-vrapce",
+      "name": "KLINIKA ZA PSIHIJATRIJU VRAPČE",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "kdb-zagreb",
+      "name": "KLINIKA ZA DJEČJE BOLESTI ZAGREB",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "magdalena",
+      "name": "MAGDALENA - KLINIKA ZA KARDIOVASKULARNE BOLESTI MEDICINSKOG FAKULTETA SVEUČILIŠTA J.J. STROSSMAYERA U OSIJEKU",
+      "city": "Krapinske Toplice",
+      "profileId": "national-public",
+      "verifyRegime": true
+    },
+    {
+      "id": "ob-sisak",
+      "name": "OPĆA BOLNICA \"DR. IVO PEDIŠIĆ\" SISAK",
+      "city": "Sisak",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-karlovac",
+      "name": "OPĆA BOLNICA KARLOVAC",
+      "city": "Karlovac",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-ogulin",
+      "name": "OPĆA BOLNICA I BOLNICA BRANITELJA DOMOVINSKOG RATA OGULIN",
+      "city": "Ogulin",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-varazdin",
+      "name": "OPĆA BOLNICA VARAŽDIN",
+      "city": "Varaždin",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-koprivnica",
+      "name": "OPĆA BOLNICA \"DR. TOMISLAV BARDEK\" KOPRIVNICA",
+      "city": "Koprivnica",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-bjelovar",
+      "name": "OPĆA BOLNICA BJELOVAR",
+      "city": "Bjelovar",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-gospic",
+      "name": "OPĆA BOLNICA GOSPIĆ",
+      "city": "Gospić",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-virovitica",
+      "name": "OPĆA BOLNICA VIROVITICA",
+      "city": "Virovitica",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ozb-pozega",
+      "name": "OPĆA ŽUPANIJSKA BOLNICA POŽEGA",
+      "city": "Požega",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ozb-pakrac",
+      "name": "OPĆA ŽUPANIJSKA BOLNICA PAKRAC I BOLNICA HRVATSKIH VETERANA",
+      "city": "Pakrac",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-slavonski-brod",
+      "name": "OPĆA BOLNICA \"DR. JOSIP BENČEVIĆ\" SLAVONSKI BROD",
+      "city": "Slavonski Brod",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-nova-gradiska",
+      "name": "OPĆA BOLNICA NOVA GRADIŠKA",
+      "city": "Nova Gradiška",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-zadar",
+      "name": "OPĆA BOLNICA ZADAR",
+      "city": "Zadar",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ozb-nasice",
+      "name": "OPĆA ŽUPANIJSKA BOLNICA NAŠICE",
+      "city": "Našice",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-sibenik",
+      "name": "OPĆA BOLNICA ŠIBENSKO-KNINSKE ŽUPANIJE",
+      "city": "Šibenik",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-knin",
+      "name": "OPĆA I VETERANSKA BOLNICA \"HRVATSKI PONOS\" KNIN",
+      "city": "Knin",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ozb-vinkovci",
+      "name": "OPĆA ŽUPANIJSKA BOLNICA VINKOVCI",
+      "city": "Vinkovci",
+      "profileId": "national-public"
+    },
+    {
+      "id": "nmb-vukovar",
+      "name": "NACIONALNA MEMORIJALNA BOLNICA \"DR. JURAJ NJAVRO\" VUKOVAR",
+      "city": "Vukovar",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-pula",
+      "name": "OPĆA BOLNICA PULA",
+      "city": "Pula",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-dubrovnik",
+      "name": "OPĆA BOLNICA DUBROVNIK",
+      "city": "Dubrovnik",
+      "profileId": "national-public"
+    },
+    {
+      "id": "zb-cakovec",
+      "name": "ŽUPANIJSKA BOLNICA ČAKOVEC",
+      "city": "Čakovec",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ob-zabok",
+      "name": "OPĆA BOLNICA ZABOK I BOLNICA HRVATSKIH VETERANA",
+      "city": "Zabok",
+      "profileId": "national-public"
+    },
+    {
+      "id": "pb-djeca-mladez",
+      "name": "PSIHIJATRIJSKA BOLNICA ZA DJECU I MLADEŽ",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-goljak",
+      "name": "SPECIJALNA BOLNICA ZA ZAŠTITU DJECE S NEURORAZVOJNIM I MOTORIČKIM SMETNJAMA",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-plucne-bolesti",
+      "name": "SPECIJALNA BOLNICA ZA PLUĆNE BOLESTI",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "klinika-sveti-ivan",
+      "name": "KLINIKA ZA PSIHIJATRIJU SVETI IVAN",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "djecja-bolnica-srebrnjak",
+      "name": "DJEČJA BOLNICA SREBRNJAK",
+      "city": "Zagreb",
+      "profileId": "national-public"
+    },
+    {
+      "id": "naftalan",
+      "name": "NAFTALAN, SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU",
+      "city": "Ivanić-Grad",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-gornja-bistra",
+      "name": "SPECIJALNA BOLNICA ZA KRONIČNE BOLESTI DJEČJE DOBI GORNJA BISTRA",
+      "city": "Gornja Bistra",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-krapinske-toplice",
+      "name": "SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU KRAPINSKE TOPLICE",
+      "city": "Krapinske Toplice",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-stubicke-toplice",
+      "name": "SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU STUBIČKE TOPLICE",
+      "city": "Stubičke Toplice",
+      "profileId": "national-public"
+    },
+    {
+      "id": "npb-popovaca",
+      "name": "NEUROPSIHIJATRIJSKA BOLNICA DR. IVAN BARBOT POPOVAČA",
+      "city": "Popovača",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-duga-resa",
+      "name": "SPECIJALNA BOLNICA ZA PRODUŽENO LIJEČENJE DUGA RESA",
+      "city": "Duga Resa",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-varazdinske-toplice",
+      "name": "SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU VARAŽDINSKE TOPLICE",
+      "city": "Varaždinske Toplice",
+      "profileId": "national-public"
+    },
+    {
+      "id": "daruvarske-toplice",
+      "name": "DARUVARSKE TOPLICE SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU",
+      "city": "Daruvar",
+      "profileId": "national-public"
+    },
+    {
+      "id": "thalassotherapia-opatija",
+      "name": "THALASSOTHERAPIA SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU BOLESTI SRCA, PLUĆA I REUMATIZMA",
+      "city": "Opatija",
+      "profileId": "national-public"
+    },
+    {
+      "id": "thalassotherapia-crikvenica",
+      "name": "THALASSOTHERAPIA - CRIKVENICA SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU PRIMORSKO-GORANSKE ŽUPANIJE",
+      "city": "Crikvenica",
+      "profileId": "national-public"
+    },
+    {
+      "id": "insula-rab",
+      "name": "INSULA - ŽUPANIJSKA SPECIJALNA BOLNICA ZA PSIHIJATRIJU I REHABILITACIJU",
+      "city": "Rab",
+      "profileId": "national-public"
+    },
+    {
+      "id": "toplice-lipik",
+      "name": "TOPLICE LIPIK - SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU",
+      "city": "Lipik",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-ortopedija-biograd",
+      "name": "SPECIJALNA BOLNICA ZA ORTOPEDIJU",
+      "city": "Biograd na Moru",
+      "profileId": "national-public"
+    },
+    {
+      "id": "pb-ugljan",
+      "name": "PSIHIJATRIJSKA BOLNICA UGLJAN",
+      "city": "Ugljan",
+      "profileId": "national-public"
+    },
+    {
+      "id": "biokovka",
+      "name": "\"BIOKOVKA\" SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU",
+      "city": "Makarska",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-martin-horvat-rovinj",
+      "name": "SPECIJALNA BOLNICA ZA ORTOPEDIJU I REHABILITACIJU „MARTIN HORVAT“ ROVINJ-ROVIGNO",
+      "city": "Rovinj-Rovigno",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-kalos",
+      "name": "SPECIJALNA BOLNICA ZA MEDICINSKU REHABILITACIJU KALOS",
+      "city": "Vela Luka",
+      "profileId": "national-public"
+    },
+    {
+      "id": "pb-lopaca",
+      "name": "PSIHIJATRIJSKA BOLNICA LOPAČA",
+      "city": "Dražice",
+      "profileId": "national-public"
+    },
+    {
+      "id": "sb-sveti-rafael-strmac",
+      "name": "SPECIJALNA BOLNICA ZA PSIHIJATRIJU I PALIJATIVNU SKRB \"SVETI RAFAEL\" STRMAC",
+      "city": "Cernik",
+      "profileId": "national-public",
+      "verifyRegime": true
+    },
+    {
+      "id": "ljeciliste-topusko",
+      "name": "LJEČILIŠTE TOPUSKO",
+      "city": "Topusko",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ljeciliste-veli-losinj",
+      "name": "LJEČILIŠTE VELI LOŠINJ",
+      "city": "Veli Lošinj",
+      "profileId": "national-public"
+    },
+    {
+      "id": "ljeciliste-bizovacke-toplice",
+      "name": "LJEČILIŠTE BIZOVAČKE TOPLICE",
+      "city": "Bizovac",
+      "profileId": "national-public"
+    }
+  ],
   "roles": [
     {
       "id": "kbc-transport-nss",
-      "label": "KBC Rijeka — transportni radnik / nosač bolesnika (NSS)",
+      "label": "Nosač bolesnika / transportni radnik — NSS",
       "official": "Pomoćni radnik u sustavu s posebnim uvjetima rada",
       "code": "10.1.24",
       "coefficient": 1.15,
-      "note": "KBC Rijeka koristi naziv transportni radnik; stvarni raspored na službeno radno mjesto provjeriti u ugovoru/sistematizaciji."
+      "note": "KBC Rijeka u sistematizaciji koristi naziv Transportni radnik za NSS varijantu."
     },
     {
       "id": "kbc-transport-sss",
-      "label": "KBC Rijeka — transportni radnik / nosač bolesnika (SSS)",
+      "label": "Nosač bolesnika / transportni radnik — SSS",
       "official": "Radnik III. vrste",
       "code": "10.1.23",
       "coefficient": 1.25,
-      "note": "KBC Rijeka u sistematizaciji navodi i varijantu Radnik III. vrste za transportnog radnika."
+      "note": "KBC Rijeka u sistematizaciji koristi naziv Transportni radnik i za SSS varijantu."
     },
     {
       "id": "kbc-portir",
-      "label": "KBC Rijeka — portir",
+      "label": "Portir — tehničko održavanje",
       "official": "Stručni radnik na tehničkom održavanju",
       "code": "10.1.20",
       "coefficient": 1.39,
-      "note": "KBC Rijeka je 2026. objavljivao radno mjesto pod nazivom Stručni radnik na tehničkom održavanju – Portir."
+      "note": "KBC Rijeka objavljuje radno mjesto Stručni radnik na tehničkom održavanju – portir."
     },
     {
       "id": "cleaner-special",
-      "label": "Čistač / spremač u sustavu s posebnim uvjetima rada",
+      "label": "Spremačica / spremač — posebni uvjeti",
       "official": "Čistač – spremač u sustavu s posebnim uvjetima rada",
       "code": "10.1.25",
       "coefficient": 1.15
     },
     {
       "id": "cleaner",
-      "label": "Čistač / spremač",
+      "label": "Spremačica / spremač",
       "official": "Čistač – spremač",
       "code": "10.1.26",
       "coefficient": 1.06
     },
     {
       "id": "caregiver",
-      "label": "Njegovatelj / njegovateljica",
+      "label": "Njegovateljica / njegovatelj",
       "official": "Njegovatelj",
       "code": "16.15.1",
       "coefficient": 1.35
     },
     {
       "id": "hospital-attendant",
-      "label": "Bolničar / bolničarka",
+      "label": "Bolničarka / bolničar",
       "official": "Bolničar",
       "code": "16.15.2",
       "coefficient": 1.35
@@ -101,6 +524,20 @@
       "coefficient": 1.87
     },
     {
+      "id": "nurse-bacc-3",
+      "label": "Prvostupnik zdravstvene struke — primarna/poliklinika/javno zdravstvo 3",
+      "official": "Medicinska sestra/medicinski tehničar prvostupnik / zdravstveni radnik prvostupnik 3",
+      "code": "16.11.3",
+      "coefficient": 1.82
+    },
+    {
+      "id": "nurse-emergency-specialist",
+      "label": "Medicinska sestra/tehničar specijalist hitne medicine",
+      "official": "Medicinska sestra/medicinski tehničar specijalist hitne medicine",
+      "code": "16.11.4",
+      "coefficient": 2.2
+    },
+    {
       "id": "nurse-sss-1",
       "label": "Medicinska sestra/tehničar — bolnica 1",
       "official": "Medicinska sestra/medicinski tehničar / zdravstveni radnik u bolnici 1",
@@ -113,6 +550,20 @@
       "official": "Medicinska sestra/medicinski tehničar / zdravstveni radnik u bolnici 2",
       "code": "16.13.2",
       "coefficient": 1.7
+    },
+    {
+      "id": "nurse-sss-home",
+      "label": "Medicinska sestra/tehničar — kućna njega/sanitetski prijevoz/stacionar",
+      "official": "Medicinska sestra/medicinski tehničar u kućnoj njezi / sanitetskom prijevozu / stacionaru doma zdravlja",
+      "code": "16.13.3",
+      "coefficient": 1.64
+    },
+    {
+      "id": "nurse-sss-primary",
+      "label": "Medicinska sestra/tehničar — primarna/poliklinika/javno zdravstvo 3",
+      "official": "Medicinska sestra/medicinski tehničar/zdravstveni radnik 3",
+      "code": "16.13.5",
+      "coefficient": 1.55
     },
     {
       "id": "nurse-master-special",
@@ -134,25 +585,25 @@
       "official": "Zdravstveni radnik prvostupnik u bolnici 2",
       "code": "16.11.2",
       "coefficient": 1.87,
-      "note": "KBC Rijeka je objavljivao natječaj upravo pod ovim nazivom za prvostupnika fizioterapije."
+      "note": "KBC Rijeka sistematizacijom/natječajima koristi ovu skupinu za prvostupnika fizioterapije ovisno o radnom mjestu."
     },
     {
       "id": "doctor-1",
-      "label": "Doktor medicine — 1",
+      "label": "Doktor medicine — skupina 1",
       "official": "Doktor medicine i doktor dentalne medicine 1",
       "code": "16.4.3",
       "coefficient": 2.92
     },
     {
       "id": "doctor-2",
-      "label": "Doktor medicine — 2",
+      "label": "Doktor medicine — skupina 2",
       "official": "Doktor medicine i doktor dentalne medicine 2",
       "code": "16.4.6",
       "coefficient": 2.83
     },
     {
       "id": "doctor-3",
-      "label": "Doktor medicine — 3",
+      "label": "Doktor medicine — skupina 3",
       "official": "Doktor medicine i doktor dentalne medicine 3",
       "code": "16.4.9",
       "coefficient": 2.81
@@ -166,50 +617,91 @@
     },
     {
       "id": "doctor-specialist-1",
-      "label": "Doktor medicine specijalist — 1",
+      "label": "Doktor medicine specijalist — skupina 1",
       "official": "Doktor medicine specijalist i doktor dentalne medicine specijalist 1",
       "code": "16.4.2",
       "coefficient": 3.82
     },
     {
       "id": "doctor-specialist-2",
-      "label": "Doktor medicine specijalist — 2",
+      "label": "Doktor medicine specijalist — skupina 2",
       "official": "Doktor medicine specijalist i doktor dentalne medicine specijalist 2",
       "code": "16.4.5",
       "coefficient": 3.74
     },
     {
       "id": "doctor-specialist-3",
-      "label": "Doktor medicine specijalist — 3",
+      "label": "Doktor medicine specijalist — skupina 3",
       "official": "Doktor medicine specijalist i doktor dentalne medicine specijalist 3",
       "code": "16.4.8",
       "coefficient": 3.65
+    },
+    {
+      "id": "doctor-advisor-1",
+      "label": "Doktor medicine specijalist savjetnik — skupina 1",
+      "official": "Doktor medicine specijalist savjetnik i doktor dentalne medicine specijalist savjetnik 1",
+      "code": "16.4.1",
+      "coefficient": 3.95
+    },
+    {
+      "id": "doctor-advisor-2",
+      "label": "Doktor medicine specijalist savjetnik — skupina 2",
+      "official": "Doktor medicine specijalist savjetnik i doktor dentalne medicine specijalist savjetnik 2",
+      "code": "16.4.4",
+      "coefficient": 3.85
+    },
+    {
+      "id": "doctor-advisor-3",
+      "label": "Doktor medicine specijalist savjetnik — skupina 3",
+      "official": "Doktor medicine specijalist savjetnik i doktor dentalne medicine specijalist savjetnik 3",
+      "code": "16.4.7",
+      "coefficient": 3.83
     }
   ],
+  "institutionMappings": {
+    "kbc-rijeka": {
+      "notes": [
+        "Transportni radnik može biti raspoređen kao Radnik III. vrste (SSS) ili Pomoćni radnik u sustavu s posebnim uvjetima rada (NSS); koeficijent se zato određuje prema ugovoru/rješenju, ne samo prema kolokvijalnom nazivu.",
+        "Portir je u natječajima KBC Rijeka objavljen kao Stručni radnik na tehničkom održavanju.",
+        "KBC Rijeka redovito objavljuje izmjene sistematizacije; aplikacija ne zaključava lokalni naziv bez provjere službenog radnog mjesta."
+      ]
+    }
+  },
   "sources": [
     {
       "label": "Uredba o nazivima radnih mjesta i koeficijentima u javnim službama, NN 22/2024",
-      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2024_02_22_354.html"
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2024_02_22_354.html",
+      "type": "official"
     },
     {
-      "label": "Odluka o osnovici za obračun plaće zaposlenicima u javnim službama u 2026., NN 11/2026",
-      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2026_01_11_86.html"
+      "label": "Odluka o osnovici za javne službe u 2026., NN 11/2026",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2026_01_11_86.html",
+      "type": "official"
     },
     {
       "label": "Temeljni kolektivni ugovor za zaposlenike u javnim službama, NN 29/2024",
-      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_03_29_458.html"
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_03_29_458.html",
+      "type": "official"
     },
     {
-      "label": "Odluka o produljenju primjene prava iz granskih kolektivnih ugovora, NN 35/2024",
-      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_03_35_544.html"
+      "label": "MROSP — tumačenje članka 109. TKU-a (turnus 5%)",
+      "url": "https://mrosp.gov.hr/najcesca-pitanja-i-odgovori-12153/rad-i-zaposljavanje/zajednicko-povjerenstvo-za-tumacenje-temeljnog-kolektivnog-ugovora-za-zaposlenike-u-javnim-sluzbama-od-1-ozujka-2024/clanak-109/13404",
+      "type": "official"
+    },
+    {
+      "label": "Ministarstvo zdravstva — Bolničke zdravstvene ustanove",
+      "url": "https://zdravlje.gov.hr/-zdravstvenih-ustanova/bolnicke-zdravstvene-ustanove/2722",
+      "type": "official"
     },
     {
       "label": "KBC Rijeka — pravilnici i sistematizacija",
-      "url": "https://kbc-rijeka.hr/statut-pravilnici-klinickog-bolnickog-centra-rijeka/"
+      "url": "https://kbc-rijeka.hr/statut-pravilnici-klinickog-bolnickog-centra-rijeka/",
+      "type": "employer"
     },
     {
       "label": "KBC Rijeka — natječaji za zaposlenje",
-      "url": "https://kbc-rijeka.hr/natjecaj-zaposlenje/"
+      "url": "https://kbc-rijeka.hr/natjecaj-zaposlenje/",
+      "type": "employer"
     }
   ]
 }
