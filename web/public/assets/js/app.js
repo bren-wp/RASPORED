@@ -193,11 +193,30 @@ function holidays(y){var map={};function add(m,d,n){map[y+"-"+String(m).padStart
 function loadSchedule(){try{state.schedule=sanitizeSchedule(JSON.parse(localStorage.getItem("raspored.schedule")||"{}"))}catch(e){state.schedule={}}}
 function save(){localStorage.setItem("raspored.schedule",JSON.stringify(state.schedule))}
 function appNow(){return new Date()}
-function loadTimeEntries(){try{var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");return Array.isArray(raw)?raw.filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")&&(!x.out||/^\d{2}:\d{2}$/.test(x.out))}):[]}catch(e){return []}}
+function loadTimeEntries(){
+  try{
+    var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");
+    if(!Array.isArray(raw))return [];
+    return raw.filter(function(x){
+      return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")&&
+        (!x.out||/^\d{2}:\d{2}$/.test(x.out))&&
+        (x.startedAt==null||Number.isFinite(Number(x.startedAt)))&&
+        (x.endedAt==null||Number.isFinite(Number(x.endedAt)));
+    }).map(function(x){
+      x.note=typeof x.note==="string"?x.note.slice(0,500):"";
+      return x;
+    });
+  }catch(e){return []}
+}
 function saveTimeEntries(entries){localStorage.setItem("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
 function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function durationMinutes(entry,now){
   if(!entry||!entry.in)return 0;
+  var startedAt=Number(entry.startedAt),endedAt=entry.endedAt==null?NaN:Number(entry.endedAt);
+  if(Number.isFinite(startedAt)){
+    var finish=Number.isFinite(endedAt)?endedAt:now.getTime();
+    return Math.max(0,Math.round((finish-startedAt)/60000));
+  }
   function minutes(v){var p=v.split(":").map(Number);return p[0]*60+p[1]}
   var start=minutes(entry.in),end=entry.out?minutes(entry.out):(now.getHours()*60+now.getMinutes());
   if(end<start)end+=24*60;
@@ -460,13 +479,13 @@ function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(ch){
 function clockIn(){
   var entries=loadTimeEntries(),now=appNow(),today=iso(now);
   if(activeTimeEntry(entries)){toast("Ulaz je već evidentiran.");return}
-  entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:""});
+  entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:"",startedAt:now.getTime(),endedAt:null});
   saveTimeEntries(entries);renderAll();toast("Ulaz je evidentiran.")
 }
 function clockOut(){
   var entries=loadTimeEntries(),now=appNow(),active=activeTimeEntry(entries);
   if(!active){toast("Nema aktivne evidencije za izlaz.");return}
-  active.out=hhmm(now);
+  active.out=hhmm(now);active.endedAt=now.getTime();
   var note=document.getElementById("hoursNote");active.note=note?note.value.trim().slice(0,500):active.note||"";
   saveTimeEntries(entries);renderAll();toast("Izlaz je evidentiran.")
 }
