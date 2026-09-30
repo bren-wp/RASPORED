@@ -27,7 +27,7 @@ function sanitizeSchedule(raw){
   if(!raw||typeof raw!=="object"||Array.isArray(raw))return out;
   Object.keys(raw).forEach(function(key){
     var code=raw[key];
-    if(/^\d{4}-\d{2}-\d{2}$/.test(key)&&["D","N","GO","BO"].indexOf(code)>=0)out[key]=code;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(key)&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)out[key]=code;
   });
   return out;
 }
@@ -56,7 +56,7 @@ function sanitizePeople(raw){
     var shifts={};
     Object.keys(item.dayShifts&&typeof item.dayShifts==="object"?item.dayShifts:{}).forEach(function(day){
       var n=Number(day),code=item.dayShifts[day];
-      if(Number.isInteger(n)&&n>=1&&n<=31&&["D","N","GO","BO"].indexOf(code)>=0)shifts[n]=code;
+      if(Number.isInteger(n)&&n>=1&&n<=31&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)shifts[n]=code;
     });
     return {row:Number.isInteger(item.row)?item.row:null,name:name,dayShifts:shifts};
   }).filter(Boolean);
