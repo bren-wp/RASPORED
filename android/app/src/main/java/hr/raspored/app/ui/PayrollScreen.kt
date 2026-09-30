@@ -210,7 +210,7 @@ internal fun PayrollScreen(
                         county = selected
                         val candidates = payrollInstitutionsFor(sector, selected)
                         val selectedInstitution = candidates.firstOrNull()
-                        manualInstitution = selectedInstitution == null
+                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder() || selectedInstitution.isPlaceholder() || selectedInstitution.isPlaceholder()
                         customInstitutionText = ""
                         institutionName = selectedInstitution?.name ?: genericInstitutionLabel(sector)
                         regimeId = selectedInstitution?.regimeId
@@ -314,8 +314,8 @@ internal fun PayrollScreen(
 
                     PayrollDropdown(
                         label = "Ustanova / tijelo",
-                        value = if (manualInstitution) genericInstitutionLabel(sector) else institutionName,
-                        options = sectorInstitutions.map { it.name } + genericInstitutionLabel(sector),
+                        value = institutionName,
+                        options = (sectorInstitutions.map { it.name } + genericInstitutionLabel(sector)).distinct(),
                         modifier = Modifier.padding(top = 10.dp),
                         testTag = "payroll-institution"
                     ) { selected ->
@@ -946,6 +946,9 @@ private fun payrollInstitutionsFor(
     sector: String,
     county: String
 ): List<PayrollInstitution> = PublicSectorPayroll.institutionsFor(sector, county)
+
+private fun PayrollInstitution.isPlaceholder(): Boolean =
+    county == "*" || city == "*"
 
 private fun genericInstitutionLabel(sector: String): String = when (sector) {
     "Zdravstvo" -> "Druga zdravstvena ustanova"
