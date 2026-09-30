@@ -66,7 +66,6 @@ class ScheduleStore(context: Context) {
             val value = raw
                 ?.trim()
                 ?.uppercase(Locale("hr", "HR"))
-                ?.replace(Regex("""\s+"""), "")
                 .orEmpty()
             return value.takeIf { CODE.matches(it) }
         }
