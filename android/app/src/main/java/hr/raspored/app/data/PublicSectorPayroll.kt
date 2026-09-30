@@ -64,6 +64,11 @@ data class PayrollEvidence(
     val dutyMinutes: Long,
     val standbyMinutes: Long,
     val calloutMinutes: Long,
+    val compensatedAbsenceMinutes: Long,
+    val goDays: Int,
+    val boDays: Int,
+    val pdDays: Int,
+    val sdDays: Int,
     val overtimeMinutes: Long,
     val workedDays: Int,
     val hasActiveEntry: Boolean
@@ -80,6 +85,7 @@ data class PayrollEstimate(
     val saturdayAddition: Double,
     val sundayAddition: Double,
     val holidayAddition: Double,
+    val overtimeBasePay: Double,
     val overtimeAddition: Double,
     val secondShiftPaidMinutes: Long,
     val turnusPaidMinutes: Long,
@@ -94,7 +100,7 @@ data class PayrollEstimate(
 ) {
     val additions: Double
         get() = nightAddition + saturdayAddition + sundayAddition + holidayAddition +
-            overtimeAddition + secondShiftAddition + turnusAddition + customAddition
+            overtimeBasePay + overtimeAddition + secondShiftAddition + turnusAddition + customAddition
 
     val estimatedGross: Double
         get() = basicGross + additions
@@ -373,6 +379,7 @@ object PublicSectorPayroll {
     fun estimate(
         month: YearMonth,
         entries: List<TimeEvidenceEntry>,
+        scheduleCodes: Map<String, String> = emptyMap(),
         regimeId: String,
         coefficient: Double,
         yearsService: Int,
@@ -393,7 +400,7 @@ object PublicSectorPayroll {
         val fundHours = monthlyFundHours(month)
         val basicGross = base * safeCoefficient * (1.0 + safeYears * SENIORITY_PER_YEAR)
         val hourly = if (fundHours > 0) basicGross / fundHours else 0.0
-        val evidence = summarizeEvidence(month, entries, now, zone)
+        val evidence = summarizeEvidence(month, entries, scheduleCodes, now, zone)
         val rates = regime.rates
         fun add(minutes: Long, rate: Double?): Double =
             if (rate == null) 0.0 else hourly * (minutes / 60.0) * rate
@@ -415,6 +422,7 @@ object PublicSectorPayroll {
         val saturdayAddition = add(evidence.saturdayMinutes, rates.saturday)
         val sundayAddition = add(evidence.sundayMinutes, rates.sunday)
         val holidayAddition = add(evidence.holidayMinutes, rates.holiday)
+        val overtimeBasePay = hourly * (evidence.overtimeMinutes / 60.0)
         val overtimeAddition = add(evidence.overtimeMinutes, rates.overtime)
         val secondShiftAddition = add(secondMinutes, rates.secondShift)
         val turnusAddition = add(turnusMinutes, rates.turnus)
@@ -442,6 +450,7 @@ object PublicSectorPayroll {
             saturdayAddition = saturdayAddition,
             sundayAddition = sundayAddition,
             holidayAddition = holidayAddition,
+            overtimeBasePay = overtimeBasePay,
             overtimeAddition = overtimeAddition,
             secondShiftPaidMinutes = secondMinutes,
             turnusPaidMinutes = turnusMinutes,
@@ -459,6 +468,7 @@ object PublicSectorPayroll {
     private fun summarizeEvidence(
         month: YearMonth,
         entries: List<TimeEvidenceEntry>,
+        scheduleCodes: Map<String, String>,
         now: Long,
         zone: ZoneId
     ): PayrollEvidence {
@@ -510,7 +520,25 @@ object PublicSectorPayroll {
             }
         }
 
-        val overtime = (worked - monthlyFundHours(month) * 60L).coerceAtLeast(0L)
+        var goDays = 0
+        var boDays = 0
+        var pdDays = 0
+        var sdDays = 0
+        scheduleCodes.forEach { (dateText, code) ->
+            val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
+                ?: return@forEach
+            if (YearMonth.from(date) != month) return@forEach
+            when (code) {
+                "GO" -> goDays++
+                "BO" -> boDays++
+                "PD" -> pdDays++
+                "SD" -> sdDays++
+            }
+        }
+        val compensatedAbsenceMinutes = (goDays + boDays + pdDays) * 8L * 60L
+        val overtime = (
+            worked + compensatedAbsenceMinutes - monthlyFundHours(month) * 60L
+        ).coerceAtLeast(0L)
         return PayrollEvidence(
             workedMinutes = worked,
             nightMinutes = night,
@@ -525,6 +553,11 @@ object PublicSectorPayroll {
             dutyMinutes = duty,
             standbyMinutes = standby,
             calloutMinutes = callout,
+            compensatedAbsenceMinutes = compensatedAbsenceMinutes,
+            goDays = goDays,
+            boDays = boDays,
+            pdDays = pdDays,
+            sdDays = sdDays,
             overtimeMinutes = overtime,
             workedDays = workedDates.size,
             hasActiveEntry = hasActive
