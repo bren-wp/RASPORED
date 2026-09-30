@@ -22,10 +22,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import hr.raspored.app.BuildConfig
 import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
@@ -40,6 +40,7 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private val Navy=RasporedTokens.Navy
 private val Cyan=RasporedTokens.Cyan
@@ -58,6 +59,7 @@ private val D=Shift("D","Dnevna smjena","07:00 – 19:00 (12h)",12)
 private val N=Shift("N","Noćna smjena","19:00 – 07:00 (12h)",12)
 private val GO=Shift("GO","Slobodan dan","—",0)
 private val BO=Shift("BO","Bolovanje","—",0)
+private val NONE=Shift("","Nema planirane smjene","—",0)
 
 @Composable fun RasporedApp(){
     var screen by remember { mutableStateOf(Screen.Home) }
@@ -70,9 +72,17 @@ private val BO=Shift("BO","Bolovanje","—",0)
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(store) {
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
+    }
+    val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
+        val date = appDate().plusDays(offset)
+        shiftFromCode(scheduleCodes[date.toString()].orEmpty())
+            ?.takeIf { it.code == "D" || it.code == "N" }
+            ?.let { date to it }
     }
     val colors = if(darkMode) {
         darkColorScheme(
@@ -105,9 +115,27 @@ private val BO=Shift("BO","Bolovanje","—",0)
     ){
         Scaffold(
             containerColor=MaterialTheme.colorScheme.background,
+            snackbarHost={ SnackbarHost(snackbarHostState) },
             topBar={
                 if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Home})
-                else BrandHeader(screen=screen,onScan={screen=Screen.Scan})
+                else BrandHeader(
+                    screen=screen,
+                    onScan={screen=Screen.Scan},
+                    hasNotification=upcomingHeaderShift!=null,
+                    onNotify={
+                        val message=upcomingHeaderShift?.let { (date,shift) ->
+                            val whenText=if(date==appDate()) "Danas" else date.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+                            whenText+" · "+shift.name+" · "+shift.time
+                        } ?: "Nema novih obavijesti."
+                        scope.launch{snackbarHostState.showSnackbar(message)}
+                    },
+                    onSync={
+                        scheduleCodes.clear()
+                        scheduleCodes.putAll(store.load())
+                        evidenceRevision++
+                        scope.launch{snackbarHostState.showSnackbar("Podaci su osvježeni.")}
+                    }
+                )
             },
             bottomBar={
                 if(screen!=Screen.Scan) BottomNav(screen){screen=it}
@@ -116,7 +144,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
                     Screen.Home->HomeScreen(scheduleCodes,evidenceEntries){screen=it}
-                    Screen.Calendar->CalendarScreen(scheduleCodes)
+                    Screen.Calendar->CalendarScreen(scheduleCodes,evidenceEntries)
                     Screen.Scan->OcrScanScreen(YearMonth.from(appDate())) { month, shifts ->
                         store.saveMonth(month, shifts)
                         (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
@@ -125,8 +153,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
                     }
                     Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries)
                     Screen.Hours->{
-                        val today=appDate()
-                        val shift=scheduleFor(YearMonth.from(today),scheduleCodes)[today.dayOfMonth]
+                        val shift=currentShiftAt(appDateTime(),scheduleCodes)?.second
                         TimeEvidenceScreen(
                             plannedShiftCode=shift?.code,
                             plannedShiftLabel=shift?.let{it.name+" · "+it.time} ?: "—",
@@ -152,7 +179,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
     }
 }
 
-@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit){
+@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit,hasNotification:Boolean,onNotify:()->Unit,onSync:()->Unit){
     Surface(color=Navy,modifier=Modifier.fillMaxWidth()){
         Row(
             Modifier.statusBarsPadding().height(76.dp).padding(horizontal=18.dp),
@@ -170,13 +197,13 @@ private val BO=Shift("BO","Bolovanje","—",0)
                 }
             }
             if(screen==Screen.Stats){
-                IconButton(onClick={}){
-                    Icon(Icons.Outlined.CloudSync,"Sinkronizacija",tint=Color.White)
+                IconButton(onClick=onSync){
+                    Icon(Icons.Outlined.CloudSync,"Osvježi podatke",tint=Color.White)
                 }
             }else{
-                IconButton(onClick={}){
+                IconButton(onClick=onNotify){
                     BadgedBox(
-                        badge={ if(screen==Screen.Home||screen==Screen.Calendar) Badge(containerColor=Color(0xFFFF4861)) }
+                        badge={ if(hasNotification&&(screen==Screen.Home||screen==Screen.Calendar)) Badge(containerColor=Color(0xFFFF4861)) }
                     ){
                         Icon(Icons.Outlined.Notifications,"Obavijesti",tint=Color.White)
                     }
@@ -221,33 +248,25 @@ private val BO=Shift("BO","Bolovanje","—",0)
     }
 }
 @Composable private fun RowScope.NavItem(current:Screen,target:Screen,label:String,icon:ImageVector,onSelect:(Screen)->Unit,emphasis:Boolean=false){
-    NavigationBarItem(selected=current==target,onClick={onSelect(target)},icon={
+    NavigationBarItem(modifier=Modifier.testTag("nav-"+target.name.lowercase()),selected=current==target,onClick={onSelect(target)},icon={
         Surface(shape=RoundedCornerShape(if(emphasis)22.dp else 12.dp),color=if(emphasis) Cyan else Color.Transparent){
             Icon(icon,null,modifier=Modifier.padding(if(emphasis)10.dp else 4.dp).size(if(emphasis)28.dp else 24.dp),tint=if(emphasis) Color.White else if(current==target) Cyan else Navy)
         }
     },label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedTextColor=Cyan,unselectedTextColor=Slate,indicatorColor=Color.Transparent))
 }
 
-private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
-    val p=listOf(D,N,D,null,null,D,D,GO,D,N,null,null,D,GO,D,D,N,null,null,D,null,N,null,D,null,null,BO,null,null,null,null)
-    return (1..month.lengthOfMonth()).mapNotNull{day->p[(day-1)%p.size]?.let{day to it}}.toMap().toMutableMap().apply {
-        if(month==YearMonth.of(2026,10)){this[16]=D;this[17]=N}
-    }
-}
-private fun appDateTime():LocalDateTime =
-    if(BuildConfig.DEBUG) LocalDateTime.of(2026,10,16,4,40) else LocalDateTime.now()
+private fun appDateTime():LocalDateTime = LocalDateTime.now()
 private fun appDate():LocalDate = appDateTime().toLocalDate()
 
-private fun shiftStatusLabel(shift:Shift):String {
-    if(shift.code!="D"&&shift.code!="N")return "Danas"
-    val now=appDateTime()
+private fun shiftStatusLabel(date:LocalDate,shift:Shift,now:LocalDateTime=appDateTime()):String {
+    if(shift.code!="D"&&shift.code!="N")return if(shift.code.isBlank())"Nema smjene" else "Danas"
     val start=when(shift.code){
-        "D"->now.toLocalDate().atTime(LocalTime.of(7,0))
-        else->now.toLocalDate().atTime(LocalTime.of(19,0))
+        "D"->date.atTime(LocalTime.of(7,0))
+        else->date.atTime(LocalTime.of(19,0))
     }
     val end=when(shift.code){
-        "D"->now.toLocalDate().atTime(LocalTime.of(19,0))
-        else->now.toLocalDate().plusDays(1).atTime(LocalTime.of(7,0))
+        "D"->date.atTime(LocalTime.of(19,0))
+        else->date.plusDays(1).atTime(LocalTime.of(7,0))
     }
     return when{
         now.isBefore(start)->{
@@ -259,10 +278,28 @@ private fun shiftStatusLabel(shift:Shift):String {
     }
 }
 
-private fun nextShiftStatus(today:LocalDate,day:Int,shift:Shift):String {
-    val start=today.withDayOfMonth(day)
+private fun shiftAt(date:LocalDate,codes:Map<String,String>):Shift? =
+    shiftFromCode(codes[date.toString()].orEmpty())
+
+private fun currentShiftAt(now:LocalDateTime,codes:Map<String,String>):Pair<LocalDate,Shift>? {
+    val today=now.toLocalDate()
+    if(now.toLocalTime()<LocalTime.of(7,0)){
+        val previous=today.minusDays(1)
+        val previousShift=shiftAt(previous,codes)
+        if(previousShift?.code=="N")return previous to previousShift
+    }
+    return shiftAt(today,codes)?.let{today to it}
+}
+
+private fun nextWorkShift(after:LocalDate,codes:Map<String,String>):Pair<LocalDate,Shift>? =
+    (1L..62L).firstNotNullOfOrNull{offset->
+        val date=after.plusDays(offset)
+        shiftAt(date,codes)?.takeIf{it.code=="D"||it.code=="N"}?.let{date to it}
+    }
+
+private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String {
     val end=if(shift.code=="N") start.plusDays(1) else start
-    val prefix=if(day==today.dayOfMonth+1)"Sutra" else start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+    val prefix=if(start==today.plusDays(1))"Sutra" else start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
     return if(shift.code=="N") {
         prefix+"\n"+start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))+" → "+end.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
     } else prefix
@@ -272,7 +309,7 @@ private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>
     val persisted=(1..month.lengthOfMonth()).mapNotNull { day ->
         shiftFromCode(codes[month.atDay(day).toString()] ?: "")?.let { day to it }
     }.toMap()
-    return if(persisted.isNotEmpty()) persisted else if(BuildConfig.DEBUG) sampleSchedule(month) else emptyMap()
+    return persisted
 }
 private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     (0..4).map { week ->
@@ -313,20 +350,21 @@ private fun largeMinutesLabel(minutes:Long):String {
         month=month,
         entries=evidenceEntries,
         scheduleCodes=codesForMonth(month,data),
-        fallbackToPlanned=BuildConfig.DEBUG
+        fallbackToPlanned=false
     )
-    val current=data[today.dayOfMonth] ?: GO
-    val nextEntry=(today.dayOfMonth+1..month.lengthOfMonth()).firstNotNullOfOrNull{day->
-        data[day]?.takeIf{it.code=="D"||it.code=="N"}?.let{day to it}
-    }
-    val next=nextEntry?.second ?: GO
+    val now=appDateTime()
+    val currentEntry=currentShiftAt(now,scheduleCodes)
+    val currentDate=currentEntry?.first ?: today
+    val current=currentEntry?.second ?: NONE
+    val nextEntry=nextWorkShift(today,scheduleCodes)
+    val next=nextEntry?.second ?: NONE
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
     val dateTitle=today.format(formatter).replaceFirstChar{
         if(it.isLowerCase())it.titlecase(Locale("hr","HR")) else it.toString()
     }
 
     LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal=16.dp),
+        Modifier.fillMaxSize().testTag("screen-home").padding(horizontal=16.dp),
         contentPadding=PaddingValues(top=20.dp,bottom=24.dp),
         verticalArrangement=Arrangement.spacedBy(14.dp)
     ){
@@ -334,8 +372,8 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground)
             Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(current),onHours={go(Screen.Hours)})}
-        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onHours=null)}
+        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(currentDate,current,now),onOpen={go(Screen.Hours)},onHours={go(Screen.Hours)})}
+        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onOpen={go(Screen.Calendar)},onHours=null)}
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                 listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
@@ -367,19 +405,29 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 }
 
-@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,statusText:String?,onHours:(()->Unit)?){
+@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,statusText:String?,onOpen:(()->Unit)?,onHours:(()->Unit)?){
     Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth()){
         Column(Modifier.padding(18.dp)){
-            Row(verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null,tint=MaterialTheme.colorScheme.onSurface)}
+            val headerModifier=if(onOpen!=null) Modifier.fillMaxWidth().clickable(onClick=onOpen) else Modifier.fillMaxWidth()
+            Row(headerModifier,verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,"Otvori "+title,tint=MaterialTheme.colorScheme.onSurface)}
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment=Alignment.CenterVertically){
                 ShiftBadge(shift,72.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)){Text(shift.name,fontSize=20.sp,fontWeight=FontWeight.Bold);Text(shift.time,color=Slate,fontSize=16.sp)}
-                if(!statusText.isNullOrBlank()) AssistChip(
-                    onClick={},
-                    label={Text(statusText,fontSize=11.sp,lineHeight=13.sp)}
-                )
+                if(!statusText.isNullOrBlank()) Surface(
+                    shape=RoundedCornerShape(999.dp),
+                    color=Color(0xFFE2F4FF)
+                ){
+                    Text(
+                        statusText,
+                        color=Color(0xFF087BC9),
+                        fontSize=11.sp,
+                        lineHeight=13.sp,
+                        fontWeight=FontWeight.Bold,
+                        modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)
+                    )
+                }
             }
             if(today){
                 Divider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5))
@@ -401,21 +449,25 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
-@Composable private fun CalendarScreen(scheduleCodes:Map<String,String>){
+@Composable private fun CalendarScreen(scheduleCodes:Map<String,String>,evidenceEntries:List<TimeEvidenceEntry>){
     val today=appDate()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     var selected by remember { mutableStateOf(today) }
     val data=scheduleFor(month,scheduleCodes)
     val holidays=CroatianHolidays.forYear(month.year)
-    val worked=data.values.sumOf{it.hours}
-    val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
+    val analytics=EvidenceAnalytics.summarize(
+        month=month,
+        entries=evidenceEntries,
+        scheduleCodes=codesForMonth(month,data),
+        fallbackToPlanned=false
+    )
     val selectedShift=if(YearMonth.from(selected)==month) data[selected.dayOfMonth] else null
     val selectedHoliday=holidays[selected]
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
     val selectedTitle=if(selected==today)"Danas" else selected.dayOfWeek.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}
 
     LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal=14.dp),
+        Modifier.fillMaxSize().testTag("screen-calendar").padding(horizontal=14.dp),
         contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
@@ -505,10 +557,10 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Spacer(Modifier.height(12.dp))
                     Row{
                         listOf(
-                            "Planirano" to worked.toString()+"h",
-                            "Odrađeno" to worked.toString()+"h",
-                            "Saldo" to "0h",
-                            "Noćni sati" to night.toString()+"h"
+                            "Planirano" to minutesLabel(analytics.plannedMinutes),
+                            "Odrađeno" to minutesLabel(analytics.workedMinutes),
+                            "Saldo" to signedMinutesLabel(analytics.balanceMinutes),
+                            "Noćni sati" to minutesLabel(analytics.nightMinutes)
                         ).forEach{
                             Column(Modifier.weight(1f)){
                                 Text(it.first,fontSize=11.sp,color=Slate)
@@ -601,13 +653,13 @@ private fun largeMinutesLabel(minutes:Long):String {
         month=month,
         entries=evidenceEntries,
         scheduleCodes=codesForMonth(month,data),
-        fallbackToPlanned=BuildConfig.DEBUG
+        fallbackToPlanned=false
     )
     val previousAnalytics=EvidenceAnalytics.summarize(
         month=previousMonth,
         entries=evidenceEntries,
         scheduleCodes=codesForMonth(previousMonth,previousData),
-        fallbackToPlanned=BuildConfig.DEBUG
+        fallbackToPlanned=false
     )
     val holidays=CroatianHolidays.forYear(month.year)
     val saturdayCount=data.keys.count{month.atDay(it).dayOfWeek.value==6}
@@ -621,7 +673,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+"."
 
     LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal=14.dp),
+        Modifier.fillMaxSize().testTag("screen-stats").padding(horizontal=14.dp),
         contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
@@ -851,7 +903,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     onReducedMotionChange:(Boolean)->Unit
 ){
     LazyColumn(
-        Modifier.fillMaxSize().padding(16.dp),
+        Modifier.fillMaxSize().testTag("screen-settings").padding(16.dp),
         contentPadding=PaddingValues(top=10.dp,bottom=20.dp)
     ){
         item{
@@ -896,6 +948,6 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 
 @Composable private fun ShiftChip(s:Shift,modifier:Modifier){Surface(modifier=modifier.height(40.dp),shape=RoundedCornerShape(11.dp),color=shiftBg(s)){Box(contentAlignment=Alignment.Center){Text(s.code,fontWeight=FontWeight.ExtraBold,color=shiftFg(s),fontSize=13.sp)}}}
-@Composable private fun ShiftBadge(s:Shift,size:androidx.compose.ui.unit.Dp){Surface(shape=RoundedCornerShape(14.dp),color=shiftBg(s),modifier=Modifier.size(size)){Box(contentAlignment=Alignment.Center){Text(s.code,fontSize=if(size>50.dp)24.sp else 14.sp,fontWeight=FontWeight.ExtraBold,color=shiftFg(s))}}}
+@Composable private fun ShiftBadge(s:Shift,size:androidx.compose.ui.unit.Dp){Surface(shape=RoundedCornerShape(14.dp),color=shiftBg(s),modifier=Modifier.size(size)){Box(contentAlignment=Alignment.Center){Text(if(s.code.isBlank())"—" else s.code,fontSize=if(size>50.dp)24.sp else 14.sp,fontWeight=FontWeight.ExtraBold,color=shiftFg(s))}}}
 private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"GO"->GObg;"BO"->BObg;else->Color(0xFFF1F5F9)}
 private fun shiftFg(s:Shift)=when(s.code){"D"->Color(0xFF087BC9);"N"->Color.White;"GO"->Color(0xFF07865F);"BO"->Color(0xFFD22333);else->Slate}

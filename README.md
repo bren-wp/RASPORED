@@ -16,6 +16,16 @@
 
 ---
 
+## Preuzimanja
+
+Svako produkcijsko izdanje objavljuje gotove artefakte:
+
+- **RASPORED.apk** — instalabilna Android aplikacija.
+- **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
+- **SHA256SUMS-vX.Y.Z.txt** — kontrolne vrijednosti za provjeru preuzetih datoteka.
+
+Verzija Android aplikacije i Web/PWA paketa uvijek se čita iz zajedničke datoteke <code>VERSION</code>. CI ne dopušta novo izdanje s već korištenom verzijom.
+
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
 RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima, koliko je stvarno odradio i kakav mu je saldo sati**.
@@ -30,7 +40,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 ## Stvarna aplikacija
 
-> Slike ispod su **stvarni screenshotovi pokrenute Web/PWA aplikacije**, generirani automatski u GitHub Actions / Playwright QA procesu. Nisu mockupovi, renderi ni dizajnerske reference. Screenshotovi koriste kontrolirane demo podatke kako bi vizualni regression test bio determinističan.
+> Slike ispod su **stvarni screenshotovi pokrenute Web/PWA aplikacije**, generirani automatski u GitHub Actions / Playwright QA procesu. Nisu mockupovi, renderi ni dizajnerske reference. Screenshotovi koriste izmišljene testne podatke i izmišljena imena; ne koriste stvarne osobe ni rasporede iz korisničkih fotografija.
 
 <img src="docs/media/app-home-desktop.png" alt="RASPORED Web/PWA početna — stvarni screenshot aplikacije" width="100%">
 
@@ -59,7 +69,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | --- | --- |
 | **Mjesečni kalendar** | Brz pregled smjena po danima, vikendima i hrvatskim blagdanima. |
 | **D / N / GO / BO model** | Jednostavna i konzistentna semantika smjena kroz cijelu aplikaciju. |
-| **OCR na Androidu** | Fotografija rasporeda → prepoznati zaposlenik → prepoznate smjene → ručna provjera → spremanje. |
+| **OCR na Androidu i Web/PWA** | Fotografija rasporeda → prepoznate osobe → izbor točno jedne osobe → provjera smjena → spremanje. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
 | **Saldo sati** | Razlika između planiranih i stvarno evidentiranih minuta. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
@@ -71,12 +81,13 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 ## Kako radi skeniranje
 
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
-2. Android **ML Kit OCR** prepoznaje tekst na uređaju.
-3. Parser pronalazi retke zaposlenika i oznake **D / N / GO / BO**.
-4. Korisnik odabire svoj redak i može ručno ispraviti svaku prepoznatu smjenu.
-5. Raspored se sprema po stvarnom datumu i odmah postaje dostupan na Početnoj, Kalendaru i u Statistici.
+2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
+3. Parser pronalazi imena i prezimena te oznake **D / N / GO / BO** po danima.
+4. Ako fotografija sadrži više djelatnika, korisnik mora odabrati **točno jednu osobu**.
+5. Prije spremanja moguće je ručno ispraviti prepoznate dane i smjene.
+6. U kalendar se uvozi samo raspored odabrane osobe; ostali prepoznati redovi se ne spremaju.
 
-Web/PWA trenutno ima stvarni image-upload, validaciju i Scan UI. Potpuni produkcijski Web OCR sloj još je u razvoju i README ga ne predstavlja kao dovršenu funkciju.
+Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Spremljeni raspored i evidencija sati ostaju lokalni u pregledniku.
 
 ## Evidencija sati je odvojena od plana
 
@@ -93,7 +104,7 @@ RASPORED zato odvojeno vodi:
 - vikend i blagdan minute,
 - saldo u odnosu na plan.
 
-Home i Statistika koriste stvarnu Evidenciju sati kada ona postoji. Kontrolirani fallback na planirane sate postoji samo u debug/demo QA putu.
+Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno odrađeno vrijeme vode se odvojeno.
 
 ## Brand
 
@@ -141,7 +152,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - lokalna pohrana rasporeda i evidencije
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
-- Compose testna osnova, unit testovi i lint u CI-ju
+- Compose unit/lint provjere i stvarni emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
 
@@ -160,6 +171,7 @@ Trenutačni produkcijski sloj koristi lokalnu pohranu za osobni raspored i evide
 - **Android:** aplikacijska lokalna pohrana.
 - **Web/PWA:** browser local storage.
 - **Android OCR:** obrada teksta preko ML Kit modela na uređaju.
+- **Web OCR:** obrada fotografije odvija se u pregledniku; raspored se sprema lokalno tek nakon korisničke potvrde.
 
 Projekt trenutačno nema potrebu predstavljati cloud račun ili centralni korisnički profil kao dovršenu funkciju.
 
@@ -193,12 +205,6 @@ Aplikacija je dostupna na:
 
 <pre><code>http://127.0.0.1:8080/</code></pre>
 
-Za deterministične vizualne QA podatke:
-
-<pre><code>http://127.0.0.1:8080/?demo=1</code></pre>
-
-<code>?demo=1</code> je razvojni / QA prikaz. Produkcijski put ne hardkodira referentnog korisnika ni demo statistiku.
-
 ## Struktura repozitorija
 
 <pre><code>RASPORED/
@@ -209,16 +215,11 @@ Za deterministične vizualne QA podatke:
 │   └── media/               # stvarni CI screenshotovi i brand media
 └── .github/workflows/       # build, test i screenshot QA</code></pre>
 
-## Status razvoja
+## Produkcijski status
 
-RASPORED je u **aktivnom razvoju**. Core Android i Web/PWA tokovi postoje i prolaze automatizirani QA, ali prvi stabilni release još nije objavljen.
+RASPORED je pripremljen kao **v1.0.0** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
 
-Prije prvog releasea fokus ostaje na:
-
-- završnom pixel-precision prolazu prema glavnim vizualnim referencama,
-- dodatnom screenshot-regression QA-u,
-- završnoj produkcijskoj Web OCR integraciji,
-- release pakiranju i provjeri artefakata.
+Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 
 ---
 

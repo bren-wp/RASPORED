@@ -39,4 +39,17 @@ class ScheduleOcrParserTest {
         assertEquals(listOf("GO", "D", "N", "BO"), result.rows[1].shifts)
     }
 
+
+    @Test
+    fun normalizesCommonOcrConfusionsForGoAndBo() {
+        val result = ScheduleOcrParser.parse("3 ANA HORVAT G0 B0 D N")
+        assertEquals(listOf("GO", "BO", "D", "N"), result.rows.single().shifts)
+    }
+
+    @Test
+    fun detectsCroatianMonthWithoutDiacritics() {
+        val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
+        assertEquals(YearMonth.of(2027, 1), result.month)
+    }
+
 }

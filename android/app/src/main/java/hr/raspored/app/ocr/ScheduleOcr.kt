@@ -26,14 +26,17 @@ data class RecognizedSchedule(
 )
 
 object ScheduleOcrParser {
-    private val shiftRegex = Regex("""(?<![\p{L}])(GO|BO|D|N)(?![\p{L}])""", RegexOption.IGNORE_CASE)
-    private val exactShiftRegex = Regex("""^(GO|BO|D|N)$""", RegexOption.IGNORE_CASE)
+    private val shiftRegex = Regex("""(?<![\p{L}])(GO|G0|BO|B0|D|N)[.,;:]?(?![\p{L}])""", RegexOption.IGNORE_CASE)
+    private val exactShiftRegex = Regex("""^(GO|G0|BO|B0|D|N)[.,;:]?$""", RegexOption.IGNORE_CASE)
     private val rowNumberRegex = Regex("""^\s*(\d{1,3})[.)]?\s*""")
     private val spaces = Regex("""\s+""")
     private val monthNames = mapOf(
         "SIJEČANJ" to Month.JANUARY,
+        "SIJECANJ" to Month.JANUARY,
         "VELJAČA" to Month.FEBRUARY,
+        "VELJACA" to Month.FEBRUARY,
         "OŽUJAK" to Month.MARCH,
+        "OZUJAK" to Month.MARCH,
         "TRAVANJ" to Month.APRIL,
         "SVIBANJ" to Month.MAY,
         "LIPANJ" to Month.JUNE,
@@ -44,6 +47,16 @@ object ScheduleOcrParser {
         "STUDENI" to Month.NOVEMBER,
         "PROSINAC" to Month.DECEMBER
     )
+
+    private fun canonicalShift(raw: String): String? = when (
+        raw.trim().trim('.', ',', ';', ':').uppercase(Locale.ROOT)
+    ) {
+        "D" -> "D"
+        "N" -> "N"
+        "GO", "G0" -> "GO"
+        "BO", "B0" -> "BO"
+        else -> null
+    }
 
     fun parse(result: Text): RecognizedSchedule {
         val lines = result.textBlocks.flatMap { it.lines }
@@ -100,11 +113,10 @@ object ScheduleOcrParser {
             .filter { (it.boundingBox?.top ?: Int.MIN_VALUE) > headerBottom }
             .mapNotNull { line ->
                 val shiftElements = line.elements.mapNotNull { element ->
-                    val code = element.text.trim().uppercase(Locale.ROOT)
+                    val raw = element.text.trim()
+                    val code = if (exactShiftRegex.matches(raw)) canonicalShift(raw) else null
                     val box = element.boundingBox
-                    if (box != null && exactShiftRegex.matches(code) && code in setOf("D","N","GO","BO")) {
-                        Triple(element.text, code, box.centerX())
-                    } else null
+                    if (box != null && code != null) Triple(element.text, code, box.centerX()) else null
                 }
                 if (shiftElements.isEmpty()) return@mapNotNull null
 
@@ -141,8 +153,7 @@ object ScheduleOcrParser {
 
     internal fun parseRow(line: String): RecognizedScheduleRow? {
         val shifts = shiftRegex.findAll(line)
-            .map { it.value.uppercase(Locale.ROOT) }
-            .filter { it in setOf("D", "N", "GO", "BO") }
+            .mapNotNull { canonicalShift(it.value) }
             .toList()
         if (shifts.isEmpty()) return null
 

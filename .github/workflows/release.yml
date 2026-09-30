@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists. Bump VERSION before the next release." >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Android QA and APK
+        run: |
+          set -euo pipefail
+          gradle -p android :app:assembleDebug :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Android launch smoke test
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: gradle -p android :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Web QA
+        working-directory: web
+        run: |
+          set -euo pipefail
+          php -l public/index.php
+          npm install
+          npx playwright install --with-deps chromium
+          npx playwright test tests/smoke.spec.ts tests/capture.spec.ts
+
+      - name: Package Web/PWA
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p dist
+          (
+            cd web/public
+            zip -r "../../dist/RASPORED-web-v${VERSION}.zip" . \
+              -x "*.DS_Store" \
+              -x "__MACOSX/*"
+          )
+          sha256sum dist/RASPORED.apk "dist/RASPORED-web-v${VERSION}.zip" > "dist/SHA256SUMS-v${VERSION}.txt"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          gh release create "v${VERSION}" \
+            dist/RASPORED.apk \
+            "dist/RASPORED-web-v${VERSION}.zip" \
+            "dist/SHA256SUMS-v${VERSION}.txt" \
+            --target "$RELEASE_SHA" \
+            --title "RASPORED v${VERSION}" \
+            --notes "Produkcijsko izdanje RASPORED-a. Sadrži instalabilni Android APK i Web/PWA paket. Android APK je automatski potpisan standardnim Android build potpisom i ne zahtijeva ručni unos ključeva u ovom procesu."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raspored-v${{ steps.version.outputs.version }}
+          path: dist/*
+          if-no-files-found: error

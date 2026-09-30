@@ -3,6 +3,15 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val releaseVersion = rootProject.projectDir.parentFile.resolve("VERSION").readText().trim()
+val versionMatch = Regex("""^(\d+)\.(\d+)\.(\d+)$""").matchEntire(releaseVersion)
+    ?: error("VERSION must use semantic version format x.y.z")
+val releaseVersionCode =
+    versionMatch.groupValues[1].toInt() * 10_000 +
+    versionMatch.groupValues[2].toInt() * 100 +
+    versionMatch.groupValues[3].toInt()
+
 android {
     namespace = "hr.raspored.app"
     compileSdk = 35
@@ -10,20 +19,21 @@ android {
         applicationId = "hr.raspored.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-dev"
+        versionCode = releaseVersionCode
+        versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
         sourceCompatibility = org.gradle.api.JavaVersion.VERSION_17
         targetCompatibility = org.gradle.api.JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true; buildConfig = true }
+    buildFeatures { compose = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose:1.10.0")
+    implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui")

@@ -12,10 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import hr.raspored.app.BuildConfig
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
 import kotlinx.coroutines.delay
@@ -101,10 +101,18 @@ internal fun TimeEvidenceScreen(
                                 fontSize = 22.sp
                             )
                         }
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(if (active != null) "U tijeku" else if (latest != null) "Završeno" else "Spremno") }
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = if (active != null) Color(0xFFD9F9EC) else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                if (active != null) "U tijeku" else if (latest != null) "Završeno" else "Spremno",
+                                color = if (active != null) Color(0xFF07865F) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
                     }
 
                     Surface(
@@ -269,10 +277,4 @@ private fun epochToTime(epoch: Long, formatter: DateTimeFormatter, zone: ZoneId)
 private fun durationLabel(minutes: Long): String =
     "${minutes / 60}h ${(minutes % 60).toString().padStart(2, '0')}min"
 
-private fun evidenceNow(): Long {
-    if (!BuildConfig.DEBUG) return System.currentTimeMillis()
-    return LocalDateTime.of(2026, 10, 16, 9, 20)
-        .atZone(ZoneId.systemDefault())
-        .toInstant()
-        .toEpochMilli()
-}
+private fun evidenceNow(): Long = System.currentTimeMillis()

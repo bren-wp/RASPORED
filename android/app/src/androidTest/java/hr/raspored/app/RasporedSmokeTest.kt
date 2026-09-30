@@ -1,7 +1,8 @@
 package hr.raspored.app
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
@@ -10,19 +11,26 @@ import org.junit.Test
 class RasporedSmokeTest {
     @get:Rule val composeRule = createAndroidComposeRule<MainActivity>()
 
-    @Test fun glavneNavigacijeOtvarajuReferentneEkrane() {
-        composeRule.onNodeWithText("Četvrtak, 16.10.2026.").assertIsDisplayed()
+    @Test
+    fun glavneNavigacijeOtvarajuProdukcijskeEkrane() {
+        composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
 
-        composeRule.onNodeWithText("Kalendar").performClick()
-        composeRule.onNodeWithText("Sažetak za mjesec").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-calendar").performClick()
+        composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
+        composeRule.onNodeWithContentDescription("Sljedeći mjesec").performClick()
+        composeRule.onNodeWithContentDescription("Prethodni mjesec").performClick()
 
-        composeRule.onNodeWithText("Skeniraj").performClick()
-        composeRule.onNodeWithText("Skeniraj raspored").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-scan").performClick()
+        composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()
+        composeRule.onNodeWithContentDescription("Pomoć za skeniranje").performClick()
+        composeRule.onNodeWithText("Kako dobiti dobar rezultat").fetchSemanticsNode()
+        composeRule.onNodeWithText("U redu").performClick()
+        composeRule.onNodeWithContentDescription("Natrag").performClick()
 
-        composeRule.onNodeWithText("Statistika").performClick()
-        composeRule.onNodeWithText("Ukupno odrađeno sati").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-stats").performClick()
+        composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
 
-        composeRule.onNodeWithText("Postavke").performClick()
-        composeRule.onNodeWithText("Izgled i pristupačnost").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithTag("screen-settings").fetchSemanticsNode()
     }
 }

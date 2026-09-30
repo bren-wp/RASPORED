@@ -22,11 +22,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.ocr.RecognizedSchedule
 import hr.raspored.app.ocr.ScheduleOcrEngine
+import hr.raspored.app.ocr.createOcrCaptureUri
 import hr.raspored.app.ocr.loadBitmap
 import java.time.YearMonth
 
@@ -39,16 +41,22 @@ internal fun OcrScanScreen(
 ) {
     val context = LocalContext.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var result by remember { mutableStateOf<RecognizedSchedule?>(null) }
     var phase by remember { mutableStateOf(OcrPhase.Idle) }
     var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
     var selectedRow by remember { mutableIntStateOf(-1) }
+    var selectedMonth by remember { mutableStateOf(defaultMonth) }
     var employeeMenu by remember { mutableStateOf(false) }
+    var editMode by remember { mutableStateOf(false) }
+    var helpOpen by remember { mutableStateOf(false) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
         result = recognized
+        selectedMonth = recognized.month ?: defaultMonth
         editedShifts.clear()
+        editMode = false
         when {
             recognized.rows.isEmpty() -> {
                 selectedRow = -1
@@ -59,12 +67,15 @@ internal fun OcrScanScreen(
                 selectedRow = 0
                 editedShifts.putAll(recognized.rows.first().dayShifts)
                 phase = OcrPhase.Success
-                message = "Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
+                message = "Prepoznata je 1 osoba. Provjeri raspored prije spremanja." +
+                    if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
             else -> {
                 selectedRow = -1
                 phase = OcrPhase.Success
-                message = "Prepoznato je ${recognized.rows.size} osoba. Odaberi ime i prezime osobe čiji raspored želiš uvesti."
+                val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
+                message = "Prepoznate su $countLabel. Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                    if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }
     }
@@ -84,8 +95,30 @@ internal fun OcrScanScreen(
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.TakePicturePreview()
-    ) { captured -> captured?.let(::process) }
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = cameraUri
+        if (success && uri != null) {
+            val loaded = loadBitmap(context, uri)
+            if (loaded != null) process(loaded)
+            else {
+                phase = OcrPhase.Error
+                message = "Snimljenu fotografiju nije moguće otvoriti."
+            }
+        }
+    }
+
+    fun launchCamera() {
+        runCatching { createOcrCaptureUri(context) }
+            .onSuccess { uri ->
+                cameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+            .onFailure {
+                phase = OcrPhase.Error
+                message = "Kameru nije moguće pripremiti. Pokušaj ponovno."
+            }
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -101,19 +134,26 @@ internal fun OcrScanScreen(
     }
 
     val activeRow = result?.rows?.getOrNull(selectedRow)
-    val recognizedMonth = result?.month ?: defaultMonth
+    val recognizedMonth = selectedMonth
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+        modifier = Modifier.fillMaxSize().testTag("screen-scan").padding(horizontal = 14.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            Text(
-                "Slikaj raspored s papira ili učitaj fotografiju.\nMi ćemo automatski prepoznati podatke.",
-                color = RasporedTokens.Slate
-            )
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        "Slikaj raspored s papira ili učitaj fotografiju.\nMi ćemo automatski prepoznati podatke.",
+                        color = RasporedTokens.Slate
+                    )
+                }
+                IconButton(onClick = { helpOpen = true }) {
+                    Icon(Icons.Outlined.HelpOutline, "Pomoć za skeniranje", tint = RasporedTokens.Slate)
+                }
+            }
         }
 
         item {
@@ -158,7 +198,7 @@ internal fun OcrScanScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         TextButton(
-                            onClick = { cameraLauncher.launch(null) },
+                            onClick = { launchCamera() },
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Outlined.PhotoCamera, null, tint = Color.White)
@@ -214,7 +254,7 @@ internal fun OcrScanScreen(
                 shadowElevation = 1.dp
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Odaberi moj redak", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("Odaberi osobu", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
                         "Ako raspored sadrži više osoba, obavezno odaberi samo jednu osobu čiji će se raspored uvesti.",
                         color = RasporedTokens.Slate,
@@ -259,10 +299,29 @@ internal fun OcrScanScreen(
                                         selectedRow = index
                                         editedShifts.clear()
                                         editedShifts.putAll(row.dayShifts)
+                                        editMode = false
                                         employeeMenu = false
                                     }
                                 )
                             }
+                        }
+                    }
+
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Mjesec rasporeda", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { selectedMonth = selectedMonth.minusMonths(1) }) {
+                            Icon(Icons.Outlined.ChevronLeft, "Prethodni mjesec")
+                        }
+                        Text(
+                            selectedMonth.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("hr", "HR"))
+                                .replaceFirstChar { it.titlecase(java.util.Locale("hr", "HR")) } + " " + selectedMonth.year + ".",
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = { selectedMonth = selectedMonth.plusMonths(1) }) {
+                            Icon(Icons.Outlined.ChevronRight, "Sljedeći mjesec")
                         }
                     }
                 }
@@ -286,10 +345,18 @@ internal fun OcrScanScreen(
                             )
                         }
                         if (editedShifts.isNotEmpty()) {
-                            AssistChip(
-                                onClick = {},
-                                label = { Text("✓ " + editedShifts.size + " prepoznato") }
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = Color(0xFFD9F9EC)
+                            ) {
+                                Text(
+                                    "✓ " + editedShifts.size + " prepoznato",
+                                    color = Color(0xFF07865F),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
                         }
                     }
 
@@ -313,6 +380,7 @@ internal fun OcrScanScreen(
                                     day = day,
                                     month = recognizedMonth,
                                     code = code,
+                                    enabled = editMode,
                                     onClick = {
                                         val next = nextShiftCode(code)
                                         if (next.isBlank()) editedShifts.remove(day) else editedShifts[day] = next
@@ -327,18 +395,16 @@ internal fun OcrScanScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(
-                            onClick = {
-                                val invalidDays = editedShifts.filterValues { it !in listOf("D", "N", "GO", "BO") }.keys
-                                invalidDays.forEach(editedShifts::remove)
-                            },
+                            onClick = { if (selectedRow >= 0) editMode = !editMode },
+                            enabled = selectedRow >= 0,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Outlined.Edit, null)
+                            Icon(if (editMode) Icons.Outlined.Check else Icons.Outlined.Edit, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Uredi")
+                            Text(if (editMode) "Završi uređivanje" else "Uredi")
                         }
                         OutlinedButton(
-                            onClick = { cameraLauncher.launch(null) },
+                            onClick = { launchCamera() },
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Outlined.DocumentScanner, null)
@@ -370,6 +436,25 @@ internal fun OcrScanScreen(
             }
         }
     }
+
+    if (helpOpen) {
+        AlertDialog(
+            onDismissRequest = { helpOpen = false },
+            icon = { Icon(Icons.Outlined.DocumentScanner, null, tint = RasporedTokens.Cyan) },
+            title = { Text("Kako dobiti dobar rezultat") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("• Obuhvati cijelu tablicu i zaglavlje s brojevima dana.")
+                    Text("• Izbjegni sjene, odsjaj i zamućenje.")
+                    Text("• Ako je na rasporedu više osoba, odaberi samo jedno ime i prezime.")
+                    Text("• Provjeri D, N, GO i BO oznake prije spremanja.")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { helpOpen = false }) { Text("U redu") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -398,7 +483,7 @@ private fun ScanFrame() {
 }
 
 @Composable
-private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () -> Unit) {
+private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boolean, onClick: () -> Unit) {
     val bg = when (code) {
         "D" -> RasporedTokens.CyanSoft
         "N" -> RasporedTokens.NavyAlt
@@ -415,9 +500,9 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () 
     }
     Surface(
         shape = RoundedCornerShape(12.dp),
-        border = ButtonDefaults.outlinedButtonBorder,
+        border = if (enabled) androidx.compose.foundation.BorderStroke(2.dp, RasporedTokens.Cyan) else ButtonDefaults.outlinedButtonBorder,
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.width(82.dp).clickable(onClick = onClick)
+        modifier = Modifier.width(82.dp).clickable(enabled = enabled, onClick = onClick)
     ) {
         Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(

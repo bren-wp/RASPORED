@@ -1,8 +1,15 @@
 <?php
 declare(strict_types=1);
 header('Content-Type: text/html; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(self), microphone=(), geolocation=()');
+header('X-Frame-Options: DENY');
+header("Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; worker-src 'self' blob: https://cdn.jsdelivr.net; font-src 'self' data:");
 $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 if ($base === '.') { $base = ''; }
+$version = trim((string) @file_get_contents(__DIR__ . '/version.txt'));
+if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.0'; }
 ?>
 <!doctype html>
 <html lang="hr" data-theme="light">
@@ -16,7 +23,7 @@ if ($base === '.') { $base = ''; }
 <link rel="icon" href="<?= htmlspecialchars(($base ?: '') . '/assets/brand/logo.svg', ENT_QUOTES) ?>" type="image/svg+xml">
 <link rel="stylesheet" href="<?= htmlspecialchars(($base ?: '') . '/assets/css/app.css', ENT_QUOTES) ?>">
 </head>
-<body>
+<body data-base="<?= htmlspecialchars($base, ENT_QUOTES) ?>">
 <div class="app-shell">
   <aside class="sidebar" aria-label="Glavna navigacija">
     <a class="brand brand--sidebar" href="#" data-route="home" aria-label="RASPORED početna">
@@ -32,15 +39,17 @@ if ($base === '.') { $base = ''; }
       <button class="nav-item desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Kolege</button>
       <button class="nav-item" data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg>Postavke</button>
     </nav>
-    <div class="side-version"><img src="assets/brand/logo.svg" alt="" width="36"><span>RASPORED<small>v0.1.0-dev</small></span></div>
+    <div class="side-version"><img src="assets/brand/logo.svg" alt="" width="36"><span>RASPORED<small>v<?= htmlspecialchars($version, ENT_QUOTES) ?></small></span></div>
   </aside>
 
   <main class="main">
     <header class="topbar">
-      <a class="brand brand--mobile" href="#" data-route="home"><img src="assets/brand/logo.svg" alt="" width="42"><strong>RASPORED</strong></a>
+      <a class="brand brand--mobile" href="#" data-route="home"><img src="assets/brand/logo.svg" alt="" width="42"><span><strong>RASPORED</strong><small>Shift planner & evidencija sati</small></span></a>
       <div class="top-actions">
+        <button class="icon-btn mobile-header-action" id="mobileScanHeaderBtn" data-route="scan" aria-label="Skeniraj raspored"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg></button>
+        <button class="icon-btn mobile-header-action" id="statsRefreshBtn" aria-label="Osvježi statistiku"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-refresh"></use></svg></button>
         <button class="icon-btn" id="searchBtn" aria-label="Pretraži"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-search"></use></svg></button>
-        <button class="icon-btn notification" aria-label="Obavijesti"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span></span></button>
+        <button class="icon-btn notification" id="notificationBtn" aria-label="Obavijesti" aria-expanded="false"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span id="notificationDot"></span></button>
         <button class="profile-btn" id="profileButton" aria-label="Korisnički profil"><b id="profileInitials">K</b><span id="profileName">Korisnik</span><i>⌄</i></button>
       </div>
     </header>
@@ -120,7 +129,7 @@ if ($base === '.') { $base = ''; }
 
     <section class="view" id="view-scan" data-view="scan">
       <div class="scan-header"><button class="back-btn" data-route="home" aria-label="Natrag"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-left"></use></svg></button><div class="brand-inline"><img src="assets/brand/logo.svg" alt="" width="40"><b>RASPORED</b></div></div>
-      <div class="scan-copy"><h1>Skeniraj raspored</h1><p>Slikaj raspored s papira ili učitaj fotografiju.<br>Mi ćemo automatski prepoznati podatke.</p></div>
+      <div class="scan-copy scan-copy--with-help"><div><h1>Skeniraj raspored</h1><p>Slikaj raspored s papira ili učitaj fotografiju.<br>Mi ćemo automatski prepoznati podatke.</p></div><button class="icon-btn scan-help-btn" id="scanHelpBtn" aria-label="Pomoć za skeniranje">?</button></div>
       <section class="scan-preview" id="scanPreview">
         <div class="scan-corners" aria-hidden="true"></div>
         <img id="scanPreviewImage" class="scan-preview-image" alt="Odabrana fotografija rasporeda">
@@ -128,12 +137,6 @@ if ($base === '.') { $base = ''; }
           <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>
           <b>Raspored nije učitan</b>
           <span>Skeniraj papirnati raspored ili odaberi fotografiju iz galerije.</span>
-        </div>
-        <div class="fake-sheet" id="fakeSheet" aria-label="Primjer pregleda skeniranog rasporeda">
-          <b>LISTOPAD 2026.</b>
-          <div class="fake-row is-selected">6&nbsp;&nbsp;&nbsp; MARIO EGIMOVIĆ&nbsp;&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; GO&nbsp;&nbsp; D</div>
-          <div class="fake-row">7&nbsp;&nbsp;&nbsp; ADEMI DENI&nbsp;&nbsp;&nbsp; GO&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; GO</div>
-          <div class="fake-row">8&nbsp;&nbsp;&nbsp; VUČETA ZLATKO&nbsp;&nbsp;&nbsp; N&nbsp;&nbsp; D&nbsp;&nbsp; D</div>
         </div>
         <div class="scan-actions">
           <button id="rescanBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Ponovno skeniraj</button>
@@ -157,8 +160,16 @@ if ($base === '.') { $base = ''; }
           </button>
           <div class="scan-person-menu" id="scanPersonMenu" role="listbox" hidden></div>
         </div>
+        <div class="scan-month-field">
+          <span>Mjesec rasporeda</span>
+          <div class="scan-month-stepper" aria-label="Mjesec rasporeda">
+            <button type="button" class="icon-btn" id="scanMonthPrev" aria-label="Prethodni mjesec"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-left"></use></svg></button>
+            <b id="scanMonthLabel">—</b>
+            <button type="button" class="icon-btn" id="scanMonthNext" aria-label="Sljedeći mjesec"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-right"></use></svg></button>
+          </div>
+        </div>
       </section>
-      <section class="card scan-card"><div class="card-head"><div><h2>Provjera rasporeda</h2><p>Pregledaj prepoznate smjene i po potrebi ih ispravi.</p></div><span class="success-pill" id="recognitionStatus">Odaberi osobu</span></div><div class="recognition-days" id="recognitionDays"></div><div class="scan-edit-actions"><button><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-edit"></use></svg>Uredi</button><button id="rescanSecondary"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>Ponovno skeniraj</button></div></section>
+      <section class="card scan-card"><div class="card-head"><div><h2>Provjera rasporeda</h2><p>Pregledaj prepoznate smjene i po potrebi ih ispravi.</p></div><span class="success-pill" id="recognitionStatus">Odaberi osobu</span></div><div class="recognition-days" id="recognitionDays"></div><div class="scan-edit-actions"><button id="editRecognitionBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-edit"></use></svg>Uredi</button><button id="rescanSecondary"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>Ponovno skeniraj</button></div></section>
       <button class="primary-btn primary-btn--full" id="saveSchedule"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Spremi raspored</button>
     </section>
 
@@ -241,6 +252,11 @@ if ($base === '.') { $base = ''; }
     <section class="view" id="view-settings" data-view="settings">
       <div class="mobile-page-title"><h1>Postavke</h1></div>
       <section class="card settings-card">
+        <h2>Profil</h2>
+        <label class="setting-field"><span><b>Ime i prezime</b><small>Koristi se samo za prikaz u ovoj instalaciji aplikacije.</small></span><input type="text" id="profileNameInput" maxlength="80" autocomplete="name" placeholder="Unesi ime i prezime"></label>
+        <button class="secondary-btn settings-save" id="saveProfileBtn">Spremi profil</button>
+      </section>
+      <section class="card settings-card">
         <h2>Izgled i pristupačnost</h2>
         <label class="setting-row"><span><b>Tamni način</b><small>Koristi navy/dark surface uz iste statusne boje.</small></span><input type="checkbox" id="themeToggle"></label>
         <label class="setting-row"><span><b>Smanjene animacije</b><small>Poštuje prefers-reduced-motion i dodatnu lokalnu postavku.</small></span><input type="checkbox" id="motionToggle"></label>
@@ -257,9 +273,63 @@ if ($base === '.') { $base = ''; }
   </nav>
 </div>
 
+<div class="floating-panel notification-panel" id="notificationPanel" hidden>
+  <div class="floating-panel-head"><b>Obavijesti</b><button class="icon-btn" id="closeNotificationBtn" aria-label="Zatvori">×</button></div>
+  <p id="notificationText">Nema novih obavijesti.</p>
+</div>
+<div class="floating-panel profile-panel" id="profilePanel" hidden>
+  <div class="floating-panel-head"><b>Profil</b><button class="icon-btn" id="closeProfileBtn" aria-label="Zatvori">×</button></div>
+  <button class="panel-action" data-route="settings">Uredi profil i postavke</button>
+</div>
+
+
+<dialog class="app-dialog" id="scanHelpDialog">
+  <form class="dialog-card" method="dialog">
+    <div class="dialog-head">
+      <div><h2>Kako dobiti dobar rezultat</h2><p>Fotografija rasporeda treba biti jasna i ravna.</p></div>
+      <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
+    </div>
+    <div class="scan-help-list">
+      <p><b>1.</b> Obuhvati cijelu tablicu i zaglavlje s brojevima dana.</p>
+      <p><b>2.</b> Izbjegni sjene, odsjaj i zamućenje.</p>
+      <p><b>3.</b> Ako je na rasporedu više osoba, nakon prepoznavanja odaberi samo jedno ime i prezime.</p>
+      <p><b>4.</b> Provjeri D, N, GO i BO oznake prije spremanja.</p>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="app-dialog" id="searchDialog">
+  <form class="dialog-card" method="dialog">
+    <div class="dialog-head">
+      <div><h2>Pretraži RASPORED</h2><p>Brzo otvori željeni dio aplikacije.</p></div>
+      <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
+    </div>
+    <label class="dialog-field">
+      <span>Pretraživanje</span>
+      <input id="searchInput" type="search" autocomplete="off" placeholder="Npr. kalendar, statistika, evidencija sati">
+    </label>
+    <div class="search-results" id="searchResults"></div>
+  </form>
+</dialog>
+
+<dialog class="app-dialog" id="colleagueDialog">
+  <form class="dialog-card" id="colleagueForm">
+    <div class="dialog-head">
+      <div><h2>Dodaj kolegu</h2><p>Spremi ime i kratku napomenu lokalno u ovoj instalaciji.</p></div>
+      <button class="icon-btn" type="button" id="closeColleagueDialog" aria-label="Zatvori">×</button>
+    </div>
+    <label class="dialog-field"><span>Ime i prezime</span><input id="colleagueNameInput" maxlength="80" autocomplete="name" required></label>
+    <label class="dialog-field"><span>Napomena</span><input id="colleagueNoteInput" maxlength="120" placeholder="Npr. Odjel B"></label>
+    <div class="dialog-actions">
+      <button class="secondary-btn" type="button" id="cancelColleagueBtn">Odustani</button>
+      <button class="primary-btn" type="submit">Spremi kolegu</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="connectivity-banner" id="connectivityBanner" role="status" aria-live="polite">Nema internetske veze. Spremljeni raspored ostaje dostupan.</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>window.RASPORED_BASE = <?= json_encode($base, JSON_UNESCAPED_SLASHES) ?>;</script>
+<script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/app.js', ENT_QUOTES) ?>" defer></script>
 </body>
 </html>
