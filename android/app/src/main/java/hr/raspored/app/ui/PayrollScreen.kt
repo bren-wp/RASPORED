@@ -35,6 +35,7 @@ import java.util.Locale
 @Composable
 internal fun PayrollScreen(
     evidenceEntries: List<TimeEvidenceEntry>,
+    scheduleCodes: Map<String, String>,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
@@ -108,6 +109,7 @@ internal fun PayrollScreen(
         PublicSectorPayroll.estimate(
             month = month,
             entries = evidenceEntries,
+            scheduleCodes = scheduleCodes,
             regimeId = regimeId,
             coefficient = coefficient,
             yearsService = years,
@@ -478,7 +480,7 @@ internal fun PayrollScreen(
                 Column(Modifier.padding(18.dp)) {
                     Text("Obračunski sati i dodaci", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Koristi stvarnu Evidenciju sati. Planirani raspored se ne pretvara automatski u odrađene sate.",
+                        "Koristi stvarnu Evidenciju sati. GO, BO i PD iz kalendara koriste se samo kao 8-satna ekvivalencija za procjenu mjesečnog fonda/prekovremenih sati; ne predstavljaju točan obračun naknade po prosjeku.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -524,9 +526,26 @@ internal fun PayrollScreen(
                             estimate.holidayAddition
                         )
                     }
+                    if (estimate.evidence.goDays > 0 || estimate.evidence.boDays > 0 ||
+                        estimate.evidence.pdDays > 0 || estimate.evidence.sdDays > 0
+                    ) {
+                        PayrollLine(
+                            "Planirani izostanci",
+                            "GO ${estimate.evidence.goDays} · BO ${estimate.evidence.boDays} · " +
+                                "PD ${estimate.evidence.pdDays} · SD ${estimate.evidence.sdDays}",
+                            null
+                        )
+                    }
+                    if (estimate.evidence.overtimeMinutes > 0L) {
+                        PayrollLine(
+                            "Osnovna satnica prekovremenih sati",
+                            minutesLabelPayroll(estimate.evidence.overtimeMinutes),
+                            estimate.overtimeBasePay
+                        )
+                    }
                     if (regime.rates.overtime != null) {
                         PayrollLine(
-                            "Prekovremeni iznad mjesečnog fonda",
+                            "Dodatak za prekovremeni rad",
                             minutesLabelPayroll(estimate.evidence.overtimeMinutes),
                             estimate.overtimeAddition
                         )
