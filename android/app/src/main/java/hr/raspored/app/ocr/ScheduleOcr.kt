@@ -84,6 +84,25 @@ object ScheduleOcrParser {
         else -> null
     }
 
+    /**
+     * Dense hospital and public-sector rosters often contain workplace-specific
+     * cell labels in addition to D/N/GO/BO/PD/SD (for example J, S or P1).
+     * Inside a proven day-grid cell we preserve those short labels instead of
+     * silently dropping them. Meanings are not guessed; unknown labels stay
+     * user-visible custom schedule codes.
+     */
+    private fun canonicalGridCode(raw: String): String? {
+        canonicalShift(raw)?.let { return it }
+        val value = raw
+            .trim()
+            .trim('.', ',', ';', ':', '|', '[', ']', '(', ')', '{', '}', '_', '-')
+            .uppercase(Locale("hr", "HR"))
+        if (!Regex("""^[\p{L}\p{N}]{1,3}$""").matches(value)) return null
+        if (value.all(Char::isDigit) && value !in setOf("1", "2", "3")) return null
+        if (value in setOf("RB", "OD", "DO")) return null
+        return value
+    }
+
     private data class HeaderGeometry(
         val bottom: Int,
         val dayCenters: Map<Int, Int>,
@@ -512,7 +531,7 @@ object ScheduleOcrParser {
         val anchoredRows = anchors.mapNotNull { anchor ->
             val rowTokens = tokensForAnchor(anchor, anchors, tokens, rowTolerance)
             val shiftTokens = rowTokens.mapNotNull { token ->
-                canonicalShift(token.text)?.let { token to it }
+                canonicalGridCode(token.text)?.let { token to it }
             }
             val dayShifts = mapShiftTokensToDays(shiftTokens, dayCenters, maxDistance)
             // Ako je redak numeriran, zadržavamo osobu i kada OCR nije
@@ -689,7 +708,7 @@ object ScheduleOcrParser {
         maxDistance: Double
     ): RecognizedScheduleRow? {
         val shiftTokens = tokens.mapNotNull { token ->
-            canonicalShift(token.text)?.let { token to it }
+            canonicalGridCode(token.text)?.let { token to it }
         }
         if (shiftTokens.isEmpty()) return null
 
