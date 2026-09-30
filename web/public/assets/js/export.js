@@ -27,12 +27,12 @@ function monthBounds(month){
 }
 function entryInterval(entry){
   if(!entry)return null;
-  var start=Number(entry.startedAt);
+  var start=entry.startedAt==null?NaN:Number(entry.startedAt);
   if(!Number.isFinite(start)&&entry.date&&entry.in){
     start=new Date(String(entry.date)+"T"+String(entry.in)+":00").getTime();
   }
   if(!Number.isFinite(start))return null;
-  var end=Number(entry.endedAt);
+  var end=entry.endedAt==null?NaN:Number(entry.endedAt);
   if(!Number.isFinite(end)&&entry.out&&entry.date){
     end=new Date(String(entry.date)+"T"+String(entry.out)+":00").getTime();
     if(end<=start)end+=24*60*60*1000;
