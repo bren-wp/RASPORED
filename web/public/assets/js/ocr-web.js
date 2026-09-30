@@ -424,6 +424,40 @@ async function prepareImage(file,strong){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
+async function prepareStripe(file,startRatio,endRatio){
+  if(typeof createImageBitmap!=="function")return file;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    var top=Math.max(0,Math.floor(bitmap.height*startRatio));
+    var bottom=Math.min(bitmap.height,Math.ceil(bitmap.height*endRatio));
+    var cropHeight=Math.max(1,bottom-top);
+    var pixelScale=Math.sqrt(6500000/(bitmap.width*cropHeight));
+    var edgeScale=5600/bitmap.width;
+    var scale=Math.max(1,Math.min(1.65,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+    canvas.height=Math.max(1,Math.round(cropHeight*scale));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return file;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.34)";
+    context.drawImage(
+      bitmap,
+      0,top,bitmap.width,cropHeight,
+      0,0,canvas.width,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.96);
+    });
+  }catch(error){
+    return file;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
 async function getWorker(){
   if(workerPromise)return workerPromise;
   workerPromise=(async function(){
@@ -436,9 +470,9 @@ async function getWorker(){
   })();
   try{return await workerPromise}catch(error){workerPromise=null;throw error}
 }
-function parsedResult(result){
+function parsedResult(result,monthHint){
   var text=result&&result.data?result.data.text:"";
-  var month=detectMonth(text);
+  var month=detectMonth(text)||monthHint||null;
   var geometryRows=parseGeometry(result&&result.data?result.data.blocks:null,daysInMonth(month));
   var textRows=parseText(text);
   return {month:month,people:mergeRows(geometryRows.concat(textRows)),rawText:text};
@@ -463,11 +497,29 @@ async function recognizeScheduleNow(file,onProgress){
     var worker=await getWorker();
     var source=await prepareImage(file,false);
     var first=parsedResult(await worker.recognize(source,{}, {text:true,blocks:true}));
-    if(!sparseResult(first))return first;
-    if(onProgress)onProgress(.86,"recovery");
+    var needsDeep=sparseResult(first)||(first.people||[]).length<16;
+    if(!needsDeep)return first;
+
+    if(onProgress)onProgress(.78,"recovery");
     var recoverySource=await prepareImage(file,true);
-    var second=parsedResult(await worker.recognize(recoverySource,{}, {text:true,blocks:true}));
-    return mergeRecognized(first,second);
+    var second=parsedResult(
+      await worker.recognize(recoverySource,{}, {text:true,blocks:true}),
+      first.month
+    );
+    var merged=mergeRecognized(first,second);
+    if(!sparseResult(merged)&&(merged.people||[]).length>=16)return merged;
+
+    var stripes=[[0,.58],[.42,1]];
+    for(var i=0;i<stripes.length;i++){
+      if(onProgress)onProgress(.88+i*.05,"table-stripe-"+(i+1));
+      var stripeSource=await prepareStripe(file,stripes[i][0],stripes[i][1]);
+      var stripe=parsedResult(
+        await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
+        merged.month
+      );
+      merged=mergeRecognized(merged,stripe);
+    }
+    return merged;
   }finally{
     activeProgressCallback=null;
   }
