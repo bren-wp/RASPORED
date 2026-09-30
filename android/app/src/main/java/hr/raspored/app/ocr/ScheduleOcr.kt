@@ -974,7 +974,7 @@ object ScheduleOcrEngine {
             targetPixels / (source.width.toDouble() * cropHeight.toDouble())
         )
         val edgeScale = 5600.0 / source.width.toDouble()
-        val scale = minOf(1.65, pixelScale, edgeScale).coerceAtLeast(1.0)
+        val scale = minOf(1.65, pixelScale, edgeScale).coerceAtLeast(0.25)
         val width = (source.width * scale).roundToInt().coerceAtLeast(1)
         val height = (cropHeight * scale).roundToInt().coerceAtLeast(1)
 
