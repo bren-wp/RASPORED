@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -151,7 +152,7 @@ internal fun OcrScanScreen(
                     )
                 }
                 IconButton(onClick = { helpOpen = true }) {
-                    Icon(Icons.Outlined.HelpOutline, "Pomoć za skeniranje", tint = RasporedTokens.Slate)
+                    Icon(Icons.AutoMirrored.Outlined.HelpOutline, "Pomoć za skeniranje", tint = RasporedTokens.Slate)
                 }
             }
         }
@@ -500,7 +501,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
     }
     Surface(
         shape = RoundedCornerShape(12.dp),
-        border = if (enabled) androidx.compose.foundation.BorderStroke(2.dp, RasporedTokens.Cyan) else ButtonDefaults.outlinedButtonBorder,
+        border = if (enabled) androidx.compose.foundation.BorderStroke(2.dp, RasporedTokens.Cyan) else ButtonDefaults.outlinedButtonBorder(enabled = enabled),
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.width(82.dp).clickable(enabled = enabled, onClick = onClick)
     ) {
