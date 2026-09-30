@@ -479,14 +479,14 @@ function parseRosterRows(blocks){
   var tolerance=Math.max(8,(median(tokens.map(function(token){return boxHeight(token.bbox)}))||12)*.90);
   var rows=clusterByY(tokens,tolerance).map(function(cluster){
     var ordered=cluster.slice().sort(function(a,b){return centerX(a.bbox)-centerX(b.bbox)});
+    if(!ordered.length)return null;
+    var row=Number(normalize(ordered[0].text).replace(/[.)]+$/,""));
+    if(!Number.isInteger(row)||row<1||row>100)return null;
     var text=ordered.map(function(token){return token.text}).join(" ").replace(/\s+/g," ").trim();
-    var match=text.match(/^\s*(\d{1,3})[.)]?\s*/);
-    if(!match)return null;
-    var row=Number(match[1]);
-    if(!(row>=1&&row<=100))return null;
     var name=cleanName(text);
     var words=name.split(/\s+/).filter(function(word){return /\p{L}/u.test(word)});
-    if(!validName(name)||(words.length<2&&(name.match(/\p{L}/gu)||[]).length<8))return null;
+    var yearNoise=/\b20\d{2}\b|\d{4,}/.test(name);
+    if(!validName(name)||words.length<2||yearNoise)return null;
     return {row:row,name:name,dayShifts:{}};
   }).filter(Boolean);
   return mergeRows(rows);
