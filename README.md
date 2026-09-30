@@ -208,7 +208,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
 - **Zajednički račun:** Web i Android čitaju isti per-account JSON na `raspored.eu`; sinkronizacija je eksplicitna kako lokalni podaci ne bi bili prepisani bez korisnikove radnje.
 - **Računi:** lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify`, HttpOnly/SameSite session cookie, same-origin provjeru i ograničenje pokušaja prijave.
-- **Zaštita Web spremišta:** `storage/.htaccess` zabranjuje izravno HTTP čitanje; zapis ide kroz isti-origin API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
+- **Zaštita Web spremišta:** runtime prvenstveno sprema JSON u privatni direktorij izvan document root-a; put se može eksplicitno zadati s `RASPORED_STORAGE_DIR`. `storage/.htaccess` ostaje kompatibilni fallback za Apache. Zapis ide kroz API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
 - **Android OCR:** obrada teksta preko ML Kit modela na uređaju.
 - **Web OCR:** fotografija se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
