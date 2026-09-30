@@ -485,6 +485,20 @@ test("salary estimator switches between police, fire and manual local regimes", 
   await expect(page.locator("#payrollGross")).not.toHaveText("Unesi osnovicu");
 });
 
+test("salary estimator supports private-sector manual parameters without invented presets", async ({page}) => {
+  await page.goto("/");
+  await openPayroll(page);
+  await page.locator("#payrollSector").selectOption("Privatni sektor");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
+  await expect(page.locator("#payrollCustomBase")).toHaveAttribute("required","");
+  await expect(page.locator("#payrollRole")).toHaveValue("manual");
+  await page.locator("#payrollInstitutionCustom").fill("Privatni poslodavac Primjer");
+  await page.locator("#payrollCustomBase").fill("1800");
+  await page.locator("#payrollCoefficient").fill("1");
+  await expect(page.locator("#payrollGross")).not.toHaveText("Unesi osnovicu");
+  await expect(page.locator("#payrollRoleNote")).toContainText("Privatni");
+});
+
 test("salary estimator applies residence tax presets independently from institution county", async ({page}) => {
   await page.goto("/");
   await openPayroll(page);
