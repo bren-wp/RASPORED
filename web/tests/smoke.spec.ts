@@ -242,7 +242,36 @@ test("salary estimator uses official public-health role parameters and persists 
   await expect(page.locator("#payrollRole")).toHaveValue("kbc-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await expect(page.locator("#payrollYears")).toHaveValue("10");
+  await expect(page.locator("#payrollInstitution option")).toHaveCount(63);
+  await expect(page.locator("#payrollRateProfile")).toHaveValue("kbc-rijeka-observed-2026");
 });
+
+test("salary estimator separates national rules from KBC Rijeka observed payroll profile", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.locator('[data-route="stats"]:visible').first().click();
+    await page.locator(".stats-payroll-link").click();
+  }else{
+    await page.locator('[data-route="payroll"]:visible').first().click();
+  }
+
+  await expect(page.locator("#payrollInstitution")).toHaveValue("kbc-rijeka");
+  await expect(page.locator("#payrollRateProfile")).toHaveValue("kbc-rijeka-observed-2026");
+  await expect(page.locator("#payrollProfileNote")).toContainText("Noćni dodatak 50%");
+
+  await page.locator("#payrollInstitution").selectOption("kbc-zagreb");
+  await expect(page.locator("#payrollRateProfile")).toHaveValue("national-public");
+  await expect(page.locator("#payrollProfileNote")).toContainText("TKU");
+
+  await page.locator("#payrollOvertimeHours").fill("10");
+  await page.locator("#payrollOvertimeHours").blur();
+  const calculation=await page.evaluate(() => (window as any).RasporedPayroll.calculate());
+  expect(calculation.overtimeHours).toBe(10);
+  expect(calculation.overtimeBase).toBeGreaterThan(0);
+  expect(calculation.components.find((x:any)=>x.key==="overtime").rate).toBe(0.5);
+});
+
 
 test("salary estimator exposes sources and remains a gross estimate", async ({page}) => {
   await page.goto("/");
@@ -255,7 +284,7 @@ test("salary estimator exposes sources and remains a gross estimate", async ({pa
   }
   await expect(page.locator("#payrollLegalText")).toContainText("Osnovna bruto plaća");
   await expect(page.locator(".payroll-legal-card")).toContainText("nije obračunska isprava");
-  await expect(page.locator("#payrollSources a")).toHaveCount(6);
+  await expect(page.locator("#payrollSources a")).toHaveCount(7);
   await expect(page.locator("#payrollSources")).toContainText("NN 22/2024");
   await expect(page.locator("#payrollSources")).toContainText("KBC Rijeka");
 });
