@@ -730,13 +730,14 @@ async function recognizeScheduleNow(file,onProgress){
     var worker=await getWorker();
     var source=await prepareImage(file,false);
     var first=parsedResult(await worker.recognize(source,{}, {text:true,blocks:true}));
-    var needsDeep=sparseResult(first)||missingNumberedRows(first)||(first.people||[]).length<16;
-    if(!needsDeep)return first;
 
     if(onProgress)onProgress(.76,"table-detection");
     var tableSource=window.RasporedOcrTableCrop
       ?await window.RasporedOcrTableCrop.cropScheduleTable(file)
       :file;
+    var forceDenseRecovery=tableSource!==file;
+    var needsDeep=forceDenseRecovery||sparseResult(first)||missingNumberedRows(first)||(first.people||[]).length<16;
+    if(!needsDeep)return first;
 
     if(onProgress)onProgress(.78,"recovery");
     var recoverySource=await prepareImage(tableSource,true);
@@ -745,7 +746,7 @@ async function recognizeScheduleNow(file,onProgress){
       first.month
     );
     var merged=mergeRecognized(first,second);
-    if(!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
+    if(!forceDenseRecovery&&!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
 
     var stripes=[[0,.46],[.27,.74],[.55,1]];
     for(var i=0;i<stripes.length;i++){
