@@ -196,7 +196,11 @@ object PublicSectorPayroll {
             "Osnovicu i koeficijent utvrđuju lokalni kolektivni ugovor i akti jedinice."
         ),
         PayrollRegime(
-            "other-public", "Ostalo", "Druga javna ustanova / ručni unos", "manual", PayrollRates()
+            "private-manual", "Privatni sektor", "Privatni poslodavac / ručni obračunski parametri", "manual", PayrollRates(),
+            "Privatni sektor nema jedinstvenu državnu osnovicu ni koeficijent. Unesi ugovorenu bruto osnovicu/koeficijent i dodatke samo kada su poznati iz ugovora, pravilnika ili kolektivnog ugovora."
+        ),
+        PayrollRegime(
+            "other-public", "Ostalo", "Druga ustanova / poslodavac — ručni unos", "manual", PayrollRates()
         )
     )
 
