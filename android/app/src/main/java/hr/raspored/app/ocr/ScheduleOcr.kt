@@ -1199,9 +1199,13 @@ object ScheduleOcrEngine {
     ): Boolean {
         if (schedule.rows.any { row -> row.name.count(Char::isLetter) < 3 }) return true
         if (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule)) return true
-        return source.width >= 1600 &&
-            source.height >= 1000 &&
-            schedule.rows.size in 1..15
+        // Dense monthly rosters photographed from a monitor are often
+        // 4:3 images around 1440×1080. Treat a suspiciously short 1–20 row
+        // result as incomplete even when the first pass happened to read many
+        // cells; otherwise a real 27–31 person roster can stop after row 13.
+        return source.width >= 1200 &&
+            source.height >= 750 &&
+            schedule.rows.size in 1..20
     }
 
     private fun needsStripeRecovery(
