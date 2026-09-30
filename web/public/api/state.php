@@ -362,7 +362,12 @@ function read_state(string $file): array
     return clean_state($decoded, $revision);
 }
 
-function write_state(string $file, array $state, ?array $account): array
+function write_state(
+    string $file,
+    array $state,
+    ?array $account,
+    ?int $expectedRevision = null
+): array
 {
     $dir = dirname($file);
     $lockPath = $dir . '/.write.lock';
@@ -376,7 +381,14 @@ function write_state(string $file, array $state, ?array $account): array
 
     try {
         $current = read_state($file);
-        $next = clean_state($state, ((int) ($current['revision'] ?? 0)) + 1);
+        $currentRevision = (int) ($current['revision'] ?? 0);
+        if ($expectedRevision !== null && $expectedRevision !== $currentRevision) {
+            fail_json(
+                409,
+                'Podaci su izmijenjeni na drugom uređaju. Najprije preuzmi najnovije stanje pa ponovi spremanje.'
+            );
+        }
+        $next = clean_state($state, $currentRevision + 1);
         $next = enforce_account_scope($next, $account);
         $json = json_encode($next, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         if ($json === false) {
@@ -477,7 +489,15 @@ $incoming = $payload['state'] ?? $payload;
 if (($payload['patch'] ?? false) === true) {
     $incoming = merge_state_patch(read_state($file), $incoming);
 }
-$next = write_state($file, is_array($incoming) ? $incoming : [], $account);
+$expectedRevision = isset($payload['expectedRevision']) && is_numeric($payload['expectedRevision'])
+    ? max(0, (int) $payload['expectedRevision'])
+    : null;
+$next = write_state(
+    $file,
+    is_array($incoming) ? $incoming : [],
+    $account,
+    $expectedRevision
+);
 echo json_encode([
     'ok' => true,
     'state' => $next,
