@@ -34,6 +34,11 @@ import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
+import hr.raspored.app.data.AccountSyncStore
+import hr.raspored.app.data.CloudAccount
+import hr.raspored.app.data.CloudResult
+import hr.raspored.app.data.PayrollSettingsStore
+import hr.raspored.app.data.TeamStore
 import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
 import hr.raspored.app.data.TimeEvidenceEntry
@@ -79,6 +84,12 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
     val uiSettings = remember(context) { UiSettingsStore(context) }
     val evidenceStore = remember(context) { TimeEvidenceStore(context) }
     val profileStore = remember(context) { ProfileStore(context) }
+    val payrollSettingsStore = remember(context) { PayrollSettingsStore(context) }
+    val teamStore = remember(context) { TeamStore(context) }
+    val accountSyncStore = remember(context) { AccountSyncStore(context) }
+    var cloudAccount by remember { mutableStateOf(accountSyncStore.account) }
+    var cloudBusy by remember { mutableStateOf(false) }
+    var cloudStatus by remember { mutableStateOf("") }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
@@ -90,6 +101,23 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
     LaunchedEffect(store) {
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
+    }
+    LaunchedEffect(accountSyncStore) {
+        if (accountSyncStore.isAuthenticated) {
+            when (val result = accountSyncStore.refreshAccount()) {
+                is CloudResult.Success -> {
+                    cloudAccount = result.value
+                    result.value?.fullName?.takeIf { it.isNotBlank() }?.let {
+                        profileName = it
+                        profileStore.fullName = it
+                    }
+                }
+                is CloudResult.Error -> {
+                    cloudStatus = result.message
+                    cloudAccount = accountSyncStore.account
+                }
+            }
+        }
     }
     val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
         val date = appDate().plusDays(offset)
@@ -189,6 +217,9 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                         profileName=profileName,
                         scheduleCodes=scheduleCodes,
                         evidenceEntries=evidenceEntries,
+                        cloudAccount=cloudAccount,
+                        cloudBusy=cloudBusy,
+                        cloudStatus=cloudStatus,
                         onProfileNameChange={
                             profileName=it
                             profileStore.fullName=it
@@ -200,6 +231,97 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                         onReducedMotionChange={
                             reducedMotion=it
                             uiSettings.reducedMotion=it
+                        },
+                        onLogin={email,password->
+                            cloudBusy=true
+                            cloudStatus=""
+                            scope.launch{
+                                when(val result=accountSyncStore.login(email,password)){
+                                    is CloudResult.Success->{
+                                        cloudAccount=result.value
+                                        profileName=result.value.fullName
+                                        profileStore.fullName=result.value.fullName
+                                        cloudStatus="Prijava je uspješna. Preuzmi postojeće podatke ili spremi podatke ovog uređaja na račun."
+                                    }
+                                    is CloudResult.Error->cloudStatus=result.message
+                                }
+                                cloudBusy=false
+                            }
+                        },
+                        onRegister={first,last,email,phone,password,manager->
+                            cloudBusy=true
+                            cloudStatus=""
+                            scope.launch{
+                                when(val result=accountSyncStore.register(first,last,email,phone,password,manager)){
+                                    is CloudResult.Success->{
+                                        cloudAccount=result.value
+                                        profileName=result.value.fullName
+                                        profileStore.fullName=result.value.fullName
+                                        cloudStatus="Račun je izrađen. Lokalni kalendar ostaje dostupan i bez sinkronizacije."
+                                    }
+                                    is CloudResult.Error->cloudStatus=result.message
+                                }
+                                cloudBusy=false
+                            }
+                        },
+                        onLogout={
+                            cloudBusy=true
+                            scope.launch{
+                                when(val result=accountSyncStore.logout()){
+                                    is CloudResult.Success->{
+                                        cloudAccount=null
+                                        cloudStatus="Odjavljen si. Lokalni podaci na ovom uređaju nisu obrisani."
+                                    }
+                                    is CloudResult.Error->cloudStatus=result.message
+                                }
+                                cloudBusy=false
+                            }
+                        },
+                        onPull={
+                            cloudBusy=true
+                            cloudStatus=""
+                            scope.launch{
+                                when(val result=accountSyncStore.pullState()){
+                                    is CloudResult.Success->{
+                                        store.replaceAll(result.value.schedule)
+                                        scheduleCodes.clear()
+                                        scheduleCodes.putAll(store.load())
+                                        evidenceStore.replaceAll(result.value.evidence)
+                                        evidenceRevision++
+                                        result.value.payroll?.let(payrollSettingsStore::save)
+                                        if(result.value.account?.isManager==true){
+                                            teamStore.replaceAll(result.value.teamMembers)
+                                        }
+                                        result.value.account?.let{
+                                            cloudAccount=it
+                                            profileName=it.fullName
+                                            profileStore.fullName=it.fullName
+                                        }
+                                        cloudStatus="Podaci s računa su preuzeti na ovaj uređaj."
+                                    }
+                                    is CloudResult.Error->cloudStatus=result.message
+                                }
+                                cloudBusy=false
+                            }
+                        },
+                        onPush={
+                            cloudBusy=true
+                            cloudStatus=""
+                            scope.launch{
+                                when(val result=accountSyncStore.pushState(
+                                    schedule=store.load(),
+                                    evidence=evidenceStore.load(),
+                                    payroll=payrollSettingsStore.load(),
+                                    teamMembers=teamStore.load()
+                                )){
+                                    is CloudResult.Success->{
+                                        cloudAccount=result.value.account ?: cloudAccount
+                                        cloudStatus="Raspored, evidencija i postavke obračuna spremljeni su na račun."
+                                    }
+                                    is CloudResult.Error->cloudStatus=result.message
+                                }
+                                cloudBusy=false
+                            }
                         }
                     )
                 }
