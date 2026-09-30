@@ -618,6 +618,75 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
+async function prepareFocusedTableTile(tableSource,rowStart,rowEnd,dayStart,dayEnd){
+  if(typeof createImageBitmap!=="function")return tableSource;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
+    var rosterWidth=Math.max(1,Math.round(bitmap.width*.34));
+    var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*dayStart)));
+    var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*dayEnd)));
+    var gridWidth=gridEnd-gridStart;
+
+    // Always preserve the day-number header, then append only one horizontal
+    // roster band. This makes both tiny employee names and one-letter shift
+    // cells much larger than in a whole-table pass without losing day geometry.
+    var headerHeight=Math.max(1,Math.round(bitmap.height*.16));
+    var bodyTop=Math.max(headerHeight,Math.round(bitmap.height*rowStart));
+    var bodyBottom=Math.max(bodyTop+1,Math.min(bitmap.height,Math.round(bitmap.height*rowEnd)));
+    var bodyHeight=bodyBottom-bodyTop;
+    var rawWidth=rosterWidth+gridWidth;
+    var rawHeight=headerHeight+bodyHeight;
+
+    var pixelScale=Math.sqrt(6500000/(rawWidth*rawHeight));
+    var edgeScale=4200/rawWidth;
+    var scale=Math.max(1.05,Math.min(3.25,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(rawWidth*scale));
+    canvas.height=Math.max(1,Math.round(rawHeight*scale));
+    var rosterOut=Math.max(1,Math.min(canvas.width-1,Math.round(rosterWidth*scale)));
+    var headerOut=Math.max(1,Math.min(canvas.height-1,Math.round(headerHeight*scale)));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return tableSource;
+
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.62)";
+
+    // Header: roster area + exact original day-band columns.
+    context.drawImage(
+      bitmap,
+      0,0,rosterWidth,headerHeight,
+      0,0,rosterOut,headerOut
+    );
+    context.drawImage(
+      bitmap,
+      gridStart,0,gridWidth,headerHeight,
+      rosterOut,0,canvas.width-rosterOut,headerOut
+    );
+
+    // Body: selected employee rows only, aligned to the same X mapping.
+    context.drawImage(
+      bitmap,
+      0,bodyTop,rosterWidth,bodyHeight,
+      0,headerOut,rosterOut,canvas.height-headerOut
+    );
+    context.drawImage(
+      bitmap,
+      gridStart,bodyTop,gridWidth,bodyHeight,
+      rosterOut,headerOut,canvas.width-rosterOut,canvas.height-headerOut
+    );
+    context.filter="none";
+
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.98);
+    });
+  }catch(error){
+    return tableSource;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
 async function prepareRosterBand(tableSource,startRatio,endRatio){
   if(typeof createImageBitmap!=="function")return tableSource;
   var bitmap;
@@ -780,6 +849,36 @@ async function recognizeScheduleNow(file,onProgress){
           merged.month
         );
         merged=mergeRecognized(merged,band);
+      }
+    }
+
+    var mappedAfterBands=(merged.people||[]).reduce(function(sum,row){
+      return sum+Object.keys(row.dayShifts||{}).length;
+    },0);
+    var minimumMapped=Math.max(12,(merged.people||[]).length*2);
+    if((merged.people||[]).length>=4&&mappedAfterBands<minimumMapped){
+      // Extremely dense photographed schedules can yield the roster but almost
+      // no one-letter cell codes. Cross-tiling both axes is slower, so it is
+      // reserved for this failure mode. Each pass keeps the header + roster and
+      // enlarges only one row band and one day band.
+      var rowBands=[[.12,.44],[.36,.70],[.62,1]];
+      var focusedDayBands=[[.18,.62],[.56,1]];
+      var pass=0,totalPasses=rowBands.length*focusedDayBands.length;
+      for(var rb=0;rb<rowBands.length;rb++){
+        for(var db=0;db<focusedDayBands.length;db++){
+          pass++;
+          if(onProgress)onProgress(.94+pass/totalPasses*.018,"focused-table-"+pass);
+          var focusedSource=await prepareFocusedTableTile(
+            tableSource,
+            rowBands[rb][0],rowBands[rb][1],
+            focusedDayBands[db][0],focusedDayBands[db][1]
+          );
+          var focusedParsed=parsedResult(
+            await worker.recognize(focusedSource,{}, {text:true,blocks:true}),
+            merged.month
+          );
+          merged=mergeRecognized(merged,focusedParsed);
+        }
       }
     }
 
