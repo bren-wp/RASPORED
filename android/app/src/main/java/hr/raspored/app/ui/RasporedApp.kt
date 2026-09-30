@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -247,7 +248,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
     }
 }
 @Composable private fun RowScope.NavItem(current:Screen,target:Screen,label:String,icon:ImageVector,onSelect:(Screen)->Unit,emphasis:Boolean=false){
-    NavigationBarItem(selected=current==target,onClick={onSelect(target)},icon={
+    NavigationBarItem(modifier=Modifier.testTag("nav-"+target.name.lowercase()),selected=current==target,onClick={onSelect(target)},icon={
         Surface(shape=RoundedCornerShape(if(emphasis)22.dp else 12.dp),color=if(emphasis) Cyan else Color.Transparent){
             Icon(icon,null,modifier=Modifier.padding(if(emphasis)10.dp else 4.dp).size(if(emphasis)28.dp else 24.dp),tint=if(emphasis) Color.White else if(current==target) Cyan else Navy)
         }
@@ -363,7 +364,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 
     LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal=16.dp),
+        Modifier.fillMaxSize().testTag("screen-home").padding(horizontal=16.dp),
         contentPadding=PaddingValues(top=20.dp,bottom=24.dp),
         verticalArrangement=Arrangement.spacedBy(14.dp)
     ){
@@ -466,7 +467,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     val selectedTitle=if(selected==today)"Danas" else selected.dayOfWeek.getDisplayName(TextStyle.FULL,Locale("hr","HR")).replaceFirstChar{it.titlecase(Locale("hr","HR"))}
 
     LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal=14.dp),
+        Modifier.fillMaxSize().testTag("screen-calendar").padding(horizontal=14.dp),
         contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
@@ -672,7 +673,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+"."
 
     LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal=14.dp),
+        Modifier.fillMaxSize().testTag("screen-stats").padding(horizontal=14.dp),
         contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
@@ -902,7 +903,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     onReducedMotionChange:(Boolean)->Unit
 ){
     LazyColumn(
-        Modifier.fillMaxSize().padding(16.dp),
+        Modifier.fillMaxSize().testTag("screen-settings").padding(16.dp),
         contentPadding=PaddingValues(top=10.dp,bottom=20.dp)
     ){
         item{
