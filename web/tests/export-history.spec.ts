@@ -5,8 +5,13 @@ test.beforeEach(async ({page}) => {
   await seedApp(page);
 });
 
+async function openReady(page:any){
+  await openReady(page);
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+}
+
 test("historical report month remains selectable", async ({page}) => {
-  await page.goto("/");
+  await openReady(page);
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator("#reportMonth")).toHaveValue("2026-10");
   await page.locator("#reportMonth").fill("2026-08");
@@ -14,7 +19,7 @@ test("historical report month remains selectable", async ({page}) => {
 });
 
 test("guest storage cannot persist manager-only team schedules", async ({page}) => {
-  await page.goto("/");
+  await openReady(page);
   const team=await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     store.set("raspored.team.v1",JSON.stringify([
@@ -28,7 +33,7 @@ test("guest storage cannot persist manager-only team schedules", async ({page}) 
 
 
 test("legacy evidence without millisecond timestamps keeps its worked duration", async ({page}) => {
-  await page.goto("/");
+  await openReady(page);
   const width=page.viewportSize()?.width ?? 1440;
   await page.locator('[data-route="stats"]:visible').first().click();
   await expect(page.locator("#workedTotal")).not.toHaveText("0:00 h");
@@ -43,7 +48,7 @@ test("legacy evidence without millisecond timestamps keeps its worked duration",
 
 
 test("statistics split overnight evidence at month and night boundaries", async ({page}) => {
-  await page.goto("/");
+  await openReady(page);
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     const start=new Date(2026,8,30,22,0,0).getTime();
