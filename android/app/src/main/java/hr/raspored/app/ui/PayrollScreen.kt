@@ -62,7 +62,7 @@ internal fun PayrollScreen(
         )
     }
 
-    fun persist() {
+    LaunchedEffect(roleId, coefficient, years, extra, secondShift, customBase) {
         settingsStore.save(
             PayrollSettings(
                 roleId = roleId,
@@ -149,7 +149,6 @@ internal fun PayrollScreen(
                                         roleId = option.id
                                         coefficientText = decimalText(option.coefficient)
                                         roleMenu = false
-                                        persist()
                                     }
                                 )
                             }
@@ -175,14 +174,12 @@ internal fun PayrollScreen(
                             label = "Koeficijent",
                             value = coefficientText,
                             onValueChange = { coefficientText = it.take(6) },
-                            onCommit = ::persist,
                             modifier = Modifier.weight(1f)
                         )
                         PayrollNumberField(
                             label = "Godine staža",
                             value = yearsText,
                             onValueChange = { yearsText = it.filter(Char::isDigit).take(2) },
-                            onCommit = ::persist,
                             modifier = Modifier.weight(1f),
                             decimal = false
                         )
@@ -196,7 +193,6 @@ internal fun PayrollScreen(
                             label = "Ručna osnovica €",
                             value = customBaseText,
                             onValueChange = { customBaseText = it.take(10) },
-                            onCommit = ::persist,
                             modifier = Modifier.weight(1f),
                             placeholder = "Automatski"
                         )
@@ -204,7 +200,6 @@ internal fun PayrollScreen(
                             label = "Dodatak po rješenju %",
                             value = extraText,
                             onValueChange = { extraText = it.take(6) },
-                            onCommit = ::persist,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -212,7 +207,6 @@ internal fun PayrollScreen(
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             secondShift = !secondShift
-                            persist()
                         }.padding(top = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -228,7 +222,6 @@ internal fun PayrollScreen(
                             checked = secondShift,
                             onCheckedChange = {
                                 secondShift = it
-                                persist()
                             }
                         )
                     }
@@ -371,7 +364,6 @@ private fun PayrollNumberField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    onCommit: () -> Unit,
     modifier: Modifier,
     decimal: Boolean = true,
     placeholder: String = ""
@@ -385,9 +377,6 @@ private fun PayrollNumberField(
         keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
         modifier = modifier
     )
-    LaunchedEffect(value) {
-        if (value.isNotBlank()) onCommit()
-    }
 }
 
 private fun String.toDecimalOrNull(): Double? = replace(',', '.').toDoubleOrNull()
