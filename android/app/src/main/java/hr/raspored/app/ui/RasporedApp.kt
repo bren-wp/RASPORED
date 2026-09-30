@@ -39,6 +39,7 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private val Navy=RasporedTokens.Navy
 private val Cyan=RasporedTokens.Cyan
@@ -69,6 +70,8 @@ private val BO=Shift("BO","Bolovanje","—",0)
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(store) {
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
@@ -104,9 +107,20 @@ private val BO=Shift("BO","Bolovanje","—",0)
     ){
         Scaffold(
             containerColor=MaterialTheme.colorScheme.background,
+            snackbarHost={ SnackbarHost(snackbarHostState) },
             topBar={
                 if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Home})
-                else BrandHeader(screen=screen,onScan={screen=Screen.Scan})
+                else BrandHeader(
+                    screen=screen,
+                    onScan={screen=Screen.Scan},
+                    onNotify={scope.launch{snackbarHostState.showSnackbar("Nema novih obavijesti.")}},
+                    onSync={
+                        scheduleCodes.clear()
+                        scheduleCodes.putAll(store.load())
+                        evidenceRevision++
+                        scope.launch{snackbarHostState.showSnackbar("Podaci su osvježeni.")}
+                    }
+                )
             },
             bottomBar={
                 if(screen!=Screen.Scan) BottomNav(screen){screen=it}
@@ -151,7 +165,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
     }
 }
 
-@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit){
+@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit,onNotify:()->Unit,onSync:()->Unit){
     Surface(color=Navy,modifier=Modifier.fillMaxWidth()){
         Row(
             Modifier.statusBarsPadding().height(76.dp).padding(horizontal=18.dp),
@@ -169,11 +183,11 @@ private val BO=Shift("BO","Bolovanje","—",0)
                 }
             }
             if(screen==Screen.Stats){
-                IconButton(onClick={}){
-                    Icon(Icons.Outlined.CloudSync,"Sinkronizacija",tint=Color.White)
+                IconButton(onClick=onSync){
+                    Icon(Icons.Outlined.CloudSync,"Osvježi podatke",tint=Color.White)
                 }
             }else{
-                IconButton(onClick={}){
+                IconButton(onClick=onNotify){
                     BadgedBox(
                         badge={ if(screen==Screen.Home||screen==Screen.Calendar) Badge(containerColor=Color(0xFFFF4861)) }
                     ){
