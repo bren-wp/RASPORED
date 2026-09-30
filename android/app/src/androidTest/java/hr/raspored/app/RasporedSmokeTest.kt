@@ -16,9 +16,14 @@ class RasporedSmokeTest {
 
         composeRule.onNodeWithText("Kalendar").performClick()
         composeRule.onNodeWithText("Sažetak za mjesec").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Sljedeći mjesec").performClick()
+        composeRule.onNodeWithContentDescription("Prethodni mjesec").performClick()
 
         composeRule.onNodeWithText("Skeniraj").performClick()
         composeRule.onNodeWithText("Skeniraj raspored").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Pomoć za skeniranje").performClick()
+        composeRule.onNodeWithText("Kako dobiti dobar rezultat").assertIsDisplayed()
+        composeRule.onNodeWithText("U redu").performClick()
         composeRule.onNodeWithContentDescription("Natrag").performClick()
 
         composeRule.onNodeWithText("Statistika").performClick()
