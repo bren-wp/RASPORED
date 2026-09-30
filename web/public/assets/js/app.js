@@ -7,7 +7,8 @@ state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
 
 function icon(name,extra){
-  var base=(window.RASPORED_BASE||"")+"/assets/brand/icons.svg#icon-"+name;
+  var appBase=document.body&&document.body.dataset?document.body.dataset.base||"":"";
+  var base=appBase+"/assets/brand/icons.svg#icon-"+name;
   return '<svg class="ui-icon '+(extra||"")+'" aria-hidden="true"><use href="'+base+'"></use></svg>';
 }
 
