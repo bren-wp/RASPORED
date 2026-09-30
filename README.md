@@ -111,7 +111,9 @@ Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno od
 
 ## Oznake rasporeda i Evidencija sati
 
-RASPORED razlikuje planirani raspored od stvarne Evidencije sati. Podržane oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (slobodan dan). OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
+RASPORED razlikuje planirani raspored od stvarne Evidencije sati. Podržane oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
+
+Blagdan je svojstvo datuma, a ne posebna oznaka rasporeda. Prazna ćelija na blagdan ostaje prazna i prikazuje se kao blagdan/neradni dan; aplikacija ne dodaje +150 % dodatka ako na taj datum nema stvarno odrađenog rada. Za javne službe TKU predviđa pravo na naknadu plaće kada zaposlenik ne radi zbog državnog blagdana ili neradnog dana, pa taj slučaj ne pretvaramo u BO, SD ili izmišljenu smjenu.
 
 Evidencija sati dodatno razlikuje **redovni rad, 1./2./3. smjenu, turnus, dežurstvo, pripravnost, rad po pozivu i drugi oblik rada**. Trajanje uvijek dolazi iz stvarnog ulaza/izlaza; posebna naknada ne pretpostavlja se ako za nju nema provjerljivog pravila.
 
