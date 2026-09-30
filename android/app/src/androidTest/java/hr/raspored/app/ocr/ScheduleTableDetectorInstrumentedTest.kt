@@ -13,6 +13,58 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ScheduleTableDetectorInstrumentedTest {
 
+
+    @Test
+    fun keepsFullWidthWhenPhotographedHorizontalLinesAreFragmented() {
+        val bitmap = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(242, 242, 242))
+
+        val left = 145f
+        val top = 185f
+        val right = 1515f
+        val bottom = 835f
+        val nameWidth = 235f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(38, 38, 38)
+            strokeWidth = 2f
+        }
+
+        val verticals = buildList {
+            add(left)
+            add(left + 38f)
+            add(left + nameWidth)
+            for (day in 0..31) {
+                add(left + nameWidth + (right - left - nameWidth) * day / 31f)
+            }
+        }.distinct()
+
+        // Real monitor photos can make horizontal rules look like separated
+        // dark intersection segments after adaptive thresholding. Keep enough
+        // support to find every row, but leave cell-sized gaps between segments.
+        for (row in 0..27) {
+            val y = top + (bottom - top) * row / 27f
+            verticals.forEach { x ->
+                canvas.drawLine(x - 5f, y, x + 5f, y, paint)
+            }
+        }
+        verticals.forEach { x -> canvas.drawLine(x, top, x, bottom, paint) }
+
+        val bounds = ScheduleTableDetector.detectBounds(bitmap)
+        assertNotNull(bounds)
+        val detected = requireNotNull(bounds)
+        assertTrue(detected.left <= 190)
+        assertTrue(detected.right >= 1460)
+        assertTrue(detected.top <= 220)
+        assertTrue(detected.bottom >= 800)
+        assertTrue(detected.width().toDouble() / bitmap.width >= 0.78)
+
+        val crop = ScheduleTableDetector.cropForRecovery(bitmap)
+        assertNotNull(crop)
+        crop?.recycle()
+        bitmap.recycle()
+    }
+
     @Test
     fun detectsDenseScheduleTableInsideWholePhoto() {
         val bitmap = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888)
