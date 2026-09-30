@@ -430,6 +430,21 @@ test("web OCR filters distant row-number noise from a dense roster", async ({pag
   expect(rows.map((row:any)=>row.row)).toEqual(Array.from({length:12},(_,index)=>index+1));
 });
 
+test("full-roster scan blocks severely incomplete imports", async ({page}) => {
+  await mockOcr(page,{people:scanPeople.slice(0,3),expectedRows:27});
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#galleryInput").setInputFiles({
+    name:"raspored-test.svg",
+    mimeType:"image/svg+xml",
+    buffer:Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="white"/></svg>')
+  });
+  await expect(page.locator("#scanStatus")).toContainText("Skeniranje nije dovoljno potpuno");
+  await expect(page.locator("#scanStatus")).toContainText("27");
+  await expect(page.locator("#saveSchedule")).toBeDisabled();
+  await expect(page.locator("#saveTeamSchedules")).toBeDisabled();
+});
+
 test("web OCR parser keeps exact day columns and normalizes common OCR errors", async ({page}) => {
   await page.goto("/");
   const parsed=await page.evaluate(() => {
