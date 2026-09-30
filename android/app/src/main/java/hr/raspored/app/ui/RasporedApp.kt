@@ -245,16 +245,15 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
 private fun appDateTime():LocalDateTime = LocalDateTime.now()
 private fun appDate():LocalDate = appDateTime().toLocalDate()
 
-private fun shiftStatusLabel(shift:Shift):String {
-    if(shift.code!="D"&&shift.code!="N")return "Danas"
-    val now=appDateTime()
+private fun shiftStatusLabel(date:LocalDate,shift:Shift,now:LocalDateTime=appDateTime()):String {
+    if(shift.code!="D"&&shift.code!="N")return if(shift.code.isBlank())"Nema smjene" else "Danas"
     val start=when(shift.code){
-        "D"->now.toLocalDate().atTime(LocalTime.of(7,0))
-        else->now.toLocalDate().atTime(LocalTime.of(19,0))
+        "D"->date.atTime(LocalTime.of(7,0))
+        else->date.atTime(LocalTime.of(19,0))
     }
     val end=when(shift.code){
-        "D"->now.toLocalDate().atTime(LocalTime.of(19,0))
-        else->now.toLocalDate().plusDays(1).atTime(LocalTime.of(7,0))
+        "D"->date.atTime(LocalTime.of(19,0))
+        else->date.plusDays(1).atTime(LocalTime.of(7,0))
     }
     return when{
         now.isBefore(start)->{
@@ -265,6 +264,25 @@ private fun shiftStatusLabel(shift:Shift):String {
         else->"Završeno"
     }
 }
+
+private fun shiftAt(date:LocalDate,codes:Map<String,String>):Shift? =
+    shiftFromCode(codes[date.toString()].orEmpty())
+
+private fun currentShiftAt(now:LocalDateTime,codes:Map<String,String>):Pair<LocalDate,Shift>? {
+    val today=now.toLocalDate()
+    if(now.toLocalTime()<LocalTime.of(7,0)){
+        val previous=today.minusDays(1)
+        val previousShift=shiftAt(previous,codes)
+        if(previousShift?.code=="N")return previous to previousShift
+    }
+    return shiftAt(today,codes)?.let{today to it}
+}
+
+private fun nextWorkShift(after:LocalDate,codes:Map<String,String>):Pair<LocalDate,Shift>? =
+    (1L..62L).firstNotNullOfOrNull{offset->
+        val date=after.plusDays(offset)
+        shiftAt(date,codes)?.takeIf{it.code=="D"||it.code=="N"}?.let{date to it}
+    }
 
 private fun nextShiftStatus(today:LocalDate,day:Int,shift:Shift):String {
     val start=today.withDayOfMonth(day)
@@ -322,10 +340,11 @@ private fun largeMinutesLabel(minutes:Long):String {
         scheduleCodes=codesForMonth(month,data),
         fallbackToPlanned=false
     )
-    val current=data[today.dayOfMonth] ?: NONE
-    val nextEntry=(today.dayOfMonth+1..month.lengthOfMonth()).firstNotNullOfOrNull{day->
-        data[day]?.takeIf{it.code=="D"||it.code=="N"}?.let{day to it}
-    }
+    val now=appDateTime()
+    val currentEntry=currentShiftAt(now,scheduleCodes)
+    val currentDate=currentEntry?.first ?: today
+    val current=currentEntry?.second ?: NONE
+    val nextEntry=nextWorkShift(today,scheduleCodes)
     val next=nextEntry?.second ?: NONE
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
     val dateTitle=today.format(formatter).replaceFirstChar{
@@ -341,8 +360,8 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground)
             Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(current),onHours={go(Screen.Hours)})}
-        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onHours=null)}
+        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(currentDate,current,now),onHours={go(Screen.Hours)})}
+        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first.dayOfMonth,it.second)},onHours=null)}
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                 listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
