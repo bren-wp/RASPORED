@@ -205,9 +205,9 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
     await page.locator("#todayBtn").click();
   }else{
     await page.locator('[data-route="calendar"]:visible').first().click();
-    const before=await page.locator("#mobileMonthTitle").textContent();
+    const before=await page.locator("#calMonthTitle").textContent();
     await page.locator("#calNext").click();
-    await expect(page.locator("#mobileMonthTitle")).not.toHaveText(before||"");
+    await expect(page.locator("#calMonthTitle")).not.toHaveText(before||"");
     await page.locator("#calPrev").click();
   }
 
