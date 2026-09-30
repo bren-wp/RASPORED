@@ -994,3 +994,23 @@ test("calendar saves and reloads a custom per-date schedule label", async ({page
   });
   expect(Object.values(afterReload)).toContain("EDU");
 });
+
+
+test("AI roster verification stays account-gated for guests", async ({page,request}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await expect(page.locator("#scanAiPanel")).toBeHidden();
+
+  const response=await request.post("/api/ai-ocr.php",{
+    headers:{"X-Raspored-Request":"1","Origin":new URL(page.url()).origin},
+    multipart:{
+      image:{
+        name:"schedule.png",
+        mimeType:"image/png",
+        buffer:Buffer.from("not-a-real-image")
+      }
+    }
+  });
+  expect(response.status()).toBe(401);
+});
