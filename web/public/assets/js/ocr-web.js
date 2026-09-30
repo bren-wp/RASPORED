@@ -225,7 +225,8 @@ function findHeader(lines,maxDay){
     observedDays:Object.keys(observed).map(Number)
   };
 }
-function inferDayCentersFromShiftXs(rawXs,maxDay){
+function inferDayCentersFromShiftXs(rawXs,maxDay,absoluteAnchors){
+  absoluteAnchors=absoluteAnchors||{};
   if(maxDay<28||maxDay>31||!Array.isArray(rawXs)||rawXs.length<12)return null;
   var sorted=rawXs.slice().map(Number).filter(Number.isFinite).sort(function(a,b){return a-b});
   if(sorted.length<12)return null;
@@ -267,14 +268,35 @@ function inferDayCentersFromShiftXs(rawXs,maxDay){
       var residual=observed.reduce(function(sum,x,index){
         return sum+Math.abs(x-(intercept+(assigned[index]-1)*slope));
       },0)/observed.length/slope;
-      residual+=(leading+trailing)*.025;
-      candidates.push({slope:slope,intercept:intercept,residual:residual,assigned:assigned});
+      var anchorErrors=[];
+      Object.keys(absoluteAnchors).forEach(function(dayKey){
+        var day=Number(dayKey);
+        if(!(day>=1&&day<=maxDay))return;
+        (absoluteAnchors[dayKey]||[]).forEach(function(x){
+          anchorErrors.push(Math.abs(x-(intercept+(day-1)*slope))/slope);
+        });
+      });
+      var anchorResidual=anchorErrors.length
+        ?anchorErrors.reduce(function(sum,v){return sum+v},0)/anchorErrors.length
+        :0;
+      residual+=(leading+trailing)*.025+anchorResidual*2.5;
+      candidates.push({
+        firstDay:firstDay,lastDay:lastDay,slope:slope,intercept:intercept,
+        residual:residual,anchorResidual:anchorResidual,assigned:assigned
+      });
     }
   }
   if(!candidates.length)return null;
   candidates.sort(function(a,b){return a.residual-b.residual});
   var best=candidates[0];
-  if(best.residual>.24)return null;
+  if(best.residual>.30)return null;
+  var hasAnchors=Object.keys(absoluteAnchors).some(function(day){
+    return Array.isArray(absoluteAnchors[day])&&absoluteAnchors[day].length;
+  });
+  if(hasAnchors&&best.anchorResidual>.35)return null;
+  var second=candidates[1];
+  if(!hasAnchors&&second&&Math.abs(second.residual-best.residual)<.012&&
+    (second.firstDay!==best.firstDay||second.lastDay!==best.lastDay))return null;
   var unique=Array.from(new Set(best.assigned));
   if(unique.length<Math.max(12,Math.floor(maxDay/2)))return null;
   if(Math.max.apply(null,unique)-Math.min.apply(null,unique)<maxDay-7)return null;
@@ -287,9 +309,27 @@ function inferHeaderFromShiftColumns(lines,maxDay){
   var words=allWords(lines);
   var shiftWords=words.filter(function(word){return !!canonicalShift(word.text)});
   if(shiftWords.length<12)return null;
+  var minShiftY=Math.min.apply(null,shiftWords.map(function(word){return centerY(word.bbox)}));
+  var medianHeight=median(shiftWords.map(function(word){return boxHeight(word.bbox)}))||12;
+  var shiftXs=shiftWords.map(function(word){return centerX(word.bbox)});
+  var minShiftX=Math.min.apply(null,shiftXs),maxShiftX=Math.max.apply(null,shiftXs);
+  var roughSpacing=maxDay>1?(maxShiftX-minShiftX)/(maxDay-1):0;
+  var anchors={};
+  words.forEach(function(word){
+    var day=dayNumber(word.text,maxDay);
+    if(day==null)return;
+    var x=centerX(word.bbox),y=centerY(word.bbox);
+    var inHeaderBand=y<=minShiftY+Math.max(10,medianHeight*1.25);
+    var inGridBand=x>=minShiftX-roughSpacing*3&&x<=maxShiftX+roughSpacing*3;
+    if(inHeaderBand&&inGridBand){
+      if(!anchors[day])anchors[day]=[];
+      anchors[day].push(x);
+    }
+  });
   var inferred=inferDayCentersFromShiftXs(
-    shiftWords.map(function(word){return centerX(word.bbox)}),
-    maxDay
+    shiftXs,
+    maxDay,
+    anchors
   );
   if(!inferred)return null;
   return {
