@@ -487,6 +487,15 @@ internal fun PayrollScreen(
                         minutesLabelPayroll(estimate.evidence.workedMinutes),
                         null
                     )
+                    if (estimate.evidence.shift1Minutes > 0L) {
+                        PayrollLine("1. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift1Minutes), null)
+                    }
+                    if (estimate.evidence.shift2Minutes > 0L) {
+                        PayrollLine("2. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift2Minutes), null)
+                    }
+                    if (estimate.evidence.shift3Minutes > 0L) {
+                        PayrollLine("3. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift3Minutes), null)
+                    }
                     if (regime.rates.night != null) {
                         PayrollLine(
                             "Noćni rad 22:00–06:00",
@@ -529,11 +538,32 @@ internal fun PayrollScreen(
                             estimate.secondShiftAddition
                         )
                     }
-                    if (turnus && regime.rates.turnus != null) {
+                    if (estimate.evidence.turnusMinutes > 0L) {
                         PayrollLine(
-                            "Rad u turnusu",
-                            "prema evidentiranim satima",
-                            estimate.turnusAddition
+                            if (turnus && regime.rates.turnus != null) "Rad u turnusu" else "Turnus — evidentirano",
+                            minutesLabelPayroll(estimate.evidence.turnusMinutes),
+                            if (turnus && regime.rates.turnus != null) estimate.turnusAddition else null
+                        )
+                    }
+                    if (estimate.evidence.dutyMinutes > 0L) {
+                        PayrollLine(
+                            "Dežurstvo — poseban obračun",
+                            minutesLabelPayroll(estimate.evidence.dutyMinutes),
+                            null
+                        )
+                    }
+                    if (estimate.evidence.standbyMinutes > 0L) {
+                        PayrollLine(
+                            "Pripravnost — poseban obračun",
+                            minutesLabelPayroll(estimate.evidence.standbyMinutes),
+                            null
+                        )
+                    }
+                    if (estimate.evidence.calloutMinutes > 0L) {
+                        PayrollLine(
+                            "Rad po pozivu — poseban obračun",
+                            minutesLabelPayroll(estimate.evidence.calloutMinutes),
+                            null
                         )
                     }
                     if (estimate.customAddition > 0.0) {
@@ -587,16 +617,17 @@ internal fun PayrollScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        "Okvirni neto nije obračunska isprava. Ne uključuje automatski bolovanje, " +
-                            "godišnji odmor po prosjeku, dežurstva, pripravnost, posebne uvjete rada, " +
-                            "prijevoz, neoporezive primitke ni obustave.",
+                        "Okvirni neto nije obračunska isprava. Dežurstvo, pripravnost i rad po pozivu " +
+                            "evidentiraju se kao posebni oblici rada, ali im se bez provjerljivog pravila ne " +
+                            "dodjeljuje izmišljena naknada. Procjena ne uključuje automatski bolovanje, " +
+                            "godišnji odmor po prosjeku, posebne uvjete rada, prijevoz, neoporezive primitke ni obustave.",
                         modifier = Modifier.padding(top = 8.dp),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp
                     )
                     Text(
                         "Izvori: NN 22/2024, NN 11/2026, NN 29/2024, NN 4/2025, " +
-                            "NN 85/2024, NN 152/2024 i Ministarstvo zdravstva.",
+                            "NN 85/2024, NN 152/2024, Ministarstvo zdravstva i Pravilnik o radu KBC-a Rijeka (12.06.2023.).",
                         modifier = Modifier.padding(top = 8.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
