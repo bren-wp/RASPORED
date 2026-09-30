@@ -934,6 +934,33 @@ test("dynamic assets honor a subdirectory deployment base", async ({page}) => {
 });
 
 
+test("calendar keeps a schedule entry from ten years earlier when editing a current month", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  await page.evaluate(async() => {
+    const store=(window as any).RasporedDataStore;
+    store.set("raspored.schedule",JSON.stringify({
+      "2016-10-01":"J",
+      "2026-09-01":"D"
+    }));
+    await store.flush();
+  });
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const input=page.locator("#calendarCustomCode");
+  await input.fill("P1");
+  await page.locator("[data-save-custom-shift]").click();
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+
+  const stored=await page.evaluate(() => {
+    return JSON.parse((window as any).RasporedDataStore.get("raspored.schedule")||"{}");
+  });
+  expect(stored["2016-10-01"]).toBe("J");
+  expect(Object.values(stored)).toContain("P1");
+});
+
 test("calendar saves and reloads a custom per-date schedule label", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
