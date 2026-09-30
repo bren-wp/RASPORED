@@ -14,11 +14,11 @@ val releaseVersionCode =
 
 android {
     namespace = "hr.raspored.app"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "hr.raspored.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = releaseVersionCode
         versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
