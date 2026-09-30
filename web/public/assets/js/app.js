@@ -48,8 +48,8 @@ function sanitizeScanPeople(items){
     var shifts={};
     var raw=item.dayShifts&&typeof item.dayShifts==="object"?item.dayShifts:{};
     Object.keys(raw).forEach(function(day){
-      var number=Number(day),code=raw[day];
-      if(Number.isInteger(number)&&number>=1&&number<=31&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)shifts[number]=code;
+      var number=Number(day),code=normalizeScheduleCode(raw[day]);
+      if(Number.isInteger(number)&&number>=1&&number<=31&&code)shifts[number]=code;
     });
     return {row:Number.isInteger(item.row)?item.row:null,name:name,dayShifts:shifts};
   }).filter(Boolean);
@@ -131,16 +131,16 @@ function importScannedTeamSchedules(){
   var imported=0,skipped=0;
   state.scanPeople.forEach(function(person){
     var recognized=Object.keys(person.dayShifts||{}).filter(function(day){
-      var n=Number(day),code=person.dayShifts[day];
-      return n>=1&&n<=days&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0;
+      var n=Number(day),code=normalizeScheduleCode(person.dayShifts[day]);
+      return n>=1&&n<=days&&!!code;
     });
     if(!recognized.length){skipped++;return}
     var key=normalizePersonName(person.name),index=byName[key],member=index===undefined?{name:person.name,note:"",schedule:{}}:members[index];
     member.schedule=sanitizeSchedule(member.schedule);
     for(var day=1;day<=days;day++)delete member.schedule[iso(new Date(y,m,day))];
     recognized.forEach(function(day){
-      var n=Number(day),code=person.dayShifts[day];
-      member.schedule[iso(new Date(y,m,n))]=code;
+      var n=Number(day),code=normalizeScheduleCode(person.dayShifts[day]);
+      if(code)member.schedule[iso(new Date(y,m,n))]=code;
     });
     if(index===undefined){byName[key]=members.length;members.push(member)}
     imported++;
@@ -293,8 +293,8 @@ function importSelectedScanSchedule(){
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   for(var day=1;day<=days;day++)delete state.schedule[iso(new Date(y,m,day))];
   Object.keys(person.dayShifts||{}).forEach(function(day){
-    var n=Number(day),code=person.dayShifts[day];
-    if(n>=1&&n<=days&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)state.schedule[iso(new Date(y,m,n))]=code;
+    var n=Number(day),code=normalizeScheduleCode(person.dayShifts[day]);
+    if(n>=1&&n<=days&&code)state.schedule[iso(new Date(y,m,n))]=code;
   });
   state.cursor=new Date(y,m,1);state.selected=new Date(y,m,1);
   if(!save()){loadSchedule();renderAll();toast("Raspored nije spremljen u storage/data.");return}
