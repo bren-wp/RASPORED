@@ -58,7 +58,6 @@
         <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><b>Statistika</b><small>Analize, saldo i izvještaji</small></button>
         <button data-route="payroll"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scale"></use></svg><b>Okvirna plaća</b><small>Bruto procjena prema koeficijentu i evidenciji</small></button>
         <button class="desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg><b>Kolege</b><small>Lokalni popis i bilješke</small></button>
-        <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><b>Postavke</b><small>Prilagodi aplikaciju svojim potrebama</small></button>
       </section>
     </section>
 
