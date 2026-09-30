@@ -216,6 +216,43 @@ class PublicSectorPayrollTest {
     }
 
     @Test
+    fun paidAbsenceDaysContributeToOvertimeThresholdWithoutInventingLeaveAverage() {
+        val zone = ZoneId.of("Europe/Zagreb")
+        val entries = (1..8).map { day ->
+            val started = LocalDateTime.of(2026, 6, day + 1, 7, 0)
+                .atZone(zone).toInstant().toEpochMilli()
+            val ended = LocalDateTime.of(2026, 6, day + 1, 19, 0)
+                .atZone(zone).toInstant().toEpochMilli()
+            TimeEvidenceEntry(day.toLong(), started, ended, "", WorkType.TURNUS)
+        }
+        val schedule = (12..22).associate { day ->
+            "2026-06-" + day.toString().padStart(2, '0') to "GO"
+        }
+
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 6),
+            entries = entries,
+            scheduleCodes = schedule,
+            regimeId = "kbc-rijeka-2026",
+            coefficient = 1.25,
+            yearsService = 12,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = true,
+            zone = zone
+        )
+
+        assertEquals(11, estimate.evidence.goDays)
+        assertEquals(88L * 60L, estimate.evidence.compensatedAbsenceMinutes)
+        assertEquals(8L * 60L, estimate.evidence.overtimeMinutes)
+        assertTrue(estimate.overtimeBasePay > 0.0)
+        assertTrue(estimate.overtimeAddition > 0.0)
+    }
+
+    @Test
     fun activeEvidenceDoesNotCreateNegativeDuration() {
         val zone = ZoneId.of("Europe/Zagreb")
         val started = LocalDateTime.of(2026, 10, 16, 7, 0)
