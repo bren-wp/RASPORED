@@ -45,6 +45,7 @@ import hr.raspored.app.data.ReportExporter
 import hr.raspored.app.data.RemoteAccount
 import hr.raspored.app.data.RemoteAccountClient
 import hr.raspored.app.data.RemoteAccountStore
+import hr.raspored.app.data.RemoteSessionInvalidException
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -101,6 +102,24 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     LaunchedEffect(store) {
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
+    }
+    LaunchedEffect(remoteToken) {
+        val token = remoteToken ?: return@LaunchedEffect
+        val validation = withContext(Dispatchers.IO) {
+            runCatching { RemoteAccountClient.current(token) }
+        }
+        validation.onSuccess { account ->
+            remoteAccount = account
+        }.onFailure { error ->
+            if (error is RemoteSessionInvalidException) {
+                remoteAccountStore.clear()
+                remoteAccount = null
+                remoteToken = null
+                snackbarHostState.showSnackbar(
+                    "Prijava je istekla ili je opozvana. Prijavi se ponovno."
+                )
+            }
+        }
     }
     val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
         val date = appDate().plusDays(offset)
