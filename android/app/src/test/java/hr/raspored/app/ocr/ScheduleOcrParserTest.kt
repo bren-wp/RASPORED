@@ -218,6 +218,46 @@ class ScheduleOcrParserTest {
         assertEquals(mapOf(1 to "D", 20 to "N"), merged.single().dayShifts)
     }
 
+
+    @Test
+    fun mergesDenseThirtyPersonRosterWithoutDroppingBlankCalendarDays() {
+        val rows = buildList {
+            for (number in 1..30) {
+                add(
+                    RecognizedScheduleRow(
+                        rowNumber = number,
+                        name = "TESTOSOBA$number",
+                        dayShifts = mapOf(
+                            1 to if (number % 2 == 0) "N" else "D",
+                            5 to "GO",
+                            16 to if (number % 3 == 0) "PD" else "D"
+                        )
+                    )
+                )
+                add(
+                    RecognizedScheduleRow(
+                        rowNumber = number,
+                        name = "TESTOSOBA$number",
+                        dayShifts = mapOf(
+                            24 to "BO",
+                            31 to if (number % 4 == 0) "SD" else "N"
+                        )
+                    )
+                )
+            }
+        }
+
+        val merged = ScheduleOcrParser.mergeRows(rows)
+
+        assertEquals(30, merged.size)
+        assertEquals((1..30).toList(), merged.mapNotNull { it.rowNumber })
+        merged.forEach { row ->
+            assertEquals(null, row.dayShifts[2])
+            assertEquals("GO", row.dayShifts[5])
+            assertEquals("BO", row.dayShifts[24])
+        }
+    }
+
     @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
