@@ -147,7 +147,7 @@ object PublicSectorPayroll {
         PayrollRegime(
             "kbc-rijeka-2026", "Zdravstvo", "KBC Rijeka — provjereni obračunski preset 2026", "public",
             PayrollRates(0.50, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
-            "Preset odgovara provjerenoj strukturi obračuna 2026.; posebni dodaci po radnom mjestu unose se zasebno."
+            "KBC Rijeka Pravilnik o radu potvrđuje 12-satni turnus i navodi da radnik u pravilu ne smije raditi dulje od 16 sati neprekidno, osim više sile ili hitne intervencije. Zato se 24-satni zapis tretira kao poseban oblik rada, ne kao obična smjena."
         ),
         PayrollRegime(
             "public-education", "Školstvo i obrazovanje", "Škole i učenički domovi", "public",
