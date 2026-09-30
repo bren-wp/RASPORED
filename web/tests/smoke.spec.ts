@@ -155,7 +155,6 @@ test("overnight time evidence can be closed after midnight", async ({page}) => {
       {id:"night-active",date:"2026-10-16",in:"19:00",out:null,note:"Noćna smjena"}
     ]));
   });
-  await page.reload();
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
   else await page.locator('[data-route="hours"]:visible').first().click();
