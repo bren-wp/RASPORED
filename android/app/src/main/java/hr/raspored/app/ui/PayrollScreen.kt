@@ -105,7 +105,10 @@ internal fun PayrollScreen(
                 Column(Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Mjesec obračuna", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { month = month.minusMonths(1) }) {
+                        IconButton(
+                            onClick = { month = month.minusMonths(1) },
+                            enabled = month > YearMonth.of(2026, 1)
+                        ) {
                             Icon(Icons.Outlined.ChevronLeft, "Prethodni mjesec")
                         }
                         Text(
@@ -113,7 +116,10 @@ internal fun PayrollScreen(
                                 .replaceFirstChar { it.titlecase(Locale("hr", "HR")) } + " " + month.year + ".",
                             fontWeight = FontWeight.Bold
                         )
-                        IconButton(onClick = { month = month.plusMonths(1) }) {
+                        IconButton(
+                            onClick = { month = month.plusMonths(1) },
+                            enabled = month < YearMonth.of(2026, 12)
+                        ) {
                             Icon(Icons.Outlined.ChevronRight, "Sljedeći mjesec")
                         }
                     }
