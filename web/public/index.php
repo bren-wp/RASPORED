@@ -41,10 +41,10 @@ if ($base === '.') { $base = ''; }
 
   <main class="main">
     <header class="topbar">
-      <a class="brand brand--mobile" href="#" data-route="home"><img src="assets/brand/logo.svg" alt="" width="42"><strong>RASPORED</strong></a>
+      <a class="brand brand--mobile" href="#" data-route="home"><img src="assets/brand/logo.svg" alt="" width="42"><span><strong>RASPORED</strong><small>Shift planner & evidencija sati</small></span></a>
       <div class="top-actions">
         <button class="icon-btn" id="searchBtn" aria-label="Pretraži"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-search"></use></svg></button>
-        <button class="icon-btn notification" id="notificationBtn" aria-label="Obavijesti" aria-expanded="false"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span></span></button>
+        <button class="icon-btn notification" id="notificationBtn" aria-label="Obavijesti" aria-expanded="false"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span id="notificationDot"></span></button>
         <button class="profile-btn" id="profileButton" aria-label="Korisnički profil"><b id="profileInitials">K</b><span id="profileName">Korisnik</span><i>⌄</i></button>
       </div>
     </header>
@@ -262,7 +262,7 @@ if ($base === '.') { $base = ''; }
 
 <div class="floating-panel notification-panel" id="notificationPanel" hidden>
   <div class="floating-panel-head"><b>Obavijesti</b><button class="icon-btn" id="closeNotificationBtn" aria-label="Zatvori">×</button></div>
-  <p>Nema novih obavijesti.</p>
+  <p id="notificationText">Nema novih obavijesti.</p>
 </div>
 <div class="floating-panel profile-panel" id="profilePanel" hidden>
   <div class="floating-panel-head"><b>Profil</b><button class="icon-btn" id="closeProfileBtn" aria-label="Zatvori">×</button></div>
