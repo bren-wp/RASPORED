@@ -22,7 +22,7 @@ if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.0'; }
 <link rel="icon" href="<?= htmlspecialchars(($base ?: '') . '/assets/brand/logo.svg', ENT_QUOTES) ?>" type="image/svg+xml">
 <link rel="stylesheet" href="<?= htmlspecialchars(($base ?: '') . '/assets/css/app.css', ENT_QUOTES) ?>">
 </head>
-<body>
+<body data-base="<?= htmlspecialchars($base, ENT_QUOTES) ?>">
 <div class="app-shell">
   <aside class="sidebar" aria-label="Glavna navigacija">
     <a class="brand brand--sidebar" href="#" data-route="home" aria-label="RASPORED početna">
@@ -328,7 +328,6 @@ if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.0'; }
 
 <div class="connectivity-banner" id="connectivityBanner" role="status" aria-live="polite">Nema internetske veze. Spremljeni raspored ostaje dostupan.</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>window.RASPORED_BASE = <?= json_encode($base, JSON_UNESCAPED_SLASHES) ?>;</script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/app.js', ENT_QUOTES) ?>" defer></script>
 </body>
