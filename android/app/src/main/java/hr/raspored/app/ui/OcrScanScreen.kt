@@ -51,6 +51,7 @@ internal fun OcrScanScreen(
     var employeeMenu by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
+    var ocrGeneration by remember { mutableIntStateOf(0) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
@@ -82,15 +83,26 @@ internal fun OcrScanScreen(
     }
 
     fun process(source: Bitmap) {
+        val generation = ocrGeneration + 1
+        ocrGeneration = generation
         bitmap = source
+        result = null
+        selectedRow = -1
+        editedShifts.clear()
+        editMode = false
+        employeeMenu = false
         phase = OcrPhase.Processing
         message = "Automatsko prepoznavanje..."
         ScheduleOcrEngine.recognize(
             bitmap = source,
-            onSuccess = ::applyResult,
+            onSuccess = { recognized ->
+                if (ocrGeneration == generation) applyResult(recognized)
+            },
             onError = {
-                phase = OcrPhase.Error
-                message = "Prepoznavanje nije uspjelo. Pokušaj ponovno ili odaberi drugu fotografiju."
+                if (ocrGeneration == generation) {
+                    phase = OcrPhase.Error
+                    message = "Prepoznavanje nije uspjelo. Pokušaj ponovno ili odaberi drugu fotografiju."
+                }
             }
         )
     }
