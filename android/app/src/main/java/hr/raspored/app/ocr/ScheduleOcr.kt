@@ -419,7 +419,10 @@ object ScheduleOcrParser {
                 canonicalShift(token.text)?.let { token to it }
             }
             val dayShifts = mapShiftTokensToDays(shiftTokens, dayCenters, maxDistance)
-            if (dayShifts.isEmpty()) {
+            // Ako je redak numeriran, zadržavamo osobu i kada OCR nije
+            // pročitao nijednu oznaku smjene. Korisnik tada vidi da redak
+            // postoji i može ga ručno provjeriti umjesto da osoba nestane.
+            if (dayShifts.isEmpty() && anchor.rowNumber == null) {
                 null
             } else {
                 RecognizedScheduleRow(
@@ -754,8 +757,8 @@ object ScheduleOcrEngine {
         val rows = schedule.rows
         if (rows.isEmpty()) return true
         val mapped = rows.sumOf { it.dayShifts.size }
-        val expectedPerRow = minOf(schedule.month?.lengthOfMonth() ?: 31, 8)
-        return mapped < maxOf(12, rows.size * expectedPerRow)
+        val expectedPerRow = minOf(schedule.month?.lengthOfMonth() ?: 31, 12)
+        return mapped < maxOf(18, rows.size * expectedPerRow)
     }
 
     private fun mergeSchedules(
