@@ -108,6 +108,7 @@ object PublicHealthPayroll {
     fun role(id: String): PayrollRole = roles.firstOrNull { it.id == id } ?: roles.first()
 
     fun baseFor(month: YearMonth): Double = when {
+        month.year != 2026 -> 0.0
         month < YearMonth.of(2026, 4) -> 1004.87
         month < YearMonth.of(2026, 8) -> 1015.00
         month < YearMonth.of(2026, 12) -> 1025.00
