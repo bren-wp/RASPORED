@@ -145,7 +145,7 @@ async function writeNow(){
   return current;
 }
 function queueWrite(){
-  writeChain=writeChain.then(writeNow,writeNow).catch(function(error){notifyError();throw error});
+  writeChain=writeChain.then(writeNow,writeNow).catch(function(){notifyError();return current});
   return writeChain;
 }
 function valueForKey(key){
