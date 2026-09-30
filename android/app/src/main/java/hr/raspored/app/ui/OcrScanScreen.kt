@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.ocr.RecognizedSchedule
 import hr.raspored.app.ocr.ScheduleOcrEngine
 import hr.raspored.app.ocr.createOcrCaptureUri
@@ -546,7 +547,10 @@ internal fun OcrScanScreen(
                             recognizedMonth,
                             editedShifts
                                 .filterKeys { it in 1..recognizedMonth.lengthOfMonth() }
-                                .filterValues { it in listOf("D", "N", "GO", "BO", "PD", "SD") }
+                                .mapNotNull { (day, rawCode) ->
+                                    ScheduleStore.normalizeCode(rawCode)?.let { day to it }
+                                }
+                                .toMap()
                         )
                     },
                     enabled = selectedRow >= 0 && editedShifts.isNotEmpty(),
@@ -588,7 +592,7 @@ internal fun OcrScanScreen(
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Android nema korisnički račun: možeš uvesti jednu osobu u glavni kalendar ili spremiti sve osobe kao odvojene lokalne rasporede tima.")
                     Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
-                    Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.")
+                    Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
                 }
             },
             confirmButton = {
