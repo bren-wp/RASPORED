@@ -257,6 +257,13 @@ internal fun OcrScanScreen(
     val activeRow = result?.rows?.getOrNull(selectedRow)
     val recognizedMonth = selectedMonth
     val unresolvedConflicts = reviewCells.count { it.conflict && !it.manuallyConfirmed }
+    val unresolvedActiveConflicts = activeRow?.let { row ->
+        reviewCells.count { cell ->
+            cell.conflict && !cell.manuallyConfirmed &&
+                (cell.employeeRow?.let { row.rowNumber == it }
+                    ?: row.name.trim().equals(cell.employeeName.trim(), ignoreCase = true))
+        }
+    } ?: 0
 
     fun rowMatchesConflict(row: RecognizedScheduleRow, conflict: RecognitionCellReview): Boolean =
         conflict.employeeRow?.let { row.rowNumber == it }
@@ -716,7 +723,7 @@ internal fun OcrScanScreen(
                                 .toMap()
                         )
                     },
-                    enabled = selectedRow >= 0 && editedShifts.isNotEmpty() && unresolvedConflicts == 0,
+                    enabled = selectedRow >= 0 && editedShifts.isNotEmpty() && unresolvedActiveConflicts == 0,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {
