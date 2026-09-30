@@ -50,6 +50,16 @@ test("calendar is the start view and manual status editing persists", async ({pa
 });
 
 
+test("blank calendar cell remains a regular day off and is not SD", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  const blank=page.locator('[data-date="2026-10-18"]:visible').first();
+  await blank.click();
+  await expect(page.locator("#selectedDayCard")).toContainText("Redovni slobodni dan");
+  await expect(page.locator("#selectedDayCard")).not.toContainText("SD");
+  await expect(page.locator('[data-date="2026-10-18"]:visible .code')).toHaveCount(0);
+});
+
 test("scan performs OCR and exposes multiple invented employees", async ({page}) => {
   await mockOcr(page);
   await page.goto("/");
