@@ -7,6 +7,8 @@ header('Permissions-Policy: camera=(self), microphone=(), geolocation=()');
 header('X-Frame-Options: DENY');
 $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 if ($base === '.') { $base = ''; }
+$version = trim((string) @file_get_contents(__DIR__ . '/version.txt'));
+if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.0'; }
 ?>
 <!doctype html>
 <html lang="hr" data-theme="light">
@@ -36,7 +38,7 @@ if ($base === '.') { $base = ''; }
       <button class="nav-item desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Kolege</button>
       <button class="nav-item" data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg>Postavke</button>
     </nav>
-    <div class="side-version"><img src="assets/brand/logo.svg" alt="" width="36"><span>RASPORED<small>v1.0.0</small></span></div>
+    <div class="side-version"><img src="assets/brand/logo.svg" alt="" width="36"><span>RASPORED<small>v<?= htmlspecialchars($version, ENT_QUOTES) ?></small></span></div>
   </aside>
 
   <main class="main">
