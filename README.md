@@ -69,7 +69,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | --- | --- |
 | **Mjesečni kalendar** | Početni ekran aplikacije s pregledom smjena, hrvatskih blagdana i ručnim uređivanjem D / N / GO / BO / PD / SD oznaka po danu. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
-| **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza; osobe i stupci dana se geometrijski povezuju, a import se ne dopušta kada položaj dana nije dovoljno pouzdan. |
+| **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, preklapajući pojasevi, zasebni roster prolazi i fokusirani 2D recovery tileovi za vrlo guste rasporede; osobe i stupci dana spajaju se po broju retka/geometriji bez komprimiranja praznih dana. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
 | **Saldo sati** | Razlika između planiranih i stvarno evidentiranih minuta. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
@@ -86,7 +86,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
 3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
-4. Gost ili individualni korisnik u osobni kalendar uvozi **točno jednu osobu**. Registrirani individualni račun može spremiti samo raspored koji odgovara imenu računa.
+4. Gost ili individualni korisnik u osobni kalendar uvozi **točno jednu osobu**. Registrirani individualni račun može spremiti samo raspored koji odgovara imenu računa. Ako je puni raspored gust, OCR zadržava numerirani redak i može mu naknadnim roster prolazom pridružiti čitko ime, umjesto da izgubi njegove smjene.
 5. Voditeljski račun na Webu i Androidu može iz istog skeniranja spremiti više djelatnika kao **odvojene rasporede tima**; rasporedi se nikada ne spajaju među osobama.
 6. Prije spremanja moguće je ručno ispraviti svaki dan i oznaku; bez pouzdane geometrije stupaca aplikacija traži ponovno skeniranje umjesto tihog pomicanja dana ulijevo ili udesno.
 
