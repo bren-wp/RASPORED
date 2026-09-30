@@ -7,6 +7,8 @@ test.beforeEach(async ({page}) => {
 
 test("responsive home uses production composition", async ({page}) => {
   await page.goto("/");
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await page.locator('[data-route="home"]:visible').first().click();
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
     await expect(page.getByText("Današnja smjena")).toBeVisible();
@@ -19,7 +21,7 @@ test("responsive home uses production composition", async ({page}) => {
 
 test("calendar and statistics remain interactive", async ({page}) => {
   await page.goto("/");
-  await page.locator('[data-route="calendar"]:visible').first().click();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   await expect(page.locator("#calendarGridMobile")).toBeVisible();
   await page.locator('[data-route="stats"]:visible').first().click();
   await expect(page.getByText("Ukupno odrađeno sati")).toBeVisible();
@@ -30,6 +32,23 @@ test("calendar and statistics remain interactive", async ({page}) => {
   await page.locator("#statsPeriod").click();
   await expect(page.locator("#statsPeriodMenu")).toBeVisible();
 });
+
+test("calendar is the start view and manual status editing persists", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await page.locator('[data-manual-shift="PD"]').click();
+  const selectedDate=await page.locator("#selectedDayCard").evaluate((el:any) => {
+    const card=el;
+    const selected=document.querySelector(".calendar-grid--mobile .day.is-selected, .calendar-grid--mobile .is-selected");
+    return selected&&selected.getAttribute("data-date");
+  }).catch(()=>null);
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+  await page.reload();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await expect(page.locator('[data-manual-shift="PD"]')).toHaveAttribute("aria-pressed","true");
+  expect(selectedDate===null||typeof selectedDate==="string").toBeTruthy();
+});
+
 
 test("scan performs OCR and exposes multiple invented employees", async ({page}) => {
   await mockOcr(page);
@@ -90,7 +109,7 @@ test("recognized schedule can be corrected before import", async ({page}) => {
 test("time evidence records and persists check-in and check-out", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
 
   await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
@@ -100,7 +119,7 @@ test("time evidence records and persists check-in and check-out", async ({page})
   await expect(page.locator("#hoursStatus")).toContainText("spremljena");
 
   await page.reload();
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
   await expect(page.locator("#hoursHistory")).toContainText("Redovna smjena");
 });
@@ -108,7 +127,7 @@ test("time evidence records and persists check-in and check-out", async ({page})
 test("time evidence stores selected work type without inventing a special-duty rate", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
 
   await page.locator("#hoursWorkType").selectOption("duty");
@@ -351,7 +370,7 @@ test("overnight time evidence can be closed after midnight", async ({page}) => {
     await (window as any).RasporedDataStore.flush();
   });
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
   await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
   await expect(page.locator("#clockOutBtn")).toBeEnabled();
@@ -365,8 +384,10 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
     await page.goto("/");
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;
-      if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+      if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
       else await page.locator('[data-route="hours"]:visible').first().click();
+    }else if(route==="home"){
+      await page.locator('[data-route="home"]:visible').first().click();
     }else if(route==="payroll"){
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820){
@@ -643,7 +664,7 @@ test("server JSON storage works when browser Storage APIs are unavailable", asyn
     Storage.prototype.removeItem=blocked;
   });
   await page.goto("/");
-  await expect(page.locator('[data-view="home"]')).toBeVisible();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator('[data-view="settings"]')).toBeVisible();
   await page.locator("#themeToggle").check();
