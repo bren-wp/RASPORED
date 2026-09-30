@@ -253,6 +253,35 @@ class PublicSectorPayrollTest {
     }
 
     @Test
+    fun workedLeaveDateIsNotCountedTwiceForOvertimeThreshold() {
+        val zone = ZoneId.of("Europe/Zagreb")
+        val started = LocalDateTime.of(2026, 6, 12, 7, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        val ended = LocalDateTime.of(2026, 6, 12, 15, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 6),
+            entries = listOf(TimeEvidenceEntry(1L, started, ended, "", WorkType.REGULAR)),
+            scheduleCodes = mapOf("2026-06-12" to "GO"),
+            regimeId = "kbc-rijeka-2026",
+            coefficient = 1.25,
+            yearsService = 0,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = false,
+            zone = zone
+        )
+
+        assertEquals(1, estimate.evidence.goDays)
+        assertEquals(0L, estimate.evidence.compensatedAbsenceMinutes)
+        assertEquals(0L, estimate.evidence.overtimeMinutes)
+    }
+
+    @Test
     fun activeEvidenceDoesNotCreateNegativeDuration() {
         val zone = ZoneId.of("Europe/Zagreb")
         val started = LocalDateTime.of(2026, 10, 16, 7, 0)
