@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import hr.raspored.app.BuildConfig
 import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
@@ -228,14 +227,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
     },label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedTextColor=Cyan,unselectedTextColor=Slate,indicatorColor=Color.Transparent))
 }
 
-private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
-    val p=listOf(D,N,D,null,null,D,D,GO,D,N,null,null,D,GO,D,D,N,null,null,D,null,N,null,D,null,null,BO,null,null,null,null)
-    return (1..month.lengthOfMonth()).mapNotNull{day->p[(day-1)%p.size]?.let{day to it}}.toMap().toMutableMap().apply {
-        if(month==YearMonth.of(2026,10)){this[16]=D;this[17]=N}
-    }
-}
-private fun appDateTime():LocalDateTime =
-    if(BuildConfig.DEBUG) LocalDateTime.of(2026,10,16,4,40) else LocalDateTime.now()
+private fun appDateTime():LocalDateTime = LocalDateTime.now()
 private fun appDate():LocalDate = appDateTime().toLocalDate()
 
 private fun shiftStatusLabel(shift:Shift):String {
@@ -272,7 +264,7 @@ private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>
     val persisted=(1..month.lengthOfMonth()).mapNotNull { day ->
         shiftFromCode(codes[month.atDay(day).toString()] ?: "")?.let { day to it }
     }.toMap()
-    return if(persisted.isNotEmpty()) persisted else if(BuildConfig.DEBUG) sampleSchedule(month) else emptyMap()
+    return persisted
 }
 private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
     (0..4).map { week ->
@@ -313,7 +305,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         month=month,
         entries=evidenceEntries,
         scheduleCodes=codesForMonth(month,data),
-        fallbackToPlanned=BuildConfig.DEBUG
+        fallbackToPlanned=false
     )
     val current=data[today.dayOfMonth] ?: GO
     val nextEntry=(today.dayOfMonth+1..month.lengthOfMonth()).firstNotNullOfOrNull{day->
@@ -601,13 +593,13 @@ private fun largeMinutesLabel(minutes:Long):String {
         month=month,
         entries=evidenceEntries,
         scheduleCodes=codesForMonth(month,data),
-        fallbackToPlanned=BuildConfig.DEBUG
+        fallbackToPlanned=false
     )
     val previousAnalytics=EvidenceAnalytics.summarize(
         month=previousMonth,
         entries=evidenceEntries,
         scheduleCodes=codesForMonth(previousMonth,previousData),
-        fallbackToPlanned=BuildConfig.DEBUG
+        fallbackToPlanned=false
     )
     val holidays=CroatianHolidays.forYear(month.year)
     val saturdayCount=data.keys.count{month.atDay(it).dayOfWeek.value==6}
