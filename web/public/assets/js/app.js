@@ -377,14 +377,44 @@ function saveHoursNote(){
   if(!entry||!note)return;
   entry.note=note.value.trim().slice(0,500);saveTimeEntries(entries)
 }
-function handleScanFile(file){
+async function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
   if(file.size>10*1024*1024){toast("Slika je prevelika. Najveća dopuštena veličina je 10 MB.");return}
-  var preview=document.getElementById("scanPreview"),img=document.getElementById("scanPreviewImage"),status=document.getElementById("scanStatus");
+  var preview=document.getElementById("scanPreview"),img=document.getElementById("scanPreviewImage"),status=document.getElementById("scanStatus"),progress=status.querySelector(".scan-progress i");
   if(img.dataset.objectUrl)URL.revokeObjectURL(img.dataset.objectUrl);
   var url=URL.createObjectURL(file);img.dataset.objectUrl=url;img.src=url;preview.classList.add("has-image");
-  status.classList.remove("is-success");status.classList.add("is-scanning");status.querySelector("span").textContent="Automatsko prepoznavanje...";
-  setTimeout(function(){status.classList.remove("is-scanning");status.classList.add("is-success");status.querySelector("span").textContent="Fotografija je učitana i spremna za OCR obradu.";},900);
+  clearScanSession();renderScanPersonPicker();renderRecognition();
+  status.classList.remove("is-success","is-error");status.classList.add("is-scanning");
+  status.querySelector("span").textContent="Automatsko prepoznavanje rasporeda...";
+  if(progress)progress.style.width="4%";
+  try{
+    if(!window.RasporedWebOcr||typeof window.RasporedWebOcr.recognizeSchedule!=="function")throw new Error("OCR modul nije dostupan");
+    var result=await window.RasporedWebOcr.recognizeSchedule(file,function(value){
+      if(progress)progress.style.width=Math.max(4,Math.min(96,Math.round(value*100)))+"%";
+    });
+    state.scanPeople=Array.isArray(result.people)?result.people:[];
+    state.scanMonth=result.month||null;
+    state.scanSelected=state.scanPeople.length===1?0:-1;
+    saveScanSession();
+    status.classList.remove("is-scanning");
+    if(progress)progress.style.width="100%";
+    if(state.scanPeople.length){
+      status.classList.add("is-success");
+      status.querySelector("span").textContent=state.scanPeople.length===1
+        ?"Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
+        :"Prepoznato je "+state.scanPeople.length+" osoba. Odaberi ime i prezime osobe čiji raspored želiš uvesti.";
+    }else{
+      status.classList.add("is-error");
+      status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO ili BO. Pokušaj s ravnijom i oštrijom fotografijom.";
+    }
+  }catch(error){
+    status.classList.remove("is-scanning");status.classList.add("is-error");
+    if(progress)progress.style.width="0";
+    status.querySelector("span").textContent=navigator.onLine
+      ?"Prepoznavanje nije uspjelo. Pokušaj ponovno s jasnijom fotografijom."
+      :"Za prvo OCR prepoznavanje potrebna je internetska veza.";
+  }
+  renderScanPersonPicker();renderRecognition();
 }
 function route(name){
   state.route=name;document.body.dataset.routeCurrent=name;
