@@ -46,11 +46,13 @@ internal fun OcrScanScreen(
     var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
     var selectedRow by remember { mutableIntStateOf(-1) }
     var employeeMenu by remember { mutableStateOf(false) }
+    var editMode by remember { mutableStateOf(false) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
         result = recognized
         editedShifts.clear()
+        editMode = false
         when {
             recognized.rows.isEmpty() -> {
                 selectedRow = -1
@@ -66,7 +68,8 @@ internal fun OcrScanScreen(
             else -> {
                 selectedRow = -1
                 phase = OcrPhase.Success
-                message = "Prepoznato je ${recognized.rows.size} osoba. Odaberi ime i prezime osobe čiji raspored želiš uvesti."
+                val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
+                message = "Prepoznate su $countLabel. Odaberi ime i prezime osobe čiji raspored želiš uvesti."
             }
         }
     }
@@ -238,7 +241,7 @@ internal fun OcrScanScreen(
                 shadowElevation = 1.dp
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Odaberi moj redak", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("Odaberi osobu", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
                         "Ako raspored sadrži više osoba, obavezno odaberi samo jednu osobu čiji će se raspored uvesti.",
                         color = RasporedTokens.Slate,
@@ -283,6 +286,7 @@ internal fun OcrScanScreen(
                                         selectedRow = index
                                         editedShifts.clear()
                                         editedShifts.putAll(row.dayShifts)
+                                        editMode = false
                                         employeeMenu = false
                                     }
                                 )
@@ -337,6 +341,7 @@ internal fun OcrScanScreen(
                                     day = day,
                                     month = recognizedMonth,
                                     code = code,
+                                    enabled = editMode,
                                     onClick = {
                                         val next = nextShiftCode(code)
                                         if (next.isBlank()) editedShifts.remove(day) else editedShifts[day] = next
@@ -351,15 +356,13 @@ internal fun OcrScanScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(
-                            onClick = {
-                                val invalidDays = editedShifts.filterValues { it !in listOf("D", "N", "GO", "BO") }.keys
-                                invalidDays.forEach(editedShifts::remove)
-                            },
+                            onClick = { if (selectedRow >= 0) editMode = !editMode },
+                            enabled = selectedRow >= 0,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Outlined.Edit, null)
+                            Icon(if (editMode) Icons.Outlined.Check else Icons.Outlined.Edit, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Uredi")
+                            Text(if (editMode) "Završi uređivanje" else "Uredi")
                         }
                         OutlinedButton(
                             onClick = { launchCamera() },
@@ -422,7 +425,7 @@ private fun ScanFrame() {
 }
 
 @Composable
-private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () -> Unit) {
+private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boolean, onClick: () -> Unit) {
     val bg = when (code) {
         "D" -> RasporedTokens.CyanSoft
         "N" -> RasporedTokens.NavyAlt
@@ -439,9 +442,9 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () 
     }
     Surface(
         shape = RoundedCornerShape(12.dp),
-        border = ButtonDefaults.outlinedButtonBorder,
+        border = if (enabled) androidx.compose.foundation.BorderStroke(2.dp, RasporedTokens.Cyan) else ButtonDefaults.outlinedButtonBorder,
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.width(82.dp).clickable(onClick = onClick)
+        modifier = Modifier.width(82.dp).clickable(enabled = enabled, onClick = onClick)
     ) {
         Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
