@@ -3,6 +3,7 @@
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
 var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false,scanGeneration:0};
+var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
 
@@ -586,7 +587,19 @@ function route(name){
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
 function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderScanPersonPicker();renderRecognition();renderStats();renderHours();renderColleagues();renderPeriodMenu();renderNotifications()}
+function applyStoredAppearance(){
+  var motion=document.getElementById("motionToggle");
+  var reduced=storageGet("raspored.reducedMotion")==="1";
+  if(motion)motion.checked=reduced;
+  document.body.dataset.reducedMotion=reduced?"true":"false";
+  var th=storageGet("raspored.theme");
+  document.documentElement.dataset.theme=th==="dark"?"dark":"light";
+  var theme=document.getElementById("themeToggle");
+  if(theme)theme.checked=th==="dark";
+}
 function bind(){
+  if(appBound)return;
+  appBound=true;
   document.querySelectorAll("[data-route]").forEach(function(x){x.addEventListener("click",function(e){e.preventDefault();route(this.dataset.route)})});
   document.addEventListener("click",function(e){
     var target=e.target.closest("[data-route-dynamic]");if(target){e.preventDefault();route(target.dataset.routeDynamic);return}
@@ -608,8 +621,6 @@ function bind(){
   document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";if(!storageSet("raspored.theme",document.documentElement.dataset.theme))toast("Postavku izgleda nije moguće spremiti.")});
   var motion=document.getElementById("motionToggle");
   if(motion){
-    motion.checked=storageGet("raspored.reducedMotion")==="1";
-    document.body.dataset.reducedMotion=motion.checked?"true":"false";
     motion.addEventListener("change",function(){if(!storageSet("raspored.reducedMotion",this.checked?"1":"0"))toast("Postavku animacija nije moguće spremiti.");document.body.dataset.reducedMotion=this.checked?"true":"false"});
   }
   document.getElementById("saveSchedule").addEventListener("click",importSelectedScanSchedule);
@@ -702,23 +713,26 @@ function bind(){
   });
   function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
-  var th=storageGet("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
 }
 async function initApp(){
   if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
-  await window.RasporedDataStore.init();
-  if(window.RasporedPayroll)await window.RasporedPayroll.init();
-  loadSchedule();loadScanSession();configureProfile();bind();
-  window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
-  if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
+  bind();
   document.body.dataset.routeCurrent=state.route;
   renderAll();
+  window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
+  await window.RasporedDataStore.init();
+  if(window.RasporedPayroll)await window.RasporedPayroll.init();
+  loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();
+  renderAll();
+  document.body.dataset.appReady=window.RasporedDataStore.isAvailable()?"true":"storage-unavailable";
+  if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
   setInterval(function(){if(state.route==="hours")renderHours()},60000);
   if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
 }
 initApp().catch(function(){
   document.body.dataset.routeCurrent=state.route;
-  bind();renderAll();
-  toast("Podatkovni sloj nije dostupan. Aplikacija radi samo u memoriji.");
+  document.body.dataset.appReady="error";
+  renderAll();
+  toast("Podatkovni sloj nije dostupan. Spremanje je onemogućeno.");
 });
 })();
