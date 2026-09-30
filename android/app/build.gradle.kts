@@ -12,6 +12,11 @@ val releaseVersionCode =
     versionMatch.groupValues[2].toInt() * 100 +
     versionMatch.groupValues[3].toInt()
 
+val backendBaseUrl = providers.gradleProperty("RASPORED_BACKEND_URL")
+    .orElse("https://raspored.eu")
+    .get()
+    .trimEnd('/')
+
 android {
     namespace = "hr.raspored.app"
     compileSdk = 36
@@ -22,12 +27,13 @@ android {
         versionCode = releaseVersionCode
         versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
     }
     compileOptions {
         sourceCompatibility = org.gradle.api.JavaVersion.VERSION_17
         targetCompatibility = org.gradle.api.JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 dependencies {
