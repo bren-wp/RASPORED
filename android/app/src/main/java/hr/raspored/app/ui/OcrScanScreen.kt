@@ -42,21 +42,30 @@ internal fun OcrScanScreen(
     var result by remember { mutableStateOf<RecognizedSchedule?>(null) }
     var phase by remember { mutableStateOf(OcrPhase.Idle) }
     var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
-    var selectedRow by remember { mutableIntStateOf(0) }
+    var selectedRow by remember { mutableIntStateOf(-1) }
     var employeeMenu by remember { mutableStateOf(false) }
-    val editedShifts = remember { mutableStateListOf<String>() }
+    val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
         result = recognized
-        selectedRow = 0
         editedShifts.clear()
-        recognized.rows.firstOrNull()?.shifts?.let(editedShifts::addAll)
-        if (recognized.rows.isEmpty()) {
-            phase = OcrPhase.Error
-            message = "Nije pronađen red sa smjenama D, N, GO ili BO. Pokušaj ravniju i oštriju fotografiju."
-        } else {
-            phase = OcrPhase.Success
-            message = "Prepoznato ${recognized.rows.size} redaka. Provjeri svoj redak prije spremanja."
+        when {
+            recognized.rows.isEmpty() -> {
+                selectedRow = -1
+                phase = OcrPhase.Error
+                message = "Nije pronađena osoba sa smjenama D, N, GO ili BO. Pokušaj ravniju i oštriju fotografiju."
+            }
+            recognized.rows.size == 1 -> {
+                selectedRow = 0
+                editedShifts.putAll(recognized.rows.first().dayShifts)
+                phase = OcrPhase.Success
+                message = "Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
+            }
+            else -> {
+                selectedRow = -1
+                phase = OcrPhase.Success
+                message = "Prepoznato je ${recognized.rows.size} osoba. Odaberi ime i prezime osobe čiji raspored želiš uvesti."
+            }
         }
     }
 
@@ -207,7 +216,7 @@ internal fun OcrScanScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text("Odaberi moj redak", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Provjeri je li ispravno prepoznat tvoj redak.",
+                        "Ako raspored sadrži više osoba, obavezno odaberi samo jednu osobu čiji će se raspored uvesti.",
                         color = RasporedTokens.Slate,
                         fontSize = 13.sp
                     )
@@ -220,7 +229,8 @@ internal fun OcrScanScreen(
                             Icon(Icons.Outlined.Person, null)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                activeRow?.name ?: "Nema prepoznatog zaposlenika",
+                                activeRow?.let { row -> (row.rowNumber?.let { number -> number.toString() + ". " } ?: "") + row.name }
+                                    ?: if ((result?.rows?.size ?: 0) > 1) "Odaberi ime i prezime" else "Nema prepoznate osobe",
                                 modifier = Modifier.weight(1f),
                                 fontWeight = FontWeight.Bold
                             )
@@ -232,11 +242,23 @@ internal fun OcrScanScreen(
                         ) {
                             result?.rows?.forEachIndexed { index, row ->
                                 DropdownMenuItem(
-                                    text = { Text(row.name) },
+                                    text = {
+                                        Column {
+                                            Text(
+                                                (row.rowNumber?.let { number -> number.toString() + ". " } ?: "") + row.name,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                row.dayShifts.size.toString() + " prepoznatih dana",
+                                                fontSize = 11.sp,
+                                                color = RasporedTokens.Slate
+                                            )
+                                        }
+                                    },
                                     onClick = {
                                         selectedRow = index
                                         editedShifts.clear()
-                                        editedShifts.addAll(row.shifts)
+                                        editedShifts.putAll(row.dayShifts)
                                         employeeMenu = false
                                     }
                                 )
@@ -266,7 +288,7 @@ internal fun OcrScanScreen(
                         if (editedShifts.isNotEmpty()) {
                             AssistChip(
                                 onClick = {},
-                                label = { Text("✓ ${editedShifts.size} dana") }
+                                label = { Text("✓ " + editedShifts.size + " prepoznato") }
                             )
                         }
                     }
@@ -285,12 +307,16 @@ internal fun OcrScanScreen(
                                 .padding(top = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            editedShifts.forEachIndexed { index, code ->
+                            (1..recognizedMonth.lengthOfMonth()).forEach { day ->
+                                val code = editedShifts[day].orEmpty()
                                 RecognizedDay(
-                                    day = index + 1,
+                                    day = day,
                                     month = recognizedMonth,
                                     code = code,
-                                    onClick = { editedShifts[index] = nextShiftCode(code) }
+                                    onClick = {
+                                        val next = nextShiftCode(code)
+                                        if (next.isBlank()) editedShifts.remove(day) else editedShifts[day] = next
+                                    }
                                 )
                             }
                         }
@@ -302,11 +328,8 @@ internal fun OcrScanScreen(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                if (editedShifts.isNotEmpty()) {
-                                    for (i in editedShifts.indices) {
-                                        if (editedShifts[i] !in listOf("D", "N", "GO", "BO")) editedShifts[i] = "D"
-                                    }
-                                }
+                                val invalidDays = editedShifts.filterValues { it !in listOf("D", "N", "GO", "BO") }.keys
+                                invalidDays.forEach(editedShifts::remove)
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -330,13 +353,14 @@ internal fun OcrScanScreen(
         item {
             Button(
                 onClick = {
-                    val days = minOf(recognizedMonth.lengthOfMonth(), editedShifts.size)
                     onSaveSchedule(
                         recognizedMonth,
-                        (1..days).associateWith { editedShifts[it - 1] }
+                        editedShifts
+                            .filterKeys { it in 1..recognizedMonth.lengthOfMonth() }
+                            .filterValues { it in listOf("D", "N", "GO", "BO") }
                     )
                 },
-                enabled = editedShifts.isNotEmpty(),
+                enabled = selectedRow >= 0 && editedShifts.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
@@ -404,9 +428,10 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () 
             Spacer(Modifier.height(7.dp))
             Surface(shape = RoundedCornerShape(9.dp), color = bg, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    code,
+                    if (code.isBlank()) "slobodno" else code,
                     color = fg,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = if (code.isBlank()) FontWeight.Medium else FontWeight.ExtraBold,
+                    fontSize = if (code.isBlank()) 10.sp else 14.sp,
                     modifier = Modifier.padding(vertical = 10.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
@@ -416,7 +441,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () 
 }
 
 private fun nextShiftCode(current: String): String {
-    val order = listOf("D", "N", "GO", "BO")
+    val order = listOf("", "D", "N", "GO", "BO")
     val index = order.indexOf(current).takeIf { it >= 0 } ?: 0
     return order[(index + 1) % order.size]
 }

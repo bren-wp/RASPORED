@@ -33,7 +33,10 @@ import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
@@ -102,8 +105,13 @@ private val BO=Shift("BO","Bolovanje","—",0)
     ){
         Scaffold(
             containerColor=MaterialTheme.colorScheme.background,
-            topBar={ BrandHeader() },
-            bottomBar={ BottomNav(screen){screen=it} }
+            topBar={
+                if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Home})
+                else BrandHeader(screen=screen,onScan={screen=Screen.Scan})
+            },
+            bottomBar={
+                if(screen!=Screen.Scan) BottomNav(screen){screen=it}
+            }
         ){ padding ->
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
@@ -144,13 +152,52 @@ private val BO=Shift("BO","Bolovanje","—",0)
     }
 }
 
-@Composable private fun BrandHeader(){
+@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit){
     Surface(color=Navy,modifier=Modifier.fillMaxWidth()){
-        Row(Modifier.statusBarsPadding().height(76.dp).padding(horizontal=18.dp),verticalAlignment=Alignment.CenterVertically){
+        Row(
+            Modifier.statusBarsPadding().height(76.dp).padding(horizontal=18.dp),
+            verticalAlignment=Alignment.CenterVertically
+        ){
             BrandMark()
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)){Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold);Text("Shift planner & evidencija sati",color=Color(0xFFC6D4EA),fontSize=10.sp)}
-            IconButton(onClick={}){Icon(Icons.Outlined.Notifications,null,tint=Color.White)}
+            Column(Modifier.weight(1f)){
+                Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
+                Text("Shift planner & evidencija sati",color=Color(0xFFC6D4EA),fontSize=10.sp)
+            }
+            if(screen==Screen.Calendar){
+                IconButton(onClick=onScan){
+                    Icon(Icons.Outlined.DocumentScanner,"Skeniraj raspored",tint=Color.White)
+                }
+            }
+            if(screen==Screen.Stats){
+                IconButton(onClick={}){
+                    Icon(Icons.Outlined.CloudSync,"Sinkronizacija",tint=Color.White)
+                }
+            }else{
+                IconButton(onClick={}){
+                    BadgedBox(
+                        badge={ if(screen==Screen.Home||screen==Screen.Calendar) Badge(containerColor=Color(0xFFFF4861)) }
+                    ){
+                        Icon(Icons.Outlined.Notifications,"Obavijesti",tint=Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun ScanHeader(onBack:()->Unit){
+    Surface(color=Navy,modifier=Modifier.fillMaxWidth()){
+        Row(
+            Modifier.statusBarsPadding().height(68.dp).padding(horizontal=10.dp),
+            verticalAlignment=Alignment.CenterVertically
+        ){
+            IconButton(onClick=onBack){
+                Icon(Icons.Outlined.ArrowBack,"Natrag",tint=Color.White,modifier=Modifier.size(28.dp))
+            }
+            BrandMark()
+            Spacer(Modifier.width(8.dp))
+            Text("RASPORED",color=Color.White,fontSize=22.sp,fontWeight=FontWeight.ExtraBold)
         }
     }
 }
@@ -187,7 +234,39 @@ private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
         if(month==YearMonth.of(2026,10)){this[16]=D;this[17]=N}
     }
 }
-private fun appDate():LocalDate = if(BuildConfig.DEBUG) LocalDate.of(2026,10,16) else LocalDate.now()
+private fun appDateTime():LocalDateTime =
+    if(BuildConfig.DEBUG) LocalDateTime.of(2026,10,16,4,40) else LocalDateTime.now()
+private fun appDate():LocalDate = appDateTime().toLocalDate()
+
+private fun shiftStatusLabel(shift:Shift):String {
+    if(shift.code!="D"&&shift.code!="N")return "Danas"
+    val now=appDateTime()
+    val start=when(shift.code){
+        "D"->now.toLocalDate().atTime(LocalTime.of(7,0))
+        else->now.toLocalDate().atTime(LocalTime.of(19,0))
+    }
+    val end=when(shift.code){
+        "D"->now.toLocalDate().atTime(LocalTime.of(19,0))
+        else->now.toLocalDate().plusDays(1).atTime(LocalTime.of(7,0))
+    }
+    return when{
+        now.isBefore(start)->{
+            val minutes=Duration.between(now,start).toMinutes().coerceAtLeast(0)
+            "Za "+(minutes/60)+"h "+(minutes%60).toString().padStart(2,'0')+"min"
+        }
+        now.isBefore(end)->"U tijeku"
+        else->"Završeno"
+    }
+}
+
+private fun nextShiftStatus(today:LocalDate,day:Int,shift:Shift):String {
+    val start=today.withDayOfMonth(day)
+    val end=if(shift.code=="N") start.plusDays(1) else start
+    val prefix=if(day==today.dayOfMonth+1)"Sutra" else start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+    return if(shift.code=="N") {
+        prefix+"\n"+start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))+" → "+end.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+    } else prefix
+}
 private fun shiftFromCode(code:String):Shift?=when(code){"D"->D;"N"->N;"GO"->GO;"BO"->BO;else->null}
 private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>{
     val persisted=(1..month.lengthOfMonth()).mapNotNull { day ->
@@ -255,8 +334,8 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground)
             Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item{ShiftCard("Današnja smjena",current,true,onHours={go(Screen.Hours)})}
-        item{ShiftCard("Sljedeća smjena",next,false,onHours=null)}
+        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(current),onHours={go(Screen.Hours)})}
+        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onHours=null)}
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                 listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
@@ -288,7 +367,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 }
 
-@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,onHours:(()->Unit)?){
+@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,statusText:String?,onHours:(()->Unit)?){
     Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth()){
         Column(Modifier.padding(18.dp)){
             Row(verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null,tint=MaterialTheme.colorScheme.onSurface)}
@@ -297,7 +376,10 @@ private fun largeMinutesLabel(minutes:Long):String {
                 ShiftBadge(shift,72.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)){Text(shift.name,fontSize=20.sp,fontWeight=FontWeight.Bold);Text(shift.time,color=Slate,fontSize=16.sp)}
-                if(today) AssistChip(onClick={},label={Text("Za 2h 20min")})
+                if(!statusText.isNullOrBlank()) AssistChip(
+                    onClick={},
+                    label={Text(statusText,fontSize=11.sp,lineHeight=13.sp)}
+                )
             }
             if(today){
                 Divider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5))
