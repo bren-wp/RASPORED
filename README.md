@@ -67,7 +67,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
-| **Mjesečni kalendar** | Početni ekran aplikacije s pregledom smjena, hrvatskih blagdana i ručnim uređivanjem D / N / GO / BO / PD / SD oznaka po danu. |
+| **Mjesečni kalendar** | Početni ekran aplikacije s pregledom smjena, hrvatskih blagdana i ručnim uređivanjem D / N / GO / BO / PD / SD oznaka po danu te vlastitih kratkih oznaka do 8 slova/brojeva. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
 | **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, preklapajući pojasevi, zasebni roster prolazi i fokusirani 2D recovery tileovi za vrlo guste rasporede; osobe i stupci dana spajaju se po broju retka/geometriji bez komprimiranja praznih dana. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
@@ -77,7 +77,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
 | **Okvirna plaća** | Android i Web/PWA koriste provjerljive 2026 parametre gdje postoje; lokalno uređeni i privatni sektor imaju ručni način bez izmišljanja osnovice, koeficijenta ili dodataka. |
-| **Korisnički račun i sinkronizacija** | Gostujući način ostaje dostupan. Web i Android mogu koristiti isti račun na `raspored.eu`; stanje računa sprema se u privatni `storage/data` JSON, a voditeljski račun može uvesti više djelatnika kao odvojene rasporede. |
+| **Web korisnički račun** | Web/PWA može raditi bez registracije, a račun je opcionalan za trajni pristup web podacima. Android nema korisnički račun i sve glavne funkcije radi lokalno bez registracije. |
 | **Izvoz** | Android generira stvarni mjesečni PDF; Web/PWA podržava JSON sigurnosnu kopiju i pregled za ispis / spremanje kao PDF. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
 
@@ -86,8 +86,8 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
 3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
-4. Gost ili individualni korisnik u osobni kalendar uvozi **točno jednu osobu**. Registrirani individualni račun može spremiti samo raspored koji odgovara imenu računa. Ako je puni raspored gust, OCR zadržava numerirani redak i može mu naknadnim roster prolazom pridružiti čitko ime, umjesto da izgubi njegove smjene.
-5. Voditeljski račun na Webu i Androidu može iz istog skeniranja spremiti više djelatnika kao **odvojene rasporede tima**; rasporedi se nikada ne spajaju među osobama.
+4. U osobni kalendar uvozi se **točno jedna odabrana osoba**. Android za to ne traži račun. Ako je puni raspored gust, OCR koristi broj retka kao primarni identitet i dodatne roster prolaze za ime kako ne bi stvarao duplikate ili gubio smjene.
+5. Android bez registracije može iz istog skeniranja spremiti više prepoznatih djelatnika kao **odvojene lokalne rasporede tima**. Web zadržava opcionalni korisnički račun i voditeljski način. Rasporedi se nikada ne spajaju među osobama.
 6. Prije spremanja moguće je ručno ispraviti svaki dan i oznaku; bez pouzdane geometrije stupaca aplikacija traži ponovno skeniranje umjesto tihog pomicanja dana ulijevo ili udesno.
 
 Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Fotografija se obrađuje u pregledniku, a potvrđeni raspored i evidencija spremaju se kroz isti-origin PHP API u per-instalacijski JSON pod `storage/data`.
@@ -186,10 +186,9 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - responzivni layout bez framework ovisnosti u runtimeu
 - PWA manifest + service worker
 - gostujući per-instalacijski JSON podaci u `storage/data` iza zaštićenog PHP API-ja
-- registracija/prijava s `password_hash`, HttpOnly session cookiejem na Webu i kratkim slučajnim bearer identifikatorom za Android
-- Android pristupni token čuva se šifriran Android Keystore AES/GCM ključem; lozinka se ne pohranjuje u aplikaciji
-- Web i Android koriste isti per-account JSON pod `storage/data`
-- voditeljski profil na obje platforme za odvojeni uvoz rasporeda više djelatnika
+- opcionalna registracija/prijava samo za Web/PWA uz `password_hash`, HttpOnly/SameSite session cookie i ograničenje pokušaja prijave
+- Web račun koristi zaseban privatni per-account JSON pod `storage/data`
+- Web voditeljski profil može spremiti više djelatnika kao odvojene rasporede tima
 - JSON sigurnosna kopija i mjesečni pregled za ispis / spremanje kao PDF
 - jednokratna migracija starog browser storagea u JSON spremište
 - okvirna bruto/neto procjena uz službene javne presete i ručni način za ostale sektore
@@ -204,16 +203,15 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 
 ## Privatnost i podaci
 
-- **Android:** gostujući rad ostaje lokalno na uređaju. Prijavljeni korisnik može ručno **Preuzeti** stanje računa ili **Spremiti** lokalni raspored, evidenciju i postavke na svoj račun preko HTTPS-a.
+- **Android:** nema korisničkog računa ni prijave. Kalendar, raspored, OCR, evidencija, statistika, procjena plaće i PDF izvoz rade lokalno bez registracije; aplikacija nema nepotrebnu Internet dozvolu.
 - **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
-- **Zajednički račun:** Web i Android čitaju isti per-account JSON na `raspored.eu`; sinkronizacija je eksplicitna kako lokalni podaci ne bi bili prepisani bez korisnikove radnje.
 - **Računi:** lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify`, HttpOnly/SameSite session cookie, same-origin provjeru i ograničenje pokušaja prijave.
 - **Zaštita Web spremišta:** runtime prvenstveno sprema JSON u privatni direktorij izvan document root-a; put se može eksplicitno zadati s `RASPORED_STORAGE_DIR`. `storage/.htaccess` ostaje kompatibilni fallback za Apache. Zapis ide kroz API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
 - **Android OCR:** obrada teksta preko ML Kit modela na uređaju.
 - **Web OCR:** fotografija se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
-Gostujući način rada i dalje ne traži registraciju. Korisnički račun povezuje Web/PWA i Android preko službene `raspored.eu` instalacije i privatnog JSON stanja pod `storage/data`. Osobni račun pri OCR uvozu dopušta vlastito registrirano ime, dok voditeljski račun može spremiti više djelatnika kao odvojene rasporede tima. Android ne sprema korisničku lozinku.
+Registracija nije potrebna za osnovni rad. Android nema korisnički račun i sve glavne funkcije radi lokalno. Web/PWA može raditi bez registracije, a opcionalni račun služi samo web pristupu i web voditeljskom načinu.
 
 ## QA koji mora proći
 
@@ -263,7 +261,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED je pripremljen kao **v1.0.9** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
+RASPORED je pripremljen kao **v1.0.10** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 
