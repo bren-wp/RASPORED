@@ -39,13 +39,25 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun androidHospitalCatalogMatchesCurrentWebMinistryCatalogSize() {
-        assertEquals(61, PublicSectorPayroll.institutions.size)
+    fun androidCatalogKeepsHospitalListAndCrossSectorFallbacksAlignedWithWeb() {
+        assertEquals(
+            61,
+            PublicSectorPayroll.institutions.count { it.sector == "Zdravstvo" }
+        )
+        assertEquals(75, PublicSectorPayroll.institutions.size)
         assertTrue(
             PublicSectorPayroll.institutions.any {
                 it.name == "Klinički bolnički centar Rijeka" &&
                     it.regimeId == "kbc-rijeka-2026"
             }
+        )
+        assertTrue(
+            PublicSectorPayroll.institutionsFor("Policija", "Primorsko-goranska")
+                .any { it.name == "MUP / policijska uprava ili postaja" }
+        )
+        assertTrue(
+            PublicSectorPayroll.institutionsFor("Vrtići", "Grad Zagreb")
+                .any { it.name.contains("vrtić", ignoreCase = true) }
         )
     }
 
@@ -54,6 +66,8 @@ class PublicSectorPayrollTest {
         assertEquals(2.01, PublicSectorPayroll.role("edu-teacher", "public-education").coefficient ?: -1.0, 0.001)
         assertEquals(1.70, PublicSectorPayroll.role("police-station", "police").coefficient ?: -1.0, 0.001)
         assertEquals(1.10, PublicSectorPayroll.role("firefighter", "firefighter").coefficient ?: -1.0, 0.001)
+        assertEquals(2.10, PublicSectorPayroll.role("state-senior-adviser", "state-service").coefficient ?: -1.0, 0.001)
+        assertEquals(1.06, PublicSectorPayroll.role("state-cleaner", "state-service").coefficient ?: -1.0, 0.001)
         assertEquals(0.50, PublicSectorPayroll.regime("police").rates.night ?: -1.0, 0.001)
         assertEquals(null, PublicSectorPayroll.regime("firefighter").rates.night)
     }
