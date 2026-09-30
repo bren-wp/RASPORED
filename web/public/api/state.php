@@ -127,7 +127,7 @@ function clean_schedule_code(mixed $raw): string
     if (!is_string($raw)) {
         return '';
     }
-    $value = preg_replace('/\s+/u', '', trim($raw)) ?? '';
+    $value = trim($raw);
     $value = function_exists('mb_strtoupper')
         ? mb_strtoupper($value, 'UTF-8')
         : strtoupper($value);
