@@ -132,19 +132,27 @@ function importScannedTeamSchedules(){
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   var members=loadTeamMembers(),byName={};
   members.forEach(function(item,index){byName[item.name.toLocaleLowerCase("hr-HR")]=index});
+  var imported=0,skipped=0;
   state.scanPeople.forEach(function(person){
+    var recognized=Object.keys(person.dayShifts||{}).filter(function(day){
+      var n=Number(day),code=person.dayShifts[day];
+      return n>=1&&n<=days&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0;
+    });
+    if(!recognized.length){skipped++;return}
     var key=person.name.toLocaleLowerCase("hr-HR"),index=byName[key],member=index===undefined?{name:person.name,note:"",schedule:{}}:members[index];
     member.schedule=sanitizeSchedule(member.schedule);
     for(var day=1;day<=days;day++)delete member.schedule[iso(new Date(y,m,day))];
-    Object.keys(person.dayShifts||{}).forEach(function(day){
+    recognized.forEach(function(day){
       var n=Number(day),code=person.dayShifts[day];
-      if(n>=1&&n<=days&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)member.schedule[iso(new Date(y,m,n))]=code;
+      member.schedule[iso(new Date(y,m,n))]=code;
     });
     if(index===undefined){byName[key]=members.length;members.push(member)}
+    imported++;
   });
+  if(!imported){toast("Nijedan raspored nema dovoljno pouzdanih oznaka dana za uvoz.");return}
   if(!saveTeamMembers(members)){toast("Rasporede tima nije moguće spremiti u storage/data.");return}
   renderTeamMembers();
-  toast("Uvezeni su odvojeni rasporedi za "+state.scanPeople.length+" djelatnika.");
+  toast("Uvezeni su rasporedi za "+imported+" djelatnika"+(skipped?" · preskočeno bez oznaka: "+skipped:"")+".");
   route("colleagues");
 }
 function renderColleagues(){
@@ -273,14 +281,16 @@ function renderScanPersonPicker(){
     return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'" '+(allowed?'':'disabled')+'><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>'+count+' prepoznatih dana · '+(allowed?'Samo ovaj raspored bit će uvezen':'Račun dopušta uvoz samo vlastitog rasporeda')+'</small></button>';
   }).join("");
   if(status){
+    var selectedCount=person?Object.keys(person.dayShifts||{}).length:0;
     if(expectedName&&!person&&state.scanPeople.length)status.textContent="Ime s računa nije pouzdano pronađeno u skeniranom rasporedu.";
-    else status.textContent=person?"✓ Odabrana 1 osoba":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
+    else if(person&&!selectedCount)status.textContent="Osoba je prepoznata, ali nijedan datum nije dovoljno pouzdano mapiran. Uključi Uredi i unesi raspored prije spremanja.";
+    else status.textContent=person?"✓ Odabrana 1 osoba · "+selectedCount+" dana":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
   }
   if(monthLabel){
     var target=scanTargetMonth();
     monthLabel.textContent=months[target.getMonth()]+" "+target.getFullYear()+".";
   }
-  if(saveBtn)saveBtn.disabled=!person||!scanPersonAllowed(person);
+  if(saveBtn)saveBtn.disabled=!person||!scanPersonAllowed(person)||Object.keys(person.dayShifts||{}).length===0;
   var teamBtn=document.getElementById("saveTeamSchedules"),teamNote=document.getElementById("teamImportNote");
   var manager=isManagerAccount();
   if(teamBtn){teamBtn.hidden=!(manager&&state.scanPeople.length>0);teamBtn.disabled=state.scanPeople.length===0}
@@ -293,6 +303,7 @@ function importSelectedScanSchedule(){
   var person=scanPerson();
   if(!person){toast("Odaberi ime i prezime jedne osobe čiji raspored želiš uvesti.");return}
   if(!scanPersonAllowed(person)){toast("Ovaj račun može uvesti samo vlastiti raspored.");return}
+  if(!Object.keys(person.dayShifts||{}).length){toast("Prije spremanja potvrdi barem jedan dan rasporeda.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   for(var day=1;day<=days;day++)delete state.schedule[iso(new Date(y,m,day))];
   Object.keys(person.dayShifts||{}).forEach(function(day){
@@ -853,7 +864,7 @@ function bind(){
       var person=scanPerson(),day=Number(button.dataset.scanDay);if(!person||!day)return;
       var next=cycleScanCode(person.dayShifts[day]||"");
       if(next)person.dayShifts[day]=next;else delete person.dayShifts[day];
-      saveScanSession();renderRecognition();
+      saveScanSession();renderScanPersonPicker();renderRecognition();
     });
   }
   var profileInput=document.getElementById("profileNameInput"),saveProfileBtn=document.getElementById("saveProfileBtn");
