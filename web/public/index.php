@@ -29,7 +29,7 @@ if ($base === '.') { $base = ''; }
       <button class="nav-item" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Skeniraj</button>
       <button class="nav-item" data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg>Statistika</button>
       <button class="nav-item desktop-extra" data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg>Evidencija sati</button>
-      <button class="nav-item desktop-extra"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Kolege</button>
+      <button class="nav-item desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Kolege</button>
       <button class="nav-item" data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg>Postavke</button>
     </nav>
     <div class="side-version"><img src="assets/brand/logo.svg" alt="" width="36"><span>RASPORED<small>v0.1.0-dev</small></span></div>
@@ -101,7 +101,7 @@ if ($base === '.') { $base = ''; }
         <button data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><b>Skeniraj raspored</b><small>OCR prepoznavanje iz slike ili PDF-a</small></button>
         <button data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg><b>Evidencija sati</b><small>Pregledaj odrađene sate i smjene</small></button>
         <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><b>Statistika</b><small>Analize, saldo i izvještaji</small></button>
-        <button class="desktop-extra"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg><b>Kolege</b><small>Pogledaj rasporede kolega</small></button>
+        <button class="desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg><b>Kolege</b><small>Pogledaj rasporede kolega</small></button>
         <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><b>Postavke</b><small>Prilagodi aplikaciju svojim potrebama</small></button>
       </section>
     </section>
@@ -152,7 +152,15 @@ if ($base === '.') { $base = ''; }
     </section>
 
     <section class="view" id="view-stats" data-view="stats">
-      <div class="stats-title-row"><h1>Statistika</h1><button class="secondary-btn" id="statsPeriod"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><span>—</span><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-down"></use></svg></button></div>
+      <div class="stats-title-row">
+        <h1>Statistika</h1>
+        <div class="period-picker">
+          <button class="secondary-btn" id="statsPeriod" aria-haspopup="menu" aria-expanded="false">
+            <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><span>—</span><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-down"></use></svg>
+          </button>
+          <div class="period-menu" id="statsPeriodMenu" role="menu" hidden></div>
+        </div>
+      </div>
       <section class="card stats-main-card">
         <div class="stats-hero"><div><h3>Ukupno odrađeno sati</h3><strong id="workedTotal">0:00 h</strong><p id="workedTrend">—</p></div><div class="donut" id="donut"><span><b id="donutHours">0h</b><small>ukupno</small></span></div></div>
         <div class="stats-categories" id="statsCategories"></div>
@@ -207,6 +215,16 @@ if ($base === '.') { $base = ''; }
           <div class="hours-history" id="hoursHistory"></div>
         </section>
       </div>
+    </section>
+
+    <section class="view" id="view-colleagues" data-view="colleagues">
+      <div class="colleagues-title-row">
+        <div><h1>Kolege</h1><p>Dodaj kolege i brzo provjeri njihove planirane smjene.</p></div>
+        <button class="primary-btn" id="addColleagueBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Dodaj kolegu</button>
+      </div>
+      <section class="card colleagues-card">
+        <div class="colleagues-list" id="colleaguesList"></div>
+      </section>
     </section>
 
     <section class="view" id="view-settings" data-view="settings">
