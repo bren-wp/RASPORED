@@ -1507,7 +1507,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                     Text("Profil i račun",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Kalendar, raspored, evidencija sati i lokalni OCR rade bez registracije. Račun otključava sinkronizaciju i opcionalnu AI provjeru cijelog rasporeda preko sigurnog poslužitelja.",
+                        "Kalendar, raspored, evidencija sati i lokalni OCR rade bez registracije. Račun omogućuje prijavljeni identitet i opcionalnu AI provjeru cijelog rasporeda preko sigurnog poslužitelja.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
