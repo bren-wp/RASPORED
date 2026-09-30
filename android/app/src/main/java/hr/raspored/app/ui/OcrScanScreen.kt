@@ -45,6 +45,7 @@ internal fun OcrScanScreen(
     var phase by remember { mutableStateOf(OcrPhase.Idle) }
     var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
     var selectedRow by remember { mutableIntStateOf(-1) }
+    var selectedMonth by remember { mutableStateOf(defaultMonth) }
     var employeeMenu by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
@@ -52,6 +53,7 @@ internal fun OcrScanScreen(
 
     fun applyResult(recognized: RecognizedSchedule) {
         result = recognized
+        selectedMonth = recognized.month ?: defaultMonth
         editedShifts.clear()
         editMode = false
         when {
@@ -64,13 +66,15 @@ internal fun OcrScanScreen(
                 selectedRow = 0
                 editedShifts.putAll(recognized.rows.first().dayShifts)
                 phase = OcrPhase.Success
-                message = "Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
+                message = "Prepoznata je 1 osoba. Provjeri raspored prije spremanja." +
+                    if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
             else -> {
                 selectedRow = -1
                 phase = OcrPhase.Success
                 val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
-                message = "Prepoznate su $countLabel. Odaberi ime i prezime osobe čiji raspored želiš uvesti."
+                message = "Prepoznate su $countLabel. Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                    if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }
     }
@@ -129,7 +133,7 @@ internal fun OcrScanScreen(
     }
 
     val activeRow = result?.rows?.getOrNull(selectedRow)
-    val recognizedMonth = result?.month ?: defaultMonth
+    val recognizedMonth = selectedMonth
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
@@ -299,6 +303,24 @@ internal fun OcrScanScreen(
                                     }
                                 )
                             }
+                        }
+                    }
+
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Mjesec rasporeda", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { selectedMonth = selectedMonth.minusMonths(1) }) {
+                            Icon(Icons.Outlined.ChevronLeft, "Prethodni mjesec")
+                        }
+                        Text(
+                            selectedMonth.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("hr", "HR"))
+                                .replaceFirstChar { it.titlecase(java.util.Locale("hr", "HR")) } + " " + selectedMonth.year + ".",
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = { selectedMonth = selectedMonth.plusMonths(1) }) {
+                            Icon(Icons.Outlined.ChevronRight, "Sljedeći mjesec")
                         }
                     }
                 }
