@@ -103,7 +103,7 @@ internal object ScheduleTableDetector {
 
             val headerTop = lines[0]
             val headerBottom = lines[1].coerceAtLeast(headerTop + 1)
-            val safeRowsPerBand = rowsPerBand.coerceIn(2, 6)
+            val safeRowsPerBand = rowsPerBand.coerceIn(1, 6)
             val padding = max(2, ((headerBottom - headerTop) * 0.18).roundToInt())
             val bands = mutableListOf<EmployeeRowBand>()
             var startLineIndex = 1
