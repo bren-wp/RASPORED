@@ -577,7 +577,7 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
   var bitmap;
   try{
     bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
-    var rosterWidth=Math.max(1,Math.round(bitmap.width*.30));
+    var rosterWidth=Math.max(1,Math.round(bitmap.width*.28));
     var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*startRatio)));
     var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*endRatio)));
     var gridWidth=gridEnd-gridStart;
@@ -766,7 +766,7 @@ async function recognizeScheduleNow(file,onProgress){
       return Number.isInteger(Number(row.row))&&Object.keys(row.dayShifts||{}).length<3;
     });
     if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)||sparseNumberedRow){
-      var dayBands=[[.29,.50],[.47,.68],[.65,.86],[.83,1]];
+      var dayBands=[[.15,.39],[.36,.60],[.57,.81],[.78,1]];
       for(var b=0;b<dayBands.length;b++){
         if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
         var bandSource=await prepareDayBandComposite(tableSource,dayBands[b][0],dayBands[b][1]);
