@@ -163,3 +163,33 @@ test("overnight time evidence can be closed after midnight", async ({page}) => {
   await page.locator("#clockOutBtn").click();
   await expect(page.locator("#hoursStatus")).toContainText("spremljena");
 });
+
+
+test("main routes have no page-level horizontal overflow or fixed-nav overlap", async ({page}) => {
+  await page.goto("/");
+  for (const route of ["home","calendar","scan","stats","hours","settings"]) {
+    if(route==="hours"){
+      const width=page.viewportSize()?.width ?? 1440;
+      if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+      else await page.locator('[data-route="hours"]:visible').first().click();
+    }else if(route!=="home"){
+      await page.locator('[data-route="'+route+'"]:visible').first().click();
+    }else{
+      await page.locator('[data-route="home"]:visible').first().click();
+    }
+    const metrics=await page.evaluate(() => ({
+      viewport: window.innerWidth,
+      pageWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      route: document.body.dataset.routeCurrent
+    }));
+    expect(metrics.pageWidth,route+" document overflow").toBeLessThanOrEqual(metrics.viewport+1);
+    expect(metrics.bodyWidth,route+" body overflow").toBeLessThanOrEqual(metrics.viewport+1);
+
+    if((page.viewportSize()?.width ?? 1440)<=820){
+      const nav=page.locator(".bottom-nav");
+      if(route==="scan") await expect(nav).toBeHidden();
+      else await expect(nav).toBeVisible();
+    }
+  }
+});
