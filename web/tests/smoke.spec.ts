@@ -394,6 +394,37 @@ test("Web OCR geometry recovers all people and all 31 day columns from a fragmen
   }
 });
 
+test("Web OCR late-month recovery band keeps roster names and exact days", async ({page}) => {
+  await page.goto("/");
+  const parsed=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const box=(x:number,y:number,w=18,h=14)=>({x0:x,y0:y,x1:x+w,y1:y+h});
+    const dayX=(day:number)=>300+(day-20)*30;
+    const header={
+      bbox:box(290,50,380,16),
+      words:Array.from({length:12},(_,index)=>index+20).map(day=>({
+        text:String(day),bbox:box(dayX(day),50,16,14)
+      }))
+    };
+    const row={
+      bbox:box(20,100,680,18),
+      words:[
+        {text:"1",bbox:box(24,100,16,16)},
+        {text:"ANA",bbox:box(55,100,55,16)},
+        {text:"HORVAT",bbox:box(118,100,80,16)},
+        {text:"D",bbox:box(dayX(20),100,16,16)},
+        {text:"N",bbox:box(dayX(21),100,16,16)},
+        {text:"GO",bbox:box(dayX(29),100,18,16)},
+        {text:"SD",bbox:box(dayX(31),100,18,16)}
+      ]
+    };
+    return api.parseGeometry([{paragraphs:[{lines:[header,row]}]}],31);
+  });
+  expect(parsed).toHaveLength(1);
+  expect(parsed[0].name).toBe("ANA HORVAT");
+  expect(parsed[0].dayShifts).toEqual({"20":"D","21":"N","29":"GO","31":"SD"});
+});
+
 test("overnight time evidence can be closed after midnight", async ({page}) => {
   await page.goto("/");
   await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
