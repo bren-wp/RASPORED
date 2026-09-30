@@ -109,11 +109,11 @@ internal fun TimeEvidenceScreen(
                         }
                         Surface(
                             shape = RoundedCornerShape(999.dp),
-                            color = if (active != null) Color(0xFFD9F9EC) else MaterialTheme.colorScheme.surfaceVariant
+                            color = if (active != null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
                                 if (active != null) "U tijeku" else if (latest != null) "Završeno" else "Spremno",
-                                color = if (active != null) Color(0xFF07865F) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (active != null) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
