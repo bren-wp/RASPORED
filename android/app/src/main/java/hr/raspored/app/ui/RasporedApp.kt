@@ -320,7 +320,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
 @Composable private fun BottomNav(current:Screen,onSelect:(Screen)->Unit){
     val selected=when(current){
         Screen.Home->Screen.Calendar
-        Screen.Payroll->Screen.Settings
+        Screen.Payroll->Screen.Stats
         else->current
     }
     NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=6.dp){
