@@ -285,6 +285,18 @@ test("salary estimator applies residence tax presets independently from institut
   await page.locator("#payrollResidence").selectOption("Rijeka");
   await expect(page.locator("#payrollTaxLower")).toHaveValue("20");
   await expect(page.locator("#payrollTaxHigher")).toHaveValue("25");
+
+  await page.locator("#payrollResidence").selectOption("__manual__");
+  await expect(page.locator("#payrollResidenceCustomWrap")).toBeVisible();
+  await page.locator("#payrollResidenceCustom").fill("Primjer Općina");
+  await page.locator("#payrollTaxLower").fill("19.5");
+  await page.locator("#payrollTaxHigher").fill("29.5");
+  await page.locator("#payrollResidenceCustom").blur();
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+  const stored=await page.evaluate(()=>JSON.parse((window as any).RasporedDataStore.get("raspored.payroll.v1")));
+  expect(stored.residence).toBe("Primjer Općina");
+  expect(stored.taxLower).toBe(19.5);
+  expect(stored.taxHigher).toBe(29.5);
 });
 
 test("salary estimator exposes official sources and clearly labels approximation limits", async ({page}) => {
