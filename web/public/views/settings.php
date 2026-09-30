@@ -18,7 +18,7 @@
       </section>
       <section class="card settings-card">
         <h2>Profil</h2>
-        <label class="setting-field"><span><b>Ime i prezime</b><small>Koristi se samo za prikaz u ovoj instalaciji aplikacije.</small></span><input type="text" id="profileNameInput" maxlength="80" autocomplete="name" placeholder="Unesi ime i prezime"></label>
+        <label class="setting-field"><span><b>Ime i prezime</b><small id="profileHelp">Bez računa ime se sprema u ovoj instalaciji. Nakon prijave koristi se ime i prezime iz korisničkog računa.</small></span><input type="text" id="profileNameInput" maxlength="80" autocomplete="name" placeholder="Unesi ime i prezime"></label>
         <button class="secondary-btn settings-save" id="saveProfileBtn">Spremi profil</button>
       </section>
       <section class="card settings-card">
