@@ -1,7 +1,4 @@
 name: CI
-permissions:
-  contents: write
-
 on:
   pull_request:
   push:
@@ -25,24 +22,6 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Functional and screenshot QA
         run: npx playwright test tests/capture.spec.ts tests/smoke.spec.ts
-      - name: Commit real README screenshots
-        if: github.event_name == 'pull_request' && github.head_ref == 'docs/marketing-readme-real-media'
-        run: |
-          git fetch origin "$GITHUB_HEAD_REF"
-          git checkout -B "$GITHUB_HEAD_REF" "origin/$GITHUB_HEAD_REF"
-          mkdir -p ../docs/media
-          cp test-results/capture-capture-home-desktop-1440/home.png ../docs/media/app-home-desktop.png
-          cp test-results/capture-capture-home-mobile-390/home.png ../docs/media/app-home-mobile.png
-          cp test-results/capture-capture-scan-mobile-390/scan.png ../docs/media/app-scan-mobile.png
-          cp test-results/capture-capture-stats-desktop-1440/stats.png ../docs/media/app-stats-desktop.png
-          cp test-results/capture-capture-hours-mobile-390/hours.png ../docs/media/app-hours-mobile.png
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ../docs/media/app-*.png
-          if ! git diff --cached --quiet; then
-            git commit -m "docs: add real application screenshots from CI"
-            git push origin "HEAD:$GITHUB_HEAD_REF"
-          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
