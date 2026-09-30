@@ -560,6 +560,10 @@ function bind(){
     });
     document.addEventListener("click",function(e){if(!menu.hidden&&!e.target.closest(".period-picker")){menu.hidden=true;period.setAttribute("aria-expanded","false")}});
   }
+  var scanHelpBtn=document.getElementById("scanHelpBtn"),scanHelpDialog=document.getElementById("scanHelpDialog");
+  if(scanHelpBtn&&scanHelpDialog)scanHelpBtn.addEventListener("click",function(){scanHelpDialog.showModal()});
+  var statsRefreshBtn=document.getElementById("statsRefreshBtn");
+  if(statsRefreshBtn)statsRefreshBtn.addEventListener("click",function(){loadSchedule();renderAll();toast("Podaci su osvježeni.")});
   var search=document.getElementById("searchBtn");if(search)search.addEventListener("click",openSearch);
   var searchDialog=document.getElementById("searchDialog"),searchInput=document.getElementById("searchInput"),searchResults=document.getElementById("searchResults");
   if(searchInput)searchInput.addEventListener("input",function(){renderSearchResults(this.value)});
