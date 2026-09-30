@@ -25,8 +25,6 @@ class ScheduleOcrParserTest {
     fun ignoresHeaderWithoutShiftData() {
         assertNull(ScheduleOcrParser.parseRow("RB NOSAČ/BOLesNIKA 1 2 3 4 5"))
     }
-}
-
 
     @Test
     fun keepsMultipleEmployeesAsSeparateSelectableRows() {
@@ -40,3 +38,5 @@ class ScheduleOcrParserTest {
         assertEquals(listOf("D", "N", "D", "GO"), result.rows[0].shifts)
         assertEquals(listOf("GO", "D", "N", "BO"), result.rows[1].shifts)
     }
+
+}
