@@ -2,7 +2,7 @@
 "use strict";
 
 var current={
-  schema:1,
+  schema:2,
   revision:0,
   schedule:{},
   evidence:[],
@@ -10,6 +10,7 @@ var current={
   colleagues:[],
   settings:{theme:"light",reducedMotion:false,notificationReadKey:""},
   scanSession:{people:[],selected:-1,month:null},
+  payroll:{roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,secondShift:false,customBase:null},
   updatedAt:null
 };
 var writeChain=Promise.resolve();
@@ -63,12 +64,13 @@ function sanitize(raw){
   var profile=raw.profile&&typeof raw.profile==="object"?raw.profile:{};
   var settings=raw.settings&&typeof raw.settings==="object"?raw.settings:{};
   var scan=raw.scanSession&&typeof raw.scanSession==="object"?raw.scanSession:{};
+  var payroll=raw.payroll&&typeof raw.payroll==="object"?raw.payroll:{};
   var colleagues=Array.isArray(raw.colleagues)?raw.colleagues.slice(0,30).filter(function(x){return x&&typeof x.name==="string"&&x.name.trim().length>=2}).map(function(x){return {name:x.name.trim().replace(/\s+/g," ").slice(0,80),note:typeof x.note==="string"?x.note.trim().replace(/\s+/g," ").slice(0,120):""}}):[];
   var month=scan.month&&Number.isInteger(scan.month.year)&&Number.isInteger(scan.month.month)&&scan.month.month>=1&&scan.month.month<=12?{year:scan.month.year,month:scan.month.month}:null;
   var people=sanitizePeople(scan.people);
   var selected=Number.isInteger(scan.selected)&&scan.selected>=-1&&scan.selected<people.length?scan.selected:-1;
   return {
-    schema:1,
+    schema:2,
     revision:Number.isInteger(raw.revision)&&raw.revision>=0?raw.revision:0,
     schedule:sanitizeSchedule(raw.schedule),
     evidence:sanitizeEvidence(raw.evidence),
@@ -76,6 +78,14 @@ function sanitize(raw){
     colleagues:colleagues,
     settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
     scanSession:{people:people,selected:selected,month:month},
+    payroll:{
+      roleId:typeof payroll.roleId==="string"&&payroll.roleId?payroll.roleId.slice(0,80):"kbc-transport-nss",
+      coefficient:Number.isFinite(Number(payroll.coefficient))?Math.max(1,Math.min(8,Number(payroll.coefficient))):1.15,
+      yearsService:Number.isFinite(Number(payroll.yearsService))?Math.max(0,Math.min(60,Math.trunc(Number(payroll.yearsService)))):0,
+      extraPercent:Number.isFinite(Number(payroll.extraPercent))?Math.max(0,Math.min(100,Number(payroll.extraPercent))):0,
+      secondShift:!!payroll.secondShift,
+      customBase:Number.isFinite(Number(payroll.customBase))?Math.max(0,Math.min(10000,Number(payroll.customBase))):null
+    },
     updatedAt:typeof raw.updatedAt==="string"?raw.updatedAt:null
   };
 }
@@ -147,6 +157,7 @@ function valueForKey(key){
   if(key==="raspored.reducedMotion")return current.settings.reducedMotion?"1":"0";
   if(key==="raspored.scan.v1")return JSON.stringify(current.scanSession);
   if(key==="raspored.notifications.readKey")return current.settings.notificationReadKey||null;
+  if(key==="raspored.payroll.v1")return JSON.stringify(current.payroll);
   return null;
 }
 function setKey(key,value){
@@ -161,7 +172,10 @@ function setKey(key,value){
       var parsed=JSON.parse(value||"null");
       current.scanSession=sanitize({scanSession:parsed}).scanSession;
     }else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey=String(value||"").slice(0,120);
-    else return false;
+    else if(key==="raspored.payroll.v1"){
+      var p=JSON.parse(value||"{}");
+      current.payroll=sanitize({payroll:p}).payroll;
+    }else return false;
     queueWrite();
     return true;
   }catch(e){return false}
@@ -175,6 +189,7 @@ function removeKey(key){
   else if(key==="raspored.reducedMotion")current.settings.reducedMotion=false;
   else if(key==="raspored.scan.v1")current.scanSession={people:[],selected:-1,month:null};
   else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey="";
+  else if(key==="raspored.payroll.v1")current.payroll={roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,secondShift:false,customBase:null};
   else return false;
   queueWrite();
   return true;
