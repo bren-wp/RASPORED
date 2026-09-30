@@ -26,6 +26,59 @@ function configureProfile(){
     else welcome.textContent="Dobro došao!";
   }
 }
+function loadColleagues(){
+  try{
+    var raw=JSON.parse(localStorage.getItem("raspored.colleagues.v1")||"[]");
+    return Array.isArray(raw)?raw.filter(function(x){return x&&typeof x.name==="string"}).slice(0,30):[];
+  }catch(e){return []}
+}
+function saveColleagues(items){localStorage.setItem("raspored.colleagues.v1",JSON.stringify(items.slice(0,30)))}
+function renderColleagues(){
+  var el=document.getElementById("colleaguesList");if(!el)return;
+  var items=loadColleagues();
+  if(!items.length){
+    el.innerHTML='<div class="colleagues-empty">'+icon("users")+'<h2>Još nema dodanih kolega</h2><p>Dodaj kolegu kako bi njegov raspored bio brzo dostupan na jednom mjestu.</p></div>';
+    return;
+  }
+  el.innerHTML=items.map(function(item,index){
+    var initials=item.name.split(/\s+/).filter(Boolean).slice(0,2).map(function(x){return x.charAt(0).toUpperCase()}).join("");
+    return '<article class="colleague-row"><span class="colleague-avatar">'+escapeHtml(initials||"K")+'</span><span><b>'+escapeHtml(item.name)+'</b><small>'+escapeHtml(item.note||"Raspored kolege")+'</small></span><button type="button" class="icon-btn" data-remove-colleague="'+index+'" aria-label="Ukloni '+escapeHtml(item.name)+'">×</button></article>';
+  }).join("");
+}
+function addColleague(){
+  var name=window.prompt("Ime i prezime kolege:","");
+  if(!name)return;
+  name=name.trim().replace(/\s+/g," ").slice(0,80);
+  if(name.length<2){toast("Unesi valjano ime kolege.");return}
+  var items=loadColleagues();
+  if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return}
+  items.push({name:name,note:"Lokalni kontakt"});saveColleagues(items);renderColleagues();toast("Kolega je dodan.");
+}
+function yearMonthKey(y,m){return y+"-"+String(m+1).padStart(2,"0")}
+function renderPeriodMenu(){
+  var menu=document.getElementById("statsPeriodMenu");if(!menu)return;
+  var now=appNow(),current=yearMonthKey(state.cursor.getFullYear(),state.cursor.getMonth());
+  menu.innerHTML="";
+  for(var i=0;i<12;i++){
+    var d=new Date(now.getFullYear(),now.getMonth()-i,1),key=yearMonthKey(d.getFullYear(),d.getMonth()),button=document.createElement("button");
+    button.type="button";button.setAttribute("role","menuitem");button.dataset.period=key;
+    button.className=key===current?"is-active":"";
+    button.textContent=months[d.getMonth()]+" "+d.getFullYear()+".";
+    menu.appendChild(button);
+  }
+}
+function openSearch(){
+  var q=window.prompt("Pretraži RASPORED:","");
+  if(!q)return;
+  var normalized=q.trim().toLocaleLowerCase("hr-HR");
+  var routes=[
+    ["početna","home"],["pocetna","home"],["kalendar","calendar"],["raspored","calendar"],
+    ["skeniraj","scan"],["scan","scan"],["statistika","stats"],["sati","hours"],["evidencija","hours"],
+    ["kolege","colleagues"],["postavke","settings"]
+  ];
+  var match=routes.find(function(x){return normalized.indexOf(x[0])>=0});
+  if(match)route(match[1]);else toast("Nema rezultata za „"+q.trim().slice(0,40)+"“.");
+}
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,da=((h+l-7*m+114)%31)+1;return new Date(y,mo,da)}
 function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x}
@@ -125,7 +178,26 @@ function monthData(y,m){
   return out;
 }
 function statsForCursor(){return monthData(state.cursor.getFullYear(),state.cursor.getMonth())}
-function renderCalendar(targetId){var el=document.getElementById(targetId);if(!el)return;el.innerHTML="";var y=state.cursor.getFullYear(),m=state.cursor.getMonth(),first=new Date(y,m,1),start=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate(),hm=holidays(y),today=iso(new Date());for(var idx=0;idx<42;idx++){var num=idx-start+1,date,inside=true;if(num<1){date=new Date(y,m-1,prevDays+num);inside=false}else if(num>days){date=new Date(y,m+1,num-days);inside=false}else date=new Date(y,m,num);var key=iso(date),code=state.schedule[key]||"",btn=document.createElement("button");btn.className="day-cell"+(inside?"":" outside")+(code?" "+code.toLowerCase():"")+(date.getDay()===0||date.getDay()===6?" weekend":"")+(hm[key]?" holiday":"")+(key===today?" is-today":"")+(key===iso(state.selected)?" is-selected":"");btn.dataset.date=key;btn.setAttribute("role","gridcell");btn.setAttribute("aria-label",date.toLocaleDateString("hr-HR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+(code?", "+shiftMeta(code).name:"")+(hm[key]?", "+hm[key]:""));btn.innerHTML='<span class="num">'+date.getDate()+'</span>'+(code?'<span class="code">'+code+'</span>':(hm[key]?'<span class="code">✣</span>':""));btn.addEventListener("click",function(){state.selected=new Date(this.dataset.date+"T12:00:00");renderAll()});el.appendChild(btn)}}
+function renderCalendar(targetId){
+  var el=document.getElementById(targetId);if(!el)return;
+  el.innerHTML="";
+  var y=state.cursor.getFullYear(),m=state.cursor.getMonth(),first=new Date(y,m,1);
+  var start=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();
+  var total=Math.ceil((start+days)/7)*7,hm=holidays(y),today=iso(appNow());
+  for(var idx=0;idx<total;idx++){
+    var num=idx-start+1,date,inside=true;
+    if(num<1){date=new Date(y,m-1,prevDays+num);inside=false}
+    else if(num>days){date=new Date(y,m+1,num-days);inside=false}
+    else date=new Date(y,m,num);
+    var key=iso(date),code=state.schedule[key]||"",btn=document.createElement("button");
+    btn.className="day-cell"+(inside?"":" outside")+(code?" "+code.toLowerCase():"")+(date.getDay()===0||date.getDay()===6?" weekend":"")+(hm[key]?" holiday":"")+(key===today?" is-today":"")+(key===iso(state.selected)?" is-selected":"");
+    btn.dataset.date=key;btn.setAttribute("role","gridcell");
+    btn.setAttribute("aria-label",date.toLocaleDateString("hr-HR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+(code?", "+shiftMeta(code).name:"")+(hm[key]?", "+hm[key]:""));
+    btn.innerHTML='<span class="num">'+date.getDate()+'</span>'+(code?'<span class="code">'+code+'</span>':(hm[key]?'<span class="code">✣</span>':""));
+    btn.addEventListener("click",function(){state.selected=new Date(this.dataset.date+"T12:00:00");renderAll()});
+    el.appendChild(btn);
+  }
+}
 function setMonthLabels(){var title=months[state.cursor.getMonth()]+" "+state.cursor.getFullYear()+".";["monthTitle","calMonthTitle"].forEach(function(id){var n=document.getElementById(id);if(n)n.textContent=title});var ml=document.getElementById("monthLabel");if(ml)ml.textContent=title;var sp=document.querySelector("#statsPeriod span");if(sp)sp.textContent=title}
 function renderSummary(){
   var d=statsForCursor(),items=[
@@ -255,16 +327,61 @@ function handleScanFile(file){
   status.classList.remove("is-success");status.classList.add("is-scanning");status.querySelector("span").textContent="Automatsko prepoznavanje...";
   setTimeout(function(){status.classList.remove("is-scanning");status.classList.add("is-success");status.querySelector("span").textContent="Fotografija je učitana i spremna za OCR obradu.";},900);
 }
-function route(name){state.route=name;document.body.dataset.routeCurrent=name;document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===name)});if(name==="hours")renderHours();window.scrollTo({top:0,behavior:"smooth"})}
+function route(name){
+  state.route=name;document.body.dataset.routeCurrent=name;
+  document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
+  document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===name)});
+  if(name==="hours")renderHours();
+  if(name==="colleagues")renderColleagues();
+  window.scrollTo({top:0,behavior:document.body.dataset.reducedMotion==="true"?"auto":"smooth"});
+}
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
-function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderRecognition();renderStats();renderHours()}
-function bind(){document.querySelectorAll("[data-route]").forEach(function(x){x.addEventListener("click",function(e){e.preventDefault();route(this.dataset.route)})});document.addEventListener("click",function(e){var target=e.target.closest("[data-route-dynamic]");if(target){e.preventDefault();route(target.dataset.routeDynamic)}});["prevMonth","calPrev"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(-1)})});["nextMonth","calNext"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(1)})});document.getElementById("todayBtn").addEventListener("click",function(){state.cursor=new Date();state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);state.selected=new Date();renderAll()});document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";localStorage.setItem("raspored.theme",document.documentElement.dataset.theme)});document.getElementById("saveSchedule").addEventListener("click",function(){save();toast("Raspored je spremljen.")});document.getElementById("clockInBtn").addEventListener("click",clockIn);document.getElementById("clockOutBtn").addEventListener("click",clockOut);document.getElementById("hoursNote").addEventListener("change",saveHoursNote);document.getElementById("rescanBtn").addEventListener("click",function(){document.getElementById("cameraInput").click()});
-document.getElementById("rescanSecondary").addEventListener("click",function(){document.getElementById("cameraInput").click()});
-document.getElementById("galleryBtn").addEventListener("click",function(){document.getElementById("galleryInput").click()});
-["cameraInput","galleryInput"].forEach(function(id){var input=document.getElementById(id);input.addEventListener("change",function(){if(this.files&&this.files[0])handleScanFile(this.files[0])})});
-function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
-window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
-var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}}
+function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderRecognition();renderStats();renderHours();renderColleagues();renderPeriodMenu()}
+function bind(){
+  document.querySelectorAll("[data-route]").forEach(function(x){x.addEventListener("click",function(e){e.preventDefault();route(this.dataset.route)})});
+  document.addEventListener("click",function(e){
+    var target=e.target.closest("[data-route-dynamic]");if(target){e.preventDefault();route(target.dataset.routeDynamic);return}
+    var remove=e.target.closest("[data-remove-colleague]");
+    if(remove){
+      var items=loadColleagues(),index=Number(remove.dataset.removeColleague);
+      if(Number.isInteger(index)&&index>=0&&index<items.length){items.splice(index,1);saveColleagues(items);renderColleagues();toast("Kolega je uklonjen.");}
+    }
+  });
+  ["prevMonth","calPrev"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(-1)})});
+  ["nextMonth","calNext"].forEach(function(id){var x=document.getElementById(id);if(x)x.addEventListener("click",function(){moveMonth(1)})});
+  document.getElementById("todayBtn").addEventListener("click",function(){var n=appNow();state.cursor=new Date(n.getFullYear(),n.getMonth(),1);state.selected=n;renderAll()});
+  document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";localStorage.setItem("raspored.theme",document.documentElement.dataset.theme)});
+  var motion=document.getElementById("motionToggle");
+  if(motion){
+    motion.checked=localStorage.getItem("raspored.reducedMotion")==="1";
+    document.body.dataset.reducedMotion=motion.checked?"true":"false";
+    motion.addEventListener("change",function(){localStorage.setItem("raspored.reducedMotion",this.checked?"1":"0");document.body.dataset.reducedMotion=this.checked?"true":"false"});
+  }
+  document.getElementById("saveSchedule").addEventListener("click",function(){save();toast("Raspored je spremljen.")});
+  document.getElementById("clockInBtn").addEventListener("click",clockIn);
+  document.getElementById("clockOutBtn").addEventListener("click",clockOut);
+  document.getElementById("hoursNote").addEventListener("change",saveHoursNote);
+  document.getElementById("rescanBtn").addEventListener("click",function(){document.getElementById("cameraInput").click()});
+  document.getElementById("rescanSecondary").addEventListener("click",function(){document.getElementById("cameraInput").click()});
+  document.getElementById("galleryBtn").addEventListener("click",function(){document.getElementById("galleryInput").click()});
+  ["cameraInput","galleryInput"].forEach(function(id){var input=document.getElementById(id);input.addEventListener("change",function(){if(this.files&&this.files[0])handleScanFile(this.files[0])})});
+  var period=document.getElementById("statsPeriod"),menu=document.getElementById("statsPeriodMenu");
+  if(period&&menu){
+    period.addEventListener("click",function(e){e.stopPropagation();var opening=menu.hidden;menu.hidden=!opening;period.setAttribute("aria-expanded",opening?"true":"false")});
+    menu.addEventListener("click",function(e){
+      var b=e.target.closest("[data-period]");if(!b)return;
+      var p=b.dataset.period.split("-").map(Number);
+      state.cursor=new Date(p[0],p[1]-1,1);state.selected=new Date(state.cursor);
+      menu.hidden=true;period.setAttribute("aria-expanded","false");renderAll();
+    });
+    document.addEventListener("click",function(e){if(!menu.hidden&&!e.target.closest(".period-picker")){menu.hidden=true;period.setAttribute("aria-expanded","false")}});
+  }
+  var search=document.getElementById("searchBtn");if(search)search.addEventListener("click",openSearch);
+  var addColleagueBtn=document.getElementById("addColleagueBtn");if(addColleagueBtn)addColleagueBtn.addEventListener("click",addColleague);
+  function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
+  window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
+  var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
+}
 loadSchedule();document.body.dataset.demo=state.demo?"true":"false";configureProfile();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((window.RASPORED_BASE||"")+"/sw.js").catch(function(){})})}
 })();
