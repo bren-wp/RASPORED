@@ -126,7 +126,7 @@ function clean_schedule(mixed $raw): array
         if (is_string($date)
             && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
             && is_string($code)
-            && in_array($code, ['D', 'N', 'GO', 'BO'], true)
+            && in_array($code, ['D', 'N', 'GO', 'BO', 'PD', 'SD'], true)
         ) {
             $clean[$date] = $code;
         }
@@ -212,7 +212,7 @@ function clean_scan_people(mixed $raw): array
         $rawShifts = is_array($item['dayShifts'] ?? null) ? $item['dayShifts'] : [];
         foreach ($rawShifts as $day => $code) {
             $dayNumber = (int) $day;
-            if ($dayNumber >= 1 && $dayNumber <= 31 && is_string($code) && in_array($code, ['D', 'N', 'GO', 'BO'], true)) {
+            if ($dayNumber >= 1 && $dayNumber <= 31 && is_string($code) && in_array($code, ['D', 'N', 'GO', 'BO', 'PD', 'SD'], true)) {
                 $shifts[(string) $dayNumber] = $code;
             }
         }
