@@ -413,10 +413,19 @@ private fun largeMinutesLabel(minutes:Long):String {
                 ShiftBadge(shift,72.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)){Text(shift.name,fontSize=20.sp,fontWeight=FontWeight.Bold);Text(shift.time,color=Slate,fontSize=16.sp)}
-                if(!statusText.isNullOrBlank()) AssistChip(
-                    onClick={},
-                    label={Text(statusText,fontSize=11.sp,lineHeight=13.sp)}
-                )
+                if(!statusText.isNullOrBlank()) Surface(
+                    shape=RoundedCornerShape(999.dp),
+                    color=Color(0xFFE2F4FF)
+                ){
+                    Text(
+                        statusText,
+                        color=Color(0xFF087BC9),
+                        fontSize=11.sp,
+                        lineHeight=13.sp,
+                        fontWeight=FontWeight.Bold,
+                        modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)
+                    )
+                }
             }
             if(today){
                 Divider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5))
