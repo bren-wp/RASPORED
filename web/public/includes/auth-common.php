@@ -3,13 +3,61 @@ declare(strict_types=1);
 
 function raspored_storage_directory(): string
 {
-    $sourceCandidate = dirname(__DIR__, 2) . '/storage/data';
-    $flatPackageCandidate = dirname(__DIR__) . '/storage/data';
-    $dir = is_dir($sourceCandidate) ? $sourceCandidate : $flatPackageCandidate;
-    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
-        throw new RuntimeException('Spremište nije dostupno.');
+    static $resolved = null;
+    if (is_string($resolved) && $resolved !== '') {
+        return $resolved;
     }
-    return $dir;
+
+    $candidates = [];
+
+    $configured = trim((string) getenv('RASPORED_STORAGE_DIR'));
+    if ($configured !== '') {
+        $candidates[] = rtrim($configured, DIRECTORY_SEPARATOR);
+    }
+
+    // Source checkout: web/storage/data is already outside web/public.
+    $sourceCandidate = dirname(__DIR__, 2) . '/storage/data';
+    if (is_dir($sourceCandidate)) {
+        $candidates[] = $sourceCandidate;
+    }
+
+    // Flat shared-hosting package: prefer a private directory outside the
+    // document root so account JSON, state and password hashes cannot become
+    // directly downloadable on servers that ignore .htaccess (for example
+    // nginx). The host+base-path hash keeps multiple installations separate.
+    $documentRoot = trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    if ($documentRoot !== '') {
+        $realDocumentRoot = realpath($documentRoot);
+        if (is_string($realDocumentRoot) && $realDocumentRoot !== '') {
+            $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+            $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/'));
+            $apiPos = strpos($script, '/api/');
+            $base = $apiPos === false ? dirname($script) : substr($script, 0, $apiPos);
+            $key = substr(hash('sha256', $host . '|' . $base), 0, 16);
+            $candidates[] = dirname($realDocumentRoot) . '/.raspored-data-' . $key;
+        }
+    }
+
+    // Last-resort compatibility path. web/storage/.htaccess denies Apache
+    // access, but deployments on other servers should use the private path
+    // above or explicitly set RASPORED_STORAGE_DIR.
+    $candidates[] = dirname(__DIR__) . '/storage/data';
+
+    foreach (array_values(array_unique($candidates)) as $dir) {
+        if ($dir === '') {
+            continue;
+        }
+        if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
+            continue;
+        }
+        @chmod($dir, 0700);
+        if (is_writable($dir)) {
+            $resolved = $dir;
+            return $resolved;
+        }
+    }
+
+    throw new RuntimeException('Spremište nije dostupno.');
 }
 
 function raspored_cookie_path(): string
