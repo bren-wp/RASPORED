@@ -2,7 +2,7 @@
 "use strict";
 
 var current={
-  schema:2,
+  schema:3,
   revision:0,
   schedule:{},
   evidence:[],
@@ -10,7 +10,7 @@ var current={
   colleagues:[],
   settings:{theme:"light",reducedMotion:false,notificationReadKey:""},
   scanSession:{people:[],selected:-1,month:null},
-  payroll:{roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,secondShift:false,customBase:null},
+  payroll:{institutionId:"kbc-rijeka",rateProfileId:"kbc-rijeka-observed-2026",roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,customBase:null,overtimeHours:null,turnusHours:0,secondShiftHours:0,grossAdjustment:0},
   updatedAt:null
 };
 var writeChain=Promise.resolve();
@@ -72,7 +72,7 @@ function sanitize(raw){
   var people=sanitizePeople(scan.people);
   var selected=Number.isInteger(scan.selected)&&scan.selected>=-1&&scan.selected<people.length?scan.selected:-1;
   return {
-    schema:2,
+    schema:3,
     revision:Number.isInteger(raw.revision)&&raw.revision>=0?raw.revision:0,
     schedule:sanitizeSchedule(raw.schedule),
     evidence:sanitizeEvidence(raw.evidence),
@@ -81,12 +81,17 @@ function sanitize(raw){
     settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
     scanSession:{people:people,selected:selected,month:month},
     payroll:{
+      institutionId:typeof payroll.institutionId==="string"&&payroll.institutionId?payroll.institutionId.slice(0,100):"kbc-rijeka",
+      rateProfileId:typeof payroll.rateProfileId==="string"&&payroll.rateProfileId?payroll.rateProfileId.slice(0,100):"kbc-rijeka-observed-2026",
       roleId:typeof payroll.roleId==="string"&&payroll.roleId?payroll.roleId.slice(0,80):"kbc-transport-nss",
       coefficient:Number.isFinite(Number(payroll.coefficient))?Math.max(1,Math.min(8,Number(payroll.coefficient))):1.15,
       yearsService:Number.isFinite(Number(payroll.yearsService))?Math.max(0,Math.min(60,Math.trunc(Number(payroll.yearsService)))):0,
       extraPercent:Number.isFinite(Number(payroll.extraPercent))?Math.max(0,Math.min(100,Number(payroll.extraPercent))):0,
-      secondShift:!!payroll.secondShift,
-      customBase:Number.isFinite(Number(payroll.customBase))?Math.max(0,Math.min(10000,Number(payroll.customBase))):null
+      customBase:Number.isFinite(Number(payroll.customBase))?Math.max(0,Math.min(10000,Number(payroll.customBase))):null,
+      overtimeHours:Number.isFinite(Number(payroll.overtimeHours))?Math.max(0,Math.min(250,Number(payroll.overtimeHours))):null,
+      turnusHours:Number.isFinite(Number(payroll.turnusHours))?Math.max(0,Math.min(300,Number(payroll.turnusHours))):0,
+      secondShiftHours:Number.isFinite(Number(payroll.secondShiftHours))?Math.max(0,Math.min(300,Number(payroll.secondShiftHours))):0,
+      grossAdjustment:Number.isFinite(Number(payroll.grossAdjustment))?Math.max(-10000,Math.min(10000,Number(payroll.grossAdjustment))):0
     },
     updatedAt:typeof raw.updatedAt==="string"?raw.updatedAt:null
   };
@@ -203,7 +208,7 @@ function removeKey(key){
   else if(key==="raspored.reducedMotion")current.settings.reducedMotion=false;
   else if(key==="raspored.scan.v1")current.scanSession={people:[],selected:-1,month:null};
   else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey="";
-  else if(key==="raspored.payroll.v1")current.payroll={roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,secondShift:false,customBase:null};
+  else if(key==="raspored.payroll.v1")current.payroll={institutionId:"kbc-rijeka",rateProfileId:"kbc-rijeka-observed-2026",roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,customBase:null,overtimeHours:null,turnusHours:0,secondShiftHours:0,grossAdjustment:0};
   else return false;
   localGeneration++;
   queueWrite();
