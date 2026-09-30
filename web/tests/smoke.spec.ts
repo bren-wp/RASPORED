@@ -266,3 +266,31 @@ test("PWA manifest and install assets are available", async ({request}) => {
     expect(response.ok(),path).toBeTruthy();
   }
 });
+
+
+test("shift cards and chevrons open the expected destination", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    const note=page.locator("#mobileCurrentShift .mobile-shift-info-action").filter({hasText:"Bilješka"});
+    await note.click();
+    await expect(page.locator('[data-view="hours"]')).toBeVisible();
+    await page.locator('[data-route="home"]:visible').first().click();
+
+    const next=page.locator("#mobileNextShift [data-open-date]");
+    if(await next.count()){
+      const target=await next.getAttribute("data-open-date");
+      await next.click();
+      await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+      await expect(page.locator('[data-date="'+target+'"].is-selected')).toHaveCount(1);
+    }
+  }else{
+    const next=page.locator("#nextShiftList [data-open-date]").first();
+    if(await next.count()){
+      const target=await next.getAttribute("data-open-date");
+      await next.click();
+      await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+      await expect(page.locator('[data-date="'+target+'"].is-selected')).toHaveCount(1);
+    }
+  }
+});
