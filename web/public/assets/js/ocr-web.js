@@ -581,14 +581,14 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
   var bitmap;
   try{
     bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
-    var rosterWidth=Math.max(1,Math.round(bitmap.width*.28));
+    var rosterWidth=Math.max(1,Math.round(bitmap.width*.34));
     var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*startRatio)));
     var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*endRatio)));
     var gridWidth=gridEnd-gridStart;
     var rawWidth=rosterWidth+gridWidth;
     var pixelScale=Math.sqrt(7500000/(rawWidth*bitmap.height));
-    var edgeScale=4200/rawWidth;
-    var scale=Math.max(.70,Math.min(2.40,pixelScale,edgeScale));
+    var edgeScale=4600/rawWidth;
+    var scale=Math.max(.75,Math.min(2.85,pixelScale,edgeScale));
     var canvas=document.createElement("canvas");
     canvas.width=Math.max(1,Math.round(rawWidth*scale));
     canvas.height=Math.max(1,Math.round(bitmap.height*scale));
@@ -752,7 +752,7 @@ async function recognizeScheduleNow(file,onProgress){
     var merged=mergeRecognized(first,second);
     if(!forceDenseRecovery&&!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
 
-    var stripes=[[0,.46],[.27,.74],[.55,1]];
+    var stripes=[[0,.30],[.18,.48],[.36,.66],[.54,.84],[.72,1]];
     for(var i=0;i<stripes.length;i++){
       if(onProgress)onProgress(.80+i*.025,"table-stripe-"+(i+1));
       var stripeSource=await prepareStripe(tableSource,stripes[i][0],stripes[i][1]);
@@ -771,7 +771,7 @@ async function recognizeScheduleNow(file,onProgress){
       return Number.isInteger(Number(row.row))&&Object.keys(row.dayShifts||{}).length<3;
     });
     if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)||sparseNumberedRow){
-      var dayBands=[[.15,.39],[.36,.60],[.57,.81],[.78,1]];
+      var dayBands=[[.12,.28],[.22,.38],[.32,.48],[.42,.58],[.52,.68],[.62,.78],[.72,.88],[.82,1]];
       for(var b=0;b<dayBands.length;b++){
         if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
         var bandSource=await prepareDayBandComposite(tableSource,dayBands[b][0],dayBands[b][1]);
@@ -789,7 +789,7 @@ async function recognizeScheduleNow(file,onProgress){
     var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
     merged.people=mergeRows((merged.people||[]).concat(rosterRows));
 
-    var rosterBands=[[0,.44],[.28,.73],[.57,1]];
+    var rosterBands=[[0,.28],[.18,.46],[.36,.64],[.54,.82],[.72,1]];
     for(var r=0;r<rosterBands.length;r++){
       if(onProgress)onProgress(.98+r*.006,"roster-band-"+(r+1));
       var rosterBandSource=await prepareRosterBand(tableSource,rosterBands[r][0],rosterBands[r][1]);
