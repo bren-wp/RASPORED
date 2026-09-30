@@ -88,6 +88,33 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun infersDenseMonthGridFromShiftColumnsWhenHeaderIsUnreadable() {
+        val xs = buildList {
+            for (day in 1..31) {
+                val center = 120 + (day - 1) * 42
+                add(center - 2)
+                add(center)
+                add(center + 2)
+            }
+        }
+        val centers = ScheduleOcrParser.inferDayCentersFromShiftXs(xs, 31)
+        requireNotNull(centers)
+        assertEquals(120, centers[1])
+        assertEquals(750, centers[16])
+        assertEquals(1380, centers[31])
+    }
+
+    @Test
+    fun rejectsSparseShiftColumnsInsteadOfInventingCalendarDays() {
+        assertNull(
+            ScheduleOcrParser.inferDayCentersFromShiftXs(
+                listOf(100, 300, 500, 700, 900),
+                31
+            )
+        )
+    }
+
+    @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
         assertEquals(YearMonth.of(2027, 1), result.month)
