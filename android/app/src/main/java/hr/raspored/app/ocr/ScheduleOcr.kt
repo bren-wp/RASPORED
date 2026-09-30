@@ -1001,7 +1001,7 @@ object ScheduleOcrEngine {
             accumulated: RecognizedSchedule
         ) {
             if (index >= ranges.size) {
-                recognizeRosterColumn(
+                recognizeDayBands(
                     source = source,
                     baseline = accumulated,
                     onSuccess = onSuccess
@@ -1031,6 +1031,125 @@ object ScheduleOcrEngine {
         }
 
         processStripe(0, baseline)
+    }
+
+    private data class DayBand(
+        val startRatio: Float,
+        val endRatio: Float
+    )
+
+    private fun recognizeDayBands(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val mapped = baseline.rows.sumOf { it.dayShifts.size }
+        val maxDay = baseline.month?.lengthOfMonth() ?: 31
+        val target = maxOf(24, baseline.rows.size * minOf(maxDay, 18))
+        if (mapped >= target && !hasMissingNumberedRows(baseline)) {
+            recognizeRosterColumn(source, baseline, onSuccess)
+            return
+        }
+
+        val bands = dayBands()
+        fun processBand(index: Int, accumulated: RecognizedSchedule) {
+            if (index >= bands.size) {
+                recognizeRosterColumn(source, accumulated, onSuccess)
+                return
+            }
+
+            val band = bands[index]
+            val composite = createEnhancedDayBandComposite(
+                source = source,
+                startRatio = band.startRatio,
+                endRatio = band.endRatio
+            )
+            recognizer.process(InputImage.fromBitmap(composite, 0))
+                .addOnSuccessListener { result ->
+                    val parsed = ScheduleOcrParser.parse(
+                        result,
+                        monthHint = accumulated.month
+                    )
+                    processBand(
+                        index + 1,
+                        mergeSchedules(accumulated, parsed)
+                    )
+                }
+                .addOnFailureListener {
+                    processBand(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!composite.isRecycled) composite.recycle()
+                }
+        }
+        processBand(0, baseline)
+    }
+
+    private fun dayBands(): List<DayBand> = listOf(
+        DayBand(0.29f, 0.50f),
+        DayBand(0.47f, 0.68f),
+        DayBand(0.65f, 0.86f),
+        DayBand(0.83f, 1.00f)
+    )
+
+    private fun createEnhancedDayBandComposite(
+        source: Bitmap,
+        startRatio: Float,
+        endRatio: Float
+    ): Bitmap {
+        val rosterWidth = (source.width * 0.30f).roundToInt()
+            .coerceIn(1, source.width)
+        val gridStart = (source.width * startRatio).roundToInt()
+            .coerceIn(0, source.width - 1)
+        val gridEnd = (source.width * endRatio).roundToInt()
+            .coerceIn(gridStart + 1, source.width)
+        val gridWidth = gridEnd - gridStart
+        val rawWidth = rosterWidth + gridWidth
+
+        val targetPixels = 7_500_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (rawWidth.toDouble() * source.height.toDouble())
+        )
+        val edgeScale = 4200.0 / rawWidth.toDouble()
+        val scale = minOf(2.40, pixelScale, edgeScale).coerceAtLeast(0.70)
+        val width = (rawWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (source.height * scale).roundToInt().coerceAtLeast(1)
+        val rosterOutWidth = (rosterWidth * scale).roundToInt()
+            .coerceIn(1, width)
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.50f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = ColorMatrixColorFilter(grayscale)
+            isFilterBitmap = true
+        }
+        val canvas = Canvas(output)
+        canvas.drawColor(android.graphics.Color.WHITE)
+        canvas.drawBitmap(
+            source,
+            Rect(0, 0, rosterWidth, source.height),
+            Rect(0, 0, rosterOutWidth, height),
+            paint
+        )
+        canvas.drawBitmap(
+            source,
+            Rect(gridStart, 0, gridEnd, source.height),
+            Rect(rosterOutWidth, 0, width, height),
+            paint
+        )
+        return output
     }
 
     private fun recognizeRosterColumn(
