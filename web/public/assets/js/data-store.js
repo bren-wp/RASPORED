@@ -2,12 +2,13 @@
 "use strict";
 
 var current={
-  schema:3,
+  schema:4,
   revision:0,
   schedule:{},
   evidence:[],
   profile:{name:""},
   colleagues:[],
+  teamMembers:[],
   settings:{theme:"light",reducedMotion:false,notificationReadKey:""},
   scanSession:{people:[],selected:-1,month:null},
   payroll:{county:"Primorsko-goranska",residence:"Rijeka",taxLower:20,taxHigher:25,sector:"Zdravstvo",institution:"Klinički bolnički centar Rijeka",regimeId:"kbc-rijeka-2026",roleId:"health-transport-sss",coefficient:1.25,yearsService:0,personalAllowance:600,extraPercent:0,secondShift:false,turnus:false,customBase:null},
@@ -62,6 +63,19 @@ function sanitizePeople(raw){
     return {row:Number.isInteger(item.row)?item.row:null,name:name,dayShifts:shifts};
   }).filter(Boolean);
 }
+function sanitizeTeamMembers(raw){
+  if(!Array.isArray(raw))return [];
+  return raw.slice(0,100).map(function(item){
+    if(!item||typeof item.name!=="string")return null;
+    var name=item.name.trim().replace(/\s+/g," ").slice(0,100);
+    if(name.length<2)return null;
+    return {
+      name:name,
+      note:typeof item.note==="string"?item.note.trim().replace(/\s+/g," ").slice(0,120):"",
+      schedule:sanitizeSchedule(item.schedule)
+    };
+  }).filter(Boolean);
+}
 function sanitize(raw){
   raw=raw&&typeof raw==="object"?raw:{};
   var profile=raw.profile&&typeof raw.profile==="object"?raw.profile:{};
@@ -69,16 +83,18 @@ function sanitize(raw){
   var scan=raw.scanSession&&typeof raw.scanSession==="object"?raw.scanSession:{};
   var payroll=raw.payroll&&typeof raw.payroll==="object"?raw.payroll:{};
   var colleagues=Array.isArray(raw.colleagues)?raw.colleagues.slice(0,30).filter(function(x){return x&&typeof x.name==="string"&&x.name.trim().length>=2}).map(function(x){return {name:x.name.trim().replace(/\s+/g," ").slice(0,80),note:typeof x.note==="string"?x.note.trim().replace(/\s+/g," ").slice(0,120):""}}):[];
+  var teamMembers=sanitizeTeamMembers(raw.teamMembers);
   var month=scan.month&&Number.isInteger(scan.month.year)&&Number.isInteger(scan.month.month)&&scan.month.month>=1&&scan.month.month<=12?{year:scan.month.year,month:scan.month.month}:null;
   var people=sanitizePeople(scan.people);
   var selected=Number.isInteger(scan.selected)&&scan.selected>=-1&&scan.selected<people.length?scan.selected:-1;
   return {
-    schema:3,
+    schema:4,
     revision:Number.isInteger(raw.revision)&&raw.revision>=0?raw.revision:0,
     schedule:sanitizeSchedule(raw.schedule),
     evidence:sanitizeEvidence(raw.evidence),
     profile:{name:typeof profile.name==="string"?profile.name.trim().replace(/\s+/g," ").slice(0,80):""},
     colleagues:colleagues,
+    teamMembers:teamMembers,
     settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
     scanSession:{people:people,selected:selected,month:month},
     payroll:{
@@ -102,7 +118,7 @@ function sanitize(raw){
   };
 }
 function emptyState(data){
-  return data.revision===0&&!Object.keys(data.schedule).length&&!data.evidence.length&&!data.profile.name&&!data.colleagues.length&&!data.scanSession.people.length;
+  return data.revision===0&&!Object.keys(data.schedule).length&&!data.evidence.length&&!data.profile.name&&!data.colleagues.length&&!data.teamMembers.length&&!data.scanSession.people.length;
 }
 function legacyValue(key){
   try{return localStorage.getItem(key)}catch(e){return null}
@@ -173,6 +189,7 @@ function valueForKey(key){
   if(key==="raspored.schedule")return JSON.stringify(current.schedule);
   if(key==="raspored.timeEntries.v1")return JSON.stringify(current.evidence);
   if(key==="raspored.colleagues.v1")return JSON.stringify(current.colleagues);
+  if(key==="raspored.team.v1")return JSON.stringify(current.teamMembers);
   if(key==="raspored.profile.name")return current.profile.name||null;
   if(key==="raspored.theme")return current.settings.theme||"light";
   if(key==="raspored.reducedMotion")return current.settings.reducedMotion?"1":"0";
@@ -187,6 +204,7 @@ function setKey(key,value){
     if(key==="raspored.schedule")current.schedule=sanitizeSchedule(JSON.parse(value||"{}"));
     else if(key==="raspored.timeEntries.v1")current.evidence=sanitizeEvidence(JSON.parse(value||"[]"));
     else if(key==="raspored.colleagues.v1")current.colleagues=sanitize({colleagues:JSON.parse(value||"[]")}).colleagues;
+    else if(key==="raspored.team.v1")current.teamMembers=sanitizeTeamMembers(JSON.parse(value||"[]"));
     else if(key==="raspored.profile.name")current.profile.name=String(value||"").trim().replace(/\s+/g," ").slice(0,80);
     else if(key==="raspored.theme")current.settings.theme=value==="dark"?"dark":"light";
     else if(key==="raspored.reducedMotion")current.settings.reducedMotion=value==="1";
@@ -208,6 +226,7 @@ function removeKey(key){
   if(key==="raspored.schedule")current.schedule={};
   else if(key==="raspored.timeEntries.v1")current.evidence=[];
   else if(key==="raspored.colleagues.v1")current.colleagues=[];
+  else if(key==="raspored.team.v1")current.teamMembers=[];
   else if(key==="raspored.profile.name")current.profile.name="";
   else if(key==="raspored.theme")current.settings.theme="light";
   else if(key==="raspored.reducedMotion")current.settings.reducedMotion=false;
