@@ -27,7 +27,7 @@
       <p><b>1.</b> Obuhvati cijelu tablicu i zaglavlje s brojevima dana.</p>
       <p><b>2.</b> Izbjegni sjene, odsjaj i zamućenje.</p>
       <p><b>3.</b> Ako je na rasporedu više osoba, nakon prepoznavanja odaberi samo jedno ime i prezime.</p>
-      <p><b>4.</b> Provjeri D, N, GO i BO oznake prije spremanja.</p>
+      <p><b>4.</b> Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.</p>
     </div>
   </form>
 </dialog>
@@ -110,6 +110,7 @@
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/payroll.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/auth.js', ENT_QUOTES) ?>" defer></script>
+<script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/export.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/app.js', ENT_QUOTES) ?>" defer></script>
 </body>
 </html>
