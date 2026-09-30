@@ -165,7 +165,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                         screen = Screen.Calendar
                     }
                     Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries,onPayroll={screen=Screen.Payroll})
-                    Screen.Payroll->PayrollScreen(evidenceEntries,onBack={screen=Screen.Stats})
+                    Screen.Payroll->PayrollScreen(evidenceEntries,scheduleCodes,onBack={screen=Screen.Stats})
                     Screen.Hours->{
                         val shift=currentShiftAt(appDateTime(),scheduleCodes)?.second
                         TimeEvidenceScreen(

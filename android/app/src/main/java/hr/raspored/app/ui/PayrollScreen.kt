@@ -35,6 +35,7 @@ import java.util.Locale
 @Composable
 internal fun PayrollScreen(
     evidenceEntries: List<TimeEvidenceEntry>,
+    scheduleCodes: Map<String, String>,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
@@ -66,7 +67,12 @@ internal fun PayrollScreen(
     var sector by remember { mutableStateOf(initial.sector) }
     var institutionName by remember { mutableStateOf(initial.institution) }
     var manualInstitution by remember {
-        mutableStateOf(PublicSectorPayroll.institutions.none { it.name == initial.institution })
+        mutableStateOf(
+            PublicSectorPayroll.institutions
+                .firstOrNull { it.name == initial.institution }
+                ?.isPlaceholder()
+                ?: true
+        )
     }
     var customInstitutionText by remember {
         mutableStateOf(if (manualInstitution) initial.institution else "")
@@ -101,13 +107,15 @@ internal fun PayrollScreen(
     val customBase = customBaseText.toDecimalOrNull()
         ?.takeIf { it > 0.0 }?.coerceAtMost(10_000.0)
 
+    val scheduleSnapshot = scheduleCodes.toSortedMap().toMap()
     val estimate = remember(
-        month, evidenceEntries, regimeId, coefficient, years, personalAllowance,
+        month, evidenceEntries, scheduleSnapshot, regimeId, coefficient, years, personalAllowance,
         taxLower, taxHigher, extra, secondShift, turnus, customBase
     ) {
         PublicSectorPayroll.estimate(
             month = month,
             entries = evidenceEntries,
+            scheduleCodes = scheduleSnapshot,
             regimeId = regimeId,
             coefficient = coefficient,
             yearsService = years,
@@ -210,7 +218,7 @@ internal fun PayrollScreen(
                         county = selected
                         val candidates = payrollInstitutionsFor(sector, selected)
                         val selectedInstitution = candidates.firstOrNull()
-                        manualInstitution = selectedInstitution == null
+                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder()
                         customInstitutionText = ""
                         institutionName = selectedInstitution?.name ?: genericInstitutionLabel(sector)
                         regimeId = selectedInstitution?.regimeId
@@ -300,7 +308,7 @@ internal fun PayrollScreen(
                         sector = selected
                         val candidates = payrollInstitutionsFor(selected, county)
                         val selectedInstitution = candidates.firstOrNull()
-                        manualInstitution = selectedInstitution == null
+                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder()
                         customInstitutionText = ""
                         institutionName = selectedInstitution?.name ?: genericInstitutionLabel(selected)
                         regimeId = selectedInstitution?.regimeId
@@ -314,13 +322,13 @@ internal fun PayrollScreen(
 
                     PayrollDropdown(
                         label = "Ustanova / tijelo",
-                        value = if (manualInstitution) genericInstitutionLabel(sector) else institutionName,
-                        options = sectorInstitutions.map { it.name } + genericInstitutionLabel(sector),
+                        value = institutionName,
+                        options = (sectorInstitutions.map { it.name } + genericInstitutionLabel(sector)).distinct(),
                         modifier = Modifier.padding(top = 10.dp),
                         testTag = "payroll-institution"
                     ) { selected ->
                         val selectedInstitution = sectorInstitutions.firstOrNull { it.name == selected }
-                        manualInstitution = selectedInstitution == null
+                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder()
                         customInstitutionText = ""
                         institutionName = selectedInstitution?.name ?: genericInstitutionLabel(sector)
                         regimeId = selectedInstitution?.regimeId
@@ -478,7 +486,7 @@ internal fun PayrollScreen(
                 Column(Modifier.padding(18.dp)) {
                     Text("Obračunski sati i dodaci", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Koristi stvarnu Evidenciju sati. Planirani raspored se ne pretvara automatski u odrađene sate.",
+                        "Koristi stvarnu Evidenciju sati. GO, BO i PD iz kalendara koriste se samo kao 8-satna ekvivalencija za procjenu mjesečnog fonda/prekovremenih sati; ne predstavljaju točan obračun naknade po prosjeku.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -524,9 +532,26 @@ internal fun PayrollScreen(
                             estimate.holidayAddition
                         )
                     }
+                    if (estimate.evidence.goDays > 0 || estimate.evidence.boDays > 0 ||
+                        estimate.evidence.pdDays > 0 || estimate.evidence.sdDays > 0
+                    ) {
+                        PayrollLine(
+                            "Planirani izostanci",
+                            "GO ${estimate.evidence.goDays} · BO ${estimate.evidence.boDays} · " +
+                                "PD ${estimate.evidence.pdDays} · SD ${estimate.evidence.sdDays}",
+                            null
+                        )
+                    }
+                    if (estimate.evidence.overtimeMinutes > 0L) {
+                        PayrollLine(
+                            "Osnovna satnica prekovremenih sati",
+                            minutesLabelPayroll(estimate.evidence.overtimeMinutes),
+                            estimate.overtimeBasePay
+                        )
+                    }
                     if (regime.rates.overtime != null) {
                         PayrollLine(
-                            "Prekovremeni iznad mjesečnog fonda",
+                            "Dodatak za prekovremeni rad",
                             minutesLabelPayroll(estimate.evidence.overtimeMinutes),
                             estimate.overtimeAddition
                         )
@@ -946,6 +971,9 @@ private fun payrollInstitutionsFor(
     sector: String,
     county: String
 ): List<PayrollInstitution> = PublicSectorPayroll.institutionsFor(sector, county)
+
+private fun PayrollInstitution.isPlaceholder(): Boolean =
+    county == "*" || city == "*"
 
 private fun genericInstitutionLabel(sector: String): String = when (sector) {
     "Zdravstvo" -> "Druga zdravstvena ustanova"

@@ -64,6 +64,11 @@ data class PayrollEvidence(
     val dutyMinutes: Long,
     val standbyMinutes: Long,
     val calloutMinutes: Long,
+    val compensatedAbsenceMinutes: Long,
+    val goDays: Int,
+    val boDays: Int,
+    val pdDays: Int,
+    val sdDays: Int,
     val overtimeMinutes: Long,
     val workedDays: Int,
     val hasActiveEntry: Boolean
@@ -80,6 +85,7 @@ data class PayrollEstimate(
     val saturdayAddition: Double,
     val sundayAddition: Double,
     val holidayAddition: Double,
+    val overtimeBasePay: Double,
     val overtimeAddition: Double,
     val secondShiftPaidMinutes: Long,
     val turnusPaidMinutes: Long,
@@ -94,7 +100,7 @@ data class PayrollEstimate(
 ) {
     val additions: Double
         get() = nightAddition + saturdayAddition + sundayAddition + holidayAddition +
-            overtimeAddition + secondShiftAddition + turnusAddition + customAddition
+            overtimeBasePay + overtimeAddition + secondShiftAddition + turnusAddition + customAddition
 
     val estimatedGross: Double
         get() = basicGross + additions
@@ -228,6 +234,18 @@ object PublicSectorPayroll {
         PayrollRole("edu-accounting-1", setOf("public-education"), "Voditelj računovodstva u školi 1", "Voditelj računovodstva u školi 1", "12.5.26", 2.01),
         PayrollRole("edu-night-watch", setOf("public-education"), "Noćni pazitelj u učeničkom domu", "Noćni pazitelj u učeničkom domu", "12.5.38", 1.30),
 
+        PayrollRole("state-senior-adviser", setOf("state-service"), "Viši savjetnik", "Viši savjetnik", "JRM", 2.10),
+        PayrollRole("state-associate", setOf("state-service"), "Suradnik", "Suradnik", "JRM", 1.80),
+        PayrollRole("state-senior-referent", setOf("state-service"), "Viši referent", "Viši referent", "JRM", 1.70),
+        PayrollRole("state-it-technician", setOf("state-service"), "Informatički tehničar", "Informatički tehničar", "JRM", 1.50),
+        PayrollRole("state-admin-secretary", setOf("state-service"), "Administrativni tajnik čelnika tijela", "Administrativni tajnik čelnika tijela", "JRM", 1.44),
+        PayrollRole("state-referent", setOf("state-service"), "Referent", "Referent", "JRM", 1.43),
+        PayrollRole("state-driver", setOf("state-service"), "Vozač", "Vozač", "JRM", 1.37),
+        PayrollRole("state-employee-iii", setOf("state-service"), "Namještenik III. vrste", "Namještenik – III. vrste", "JRM", 1.25),
+        PayrollRole("state-caretaker", setOf("state-service"), "Domar", "Domar", "JRM", 1.25),
+        PayrollRole("state-doorman", setOf("state-service"), "Portir", "Portir", "JRM", 1.06),
+        PayrollRole("state-cleaner", setOf("state-service"), "Spremač", "Spremač", "JRM", 1.06),
+
         PayrollRole("police-station", setOf("police"), "Policijski službenik u policijskoj postaji", "Policijski službenik u policijskoj postaji", "MUP", 1.70),
         PayrollRole("police-intervention", setOf("police"), "Policijski službenik interventne policije", "Policijski službenik interventne policije", "MUP", 1.70),
         PayrollRole("police-contact", setOf("police"), "Kontakt policajac", "Kontakt policajac", "MUP", 1.70),
@@ -308,7 +326,21 @@ object PublicSectorPayroll {
         PayrollInstitution("Istarska","Rovinj","Specijalna bolnica za ortopediju i rehabilitaciju Martin Horvat Rovinj-Rovigno","public-health","Zdravstvo"),
         PayrollInstitution("Dubrovačko-neretvanska","Dubrovnik","Opća bolnica Dubrovnik","public-health","Zdravstvo"),
         PayrollInstitution("Dubrovačko-neretvanska","Vela Luka","Specijalna bolnica za medicinsku rehabilitaciju Kalos","public-health","Zdravstvo"),
-        PayrollInstitution("Međimurska","Čakovec","Županijska bolnica Čakovec","public-health","Zdravstvo")
+        PayrollInstitution("Međimurska","Čakovec","Županijska bolnica Čakovec","public-health","Zdravstvo"),
+        PayrollInstitution("*","*","Osnovna škola (odaberi županiju / ručni naziv)","public-education","Školstvo i obrazovanje"),
+        PayrollInstitution("*","*","Srednja škola (odaberi županiju / ručni naziv)","public-education","Školstvo i obrazovanje"),
+        PayrollInstitution("*","*","Učenički dom (odaberi županiju / ručni naziv)","public-education","Školstvo i obrazovanje"),
+        PayrollInstitution("*","*","MUP / policijska uprava ili postaja","police","Policija"),
+        PayrollInstitution("*","*","Javna vatrogasna postrojba","firefighter","Vatrogastvo"),
+        PayrollInstitution("*","*","Gradski/općinski vrtić — ručni naziv","preschool-local","Vrtići"),
+        PayrollInstitution("*","*","Županijska uprava","local-government","Lokalna i regionalna uprava"),
+        PayrollInstitution("*","*","Gradska uprava","local-government","Lokalna i regionalna uprava"),
+        PayrollInstitution("*","*","Općinska uprava","local-government","Lokalna i regionalna uprava"),
+        PayrollInstitution("*","*","Ministarstvo / državno tijelo — ručni naziv","state-service","Državna služba"),
+        PayrollInstitution("*","*","Javna ustanova socijalne skrbi — ručni naziv","social-care","Socijalna skrb"),
+        PayrollInstitution("*","*","Javna ustanova u kulturi — ručni naziv","culture","Kultura"),
+        PayrollInstitution("*","*","Javna visokoškolska/znanstvena ustanova — ručni naziv","science","Znanost i visoko obrazovanje"),
+        PayrollInstitution("*","*","Druga javna ustanova — ručni unos","other-public","Ostalo")
     )
 
     val sectors: List<String>
@@ -321,7 +353,7 @@ object PublicSectorPayroll {
         regimes.firstOrNull { it.sector == sector } ?: regimes.last()
 
     fun institutionsFor(sector: String, county: String): List<PayrollInstitution> =
-        institutions.filter { it.sector == sector && it.county == county }
+        institutions.filter { it.sector == sector && (it.county == county || it.county == "*") }
 
     fun rolesFor(regimeId: String): List<PayrollRole> =
         roles.filter { regimeId in it.regimes }
@@ -347,6 +379,7 @@ object PublicSectorPayroll {
     fun estimate(
         month: YearMonth,
         entries: List<TimeEvidenceEntry>,
+        scheduleCodes: Map<String, String> = emptyMap(),
         regimeId: String,
         coefficient: Double,
         yearsService: Int,
@@ -367,7 +400,7 @@ object PublicSectorPayroll {
         val fundHours = monthlyFundHours(month)
         val basicGross = base * safeCoefficient * (1.0 + safeYears * SENIORITY_PER_YEAR)
         val hourly = if (fundHours > 0) basicGross / fundHours else 0.0
-        val evidence = summarizeEvidence(month, entries, now, zone)
+        val evidence = summarizeEvidence(month, entries, scheduleCodes, now, zone)
         val rates = regime.rates
         fun add(minutes: Long, rate: Double?): Double =
             if (rate == null) 0.0 else hourly * (minutes / 60.0) * rate
@@ -389,6 +422,7 @@ object PublicSectorPayroll {
         val saturdayAddition = add(evidence.saturdayMinutes, rates.saturday)
         val sundayAddition = add(evidence.sundayMinutes, rates.sunday)
         val holidayAddition = add(evidence.holidayMinutes, rates.holiday)
+        val overtimeBasePay = hourly * (evidence.overtimeMinutes / 60.0)
         val overtimeAddition = add(evidence.overtimeMinutes, rates.overtime)
         val secondShiftAddition = add(secondMinutes, rates.secondShift)
         val turnusAddition = add(turnusMinutes, rates.turnus)
@@ -416,6 +450,7 @@ object PublicSectorPayroll {
             saturdayAddition = saturdayAddition,
             sundayAddition = sundayAddition,
             holidayAddition = holidayAddition,
+            overtimeBasePay = overtimeBasePay,
             overtimeAddition = overtimeAddition,
             secondShiftPaidMinutes = secondMinutes,
             turnusPaidMinutes = turnusMinutes,
@@ -433,6 +468,7 @@ object PublicSectorPayroll {
     private fun summarizeEvidence(
         month: YearMonth,
         entries: List<TimeEvidenceEntry>,
+        scheduleCodes: Map<String, String>,
         now: Long,
         zone: ZoneId
     ): PayrollEvidence {
@@ -484,7 +520,33 @@ object PublicSectorPayroll {
             }
         }
 
-        val overtime = (worked - monthlyFundHours(month) * 60L).coerceAtLeast(0L)
+        var goDays = 0
+        var boDays = 0
+        var pdDays = 0
+        var sdDays = 0
+        scheduleCodes.forEach { (dateText, code) ->
+            val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
+                ?: return@forEach
+            if (YearMonth.from(date) != month) return@forEach
+            when (code) {
+                "GO" -> goDays++
+                "BO" -> boDays++
+                "PD" -> pdDays++
+                "SD" -> sdDays++
+            }
+        }
+        val compensatedAbsenceDays = scheduleCodes.count { (dateText, code) ->
+            if (code !in setOf("GO", "BO", "PD")) {
+                false
+            } else {
+                val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
+                date != null && YearMonth.from(date) == month && date !in workedDates
+            }
+        }
+        val compensatedAbsenceMinutes = compensatedAbsenceDays * 8L * 60L
+        val overtime = (
+            worked + compensatedAbsenceMinutes - monthlyFundHours(month) * 60L
+        ).coerceAtLeast(0L)
         return PayrollEvidence(
             workedMinutes = worked,
             nightMinutes = night,
@@ -499,6 +561,11 @@ object PublicSectorPayroll {
             dutyMinutes = duty,
             standbyMinutes = standby,
             calloutMinutes = callout,
+            compensatedAbsenceMinutes = compensatedAbsenceMinutes,
+            goDays = goDays,
+            boDays = boDays,
+            pdDays = pdDays,
+            sdDays = sdDays,
             overtimeMinutes = overtime,
             workedDays = workedDates.size,
             hasActiveEntry = hasActive

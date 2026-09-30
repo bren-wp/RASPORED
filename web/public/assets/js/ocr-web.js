@@ -7,6 +7,8 @@ var MONTHS={
 };
 var VALID=new Set(["D","N","GO","BO","PD","SD"]);
 var workerPromise=null;
+var recognitionChain=Promise.resolve();
+var activeProgressCallback=null;
 
 function normalize(value){
   return String(value||"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
@@ -67,14 +69,19 @@ function sortedShiftMap(raw){
     .sort(function(a,b){return a-b})
     .reduce(function(out,day){out[day]=raw[day];return out},{});
 }
+function nameFingerprint(value){
+  return normalizeAscii(value).replace(/[^A-Z0-9ČĆŽŠĐ]/g,"");
+}
 function mergeRows(rows){
   var merged=[];
   (rows||[]).forEach(function(row){
     if(!row||!validName(row.name||""))return;
-    var key=normalizeAscii(row.name);
+    var key=nameFingerprint(row.name);
     var index=merged.findIndex(function(existing){
       var sameRow=row.row!=null&&existing.row!=null&&Number(row.row)===Number(existing.row);
-      return sameRow||normalizeAscii(existing.name)===key;
+      var conflictingRows=row.row!=null&&existing.row!=null&&Number(row.row)!==Number(existing.row);
+      var sameName=nameFingerprint(existing.name)===key;
+      return sameRow||(sameName&&!conflictingRows);
     });
     if(index<0){
       merged.push({row:row.row==null?null:Number(row.row),name:row.name,dayShifts:sortedShiftMap(row.dayShifts||{})});
@@ -313,14 +320,14 @@ function parseGeometry(blocks,maxDay){
   var rows=anchoredRows(tokens,header,tolerance);
   return mergeRows(rows.concat(clusterRows,lineRows));
 }
-async function prepareImage(file){
+async function prepareImage(file,strong){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
   try{
     bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
     var largest=Math.max(bitmap.width,bitmap.height);
-    var longEdgeScale=3200/largest;
-    var pixelScale=Math.sqrt(8000000/(bitmap.width*bitmap.height));
+    var longEdgeScale=4096/largest;
+    var pixelScale=Math.sqrt(10000000/(bitmap.width*bitmap.height));
     var scale=Math.min(1,longEdgeScale,pixelScale);
     var canvas=document.createElement("canvas");
     canvas.width=Math.max(1,Math.round(bitmap.width*scale));
@@ -329,11 +336,11 @@ async function prepareImage(file){
     if(!context)return file;
     context.fillStyle="#fff";
     context.fillRect(0,0,canvas.width,canvas.height);
-    context.filter="contrast(1.15) saturate(.85)";
+    context.filter=strong?"grayscale(1) contrast(1.34)":"contrast(1.15) saturate(.85)";
     context.drawImage(bitmap,0,0,canvas.width,canvas.height);
     context.filter="none";
     return await new Promise(function(resolve){
-      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.95);
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",strong ? .96 : .95);
     });
   }catch(error){
     return file;
@@ -341,27 +348,59 @@ async function prepareImage(file){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
-async function getWorker(onProgress){
+async function getWorker(){
   if(workerPromise)return workerPromise;
   workerPromise=(async function(){
     var mod=await import("https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.esm.min.js");
     return mod.createWorker(["hrv","eng"],1,{logger:function(message){
-      if(onProgress&&message&&typeof message.progress==="number"){
-        onProgress(message.progress,message.status||"");
+      if(activeProgressCallback&&message&&typeof message.progress==="number"){
+        activeProgressCallback(message.progress,message.status||"");
       }
     }});
   })();
   try{return await workerPromise}catch(error){workerPromise=null;throw error}
 }
-async function recognizeSchedule(file,onProgress){
-  var worker=await getWorker(onProgress);
-  var source=await prepareImage(file);
-  var result=await worker.recognize(source,{}, {text:true,blocks:true});
+function parsedResult(result){
   var text=result&&result.data?result.data.text:"";
   var month=detectMonth(text);
   var geometryRows=parseGeometry(result&&result.data?result.data.blocks:null,daysInMonth(month));
   var textRows=parseText(text);
   return {month:month,people:mergeRows(geometryRows.concat(textRows)),rawText:text};
+}
+function sparseResult(parsed){
+  var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
+  if(!rows.length)return true;
+  var mapped=rows.reduce(function(sum,row){return sum+Object.keys(row.dayShifts||{}).length},0);
+  var expected=Math.min(daysInMonth(parsed.month),8);
+  return mapped<Math.max(12,rows.length*expected);
+}
+function mergeRecognized(first,second){
+  return {
+    month:first.month||second.month,
+    people:mergeRows((first.people||[]).concat(second.people||[])),
+    rawText:(second.rawText||"").length>(first.rawText||"").length?second.rawText:first.rawText
+  };
+}
+async function recognizeScheduleNow(file,onProgress){
+  activeProgressCallback=onProgress||null;
+  try{
+    var worker=await getWorker();
+    var source=await prepareImage(file,false);
+    var first=parsedResult(await worker.recognize(source,{}, {text:true,blocks:true}));
+    if(!sparseResult(first))return first;
+    if(onProgress)onProgress(.86,"recovery");
+    var recoverySource=await prepareImage(file,true);
+    var second=parsedResult(await worker.recognize(recoverySource,{}, {text:true,blocks:true}));
+    return mergeRecognized(first,second);
+  }finally{
+    activeProgressCallback=null;
+  }
+}
+function recognizeSchedule(file,onProgress){
+  recognitionChain=recognitionChain.catch(function(){}).then(function(){
+    return recognizeScheduleNow(file,onProgress);
+  });
+  return recognitionChain;
 }
 window.RasporedWebOcr={
   recognizeSchedule:recognizeSchedule,

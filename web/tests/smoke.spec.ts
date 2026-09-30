@@ -249,6 +249,48 @@ test("web OCR parser keeps exact day columns and normalizes common OCR errors", 
   expect(parsed.monthNumeric).toEqual({year:2026,month:10});
 });
 
+test("Web OCR geometry recovers all people and all 31 day columns from a fragmented header", async ({page}) => {
+  await page.goto("/");
+  const parsed=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const box=(x:number,y:number,w=18,h=14)=>({x0:x,y0:y,x1:x+w,y1:y+h});
+    const dayX=(day:number)=>240+(day-1)*28;
+    const headerLines=[0,1,2].map(group=>({
+      bbox:box(230,50+group*8,900,14),
+      words:Array.from({length:31},(_,index)=>index+1)
+        .filter(day=>(day-1)%3===group)
+        .map(day=>({text:String(day),bbox:box(dayX(day),50+group*8,16,14)}))
+    }));
+    const names=[
+      "ANA HORVAT","LUKA BABIĆ","PETRA NOVAK","IVANA RADIĆ",
+      "NIKOLA JURIĆ","MAJA PERIĆ","TOMISLAV MARIĆ","SARA KOVAČ",
+      "DARIO HORVAT","MARTA NOVAK","FILIP RADIĆ","LANA JURIĆ"
+    ];
+    const codes=["D","N","GO","BO","PD","SD"];
+    const rows=names.map((name,rowIndex)=>{
+      const y=110+rowIndex*34;
+      const words:any[]=[
+        {text:String(rowIndex+1),bbox:box(24,y,18,16)},
+        {text:name.split(" ")[0],bbox:box(58,y,72,16)},
+        {text:name.split(" ").slice(1).join(" "),bbox:box(136,y,86,16)}
+      ];
+      for(let day=1;day<=31;day++){
+        words.push({text:codes[(rowIndex+day)%codes.length],bbox:box(dayX(day),y,18,16)});
+      }
+      return {bbox:box(20,y,1100,18),words};
+    });
+    const blocks=[{paragraphs:[{lines:[...headerLines,...rows]}]}];
+    return api.parseGeometry(blocks,31);
+  });
+  expect(parsed).toHaveLength(12);
+  for(const row of parsed){
+    expect(Object.keys(row.dayShifts)).toHaveLength(31);
+    expect(row.dayShifts["1"]).toBeTruthy();
+    expect(row.dayShifts["16"]).toBeTruthy();
+    expect(row.dayShifts["31"]).toBeTruthy();
+  }
+});
+
 test("overnight time evidence can be closed after midnight", async ({page}) => {
   await page.goto("/");
   await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
@@ -351,17 +393,21 @@ test("salary estimator switches between police, fire and manual local regimes", 
   await openPayroll(page);
 
   await page.locator("#payrollSector").selectOption("Policija");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
+  await page.locator("#payrollInstitutionCustom").fill("Policijska postaja Primjer");
   await expect(page.locator("#payrollRole")).toHaveValue("police-station");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.70");
   await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
 
   await page.locator("#payrollSector").selectOption("Vatrogastvo");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
   await expect(page.locator("#payrollRole")).toHaveValue("firefighter");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.10");
   await expect(page.locator("#payrollSecondShift")).toBeDisabled();
   await expect(page.locator("#payrollTurnus")).toBeDisabled();
 
   await page.locator("#payrollSector").selectOption("Lokalna i regionalna uprava");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
   await expect(page.locator("#payrollCustomBase")).toHaveAttribute("required","");
   await page.locator("#payrollCustomBase").fill("900");
   await page.locator("#payrollCoefficient").fill("2.10");
@@ -390,6 +436,40 @@ test("salary estimator applies residence tax presets independently from institut
   expect(stored.residence).toBe("Primjer Općina");
   expect(stored.taxLower).toBe(19.5);
   expect(stored.taxHigher).toBe(29.5);
+});
+
+test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime base separately", async ({page}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    const schedule:any={};
+    for(let day=12;day<=22;day++)schedule["2026-06-"+String(day).padStart(2,"0")]="GO";
+    const evidence:any[]=[];
+    for(let i=0;i<8;i++){
+      const day=2+i;
+      const start=new Date("2026-06-"+String(day).padStart(2,"0")+"T07:00:00+02:00");
+      const end=new Date("2026-06-"+String(day).padStart(2,"0")+"T19:00:00+02:00");
+      evidence.push({
+        id:"june-"+i,
+        date:"2026-06-"+String(day).padStart(2,"0"),
+        in:"07:00",
+        out:"19:00",
+        note:"",
+        workType:"turnus",
+        startedAt:start.getTime(),
+        endedAt:end.getTime()
+      });
+    }
+    store.set("raspored.schedule",JSON.stringify(schedule));
+    store.set("raspored.timeEntries.v1",JSON.stringify(evidence));
+    await store.flush();
+  });
+  await openPayroll(page);
+  await page.locator("#payrollMonth").fill("2026-06");
+  await page.locator("#payrollMonth").dispatchEvent("change");
+  await expect(page.locator("#payrollBreakdown")).toContainText("Planirani izostanci");
+  await expect(page.locator("#payrollBreakdown")).toContainText("Osnovna satnica prekovremenih sati");
+  await expect(page.locator("#payrollBreakdown")).toContainText("8 h");
 });
 
 test("salary estimator exposes official sources and clearly labels approximation limits", async ({page}) => {

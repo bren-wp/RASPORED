@@ -39,13 +39,25 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun androidHospitalCatalogMatchesCurrentWebMinistryCatalogSize() {
-        assertEquals(61, PublicSectorPayroll.institutions.size)
+    fun androidCatalogKeepsHospitalListAndCrossSectorFallbacksAlignedWithWeb() {
+        assertEquals(
+            61,
+            PublicSectorPayroll.institutions.count { it.sector == "Zdravstvo" }
+        )
+        assertEquals(75, PublicSectorPayroll.institutions.size)
         assertTrue(
             PublicSectorPayroll.institutions.any {
                 it.name == "Klinički bolnički centar Rijeka" &&
                     it.regimeId == "kbc-rijeka-2026"
             }
+        )
+        assertTrue(
+            PublicSectorPayroll.institutionsFor("Policija", "Primorsko-goranska")
+                .any { it.name == "MUP / policijska uprava ili postaja" }
+        )
+        assertTrue(
+            PublicSectorPayroll.institutionsFor("Vrtići", "Grad Zagreb")
+                .any { it.name.contains("vrtić", ignoreCase = true) }
         )
     }
 
@@ -54,6 +66,8 @@ class PublicSectorPayrollTest {
         assertEquals(2.01, PublicSectorPayroll.role("edu-teacher", "public-education").coefficient ?: -1.0, 0.001)
         assertEquals(1.70, PublicSectorPayroll.role("police-station", "police").coefficient ?: -1.0, 0.001)
         assertEquals(1.10, PublicSectorPayroll.role("firefighter", "firefighter").coefficient ?: -1.0, 0.001)
+        assertEquals(2.10, PublicSectorPayroll.role("state-senior-adviser", "state-service").coefficient ?: -1.0, 0.001)
+        assertEquals(1.06, PublicSectorPayroll.role("state-cleaner", "state-service").coefficient ?: -1.0, 0.001)
         assertEquals(0.50, PublicSectorPayroll.regime("police").rates.night ?: -1.0, 0.001)
         assertEquals(null, PublicSectorPayroll.regime("firefighter").rates.night)
     }
@@ -199,6 +213,43 @@ class PublicSectorPayrollTest {
 
         assertEquals(0.0, withoutBase.estimatedGross, 0.001)
         assertTrue(withBase.estimatedGross > 0.0)
+    }
+
+    @Test
+    fun paidAbsenceDaysContributeToOvertimeThresholdWithoutInventingLeaveAverage() {
+        val zone = ZoneId.of("Europe/Zagreb")
+        val entries = (1..8).map { day ->
+            val started = LocalDateTime.of(2026, 6, day + 1, 7, 0)
+                .atZone(zone).toInstant().toEpochMilli()
+            val ended = LocalDateTime.of(2026, 6, day + 1, 19, 0)
+                .atZone(zone).toInstant().toEpochMilli()
+            TimeEvidenceEntry(day.toLong(), started, ended, "", WorkType.TURNUS)
+        }
+        val schedule = (12..22).associate { day ->
+            "2026-06-" + day.toString().padStart(2, '0') to "GO"
+        }
+
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 6),
+            entries = entries,
+            scheduleCodes = schedule,
+            regimeId = "kbc-rijeka-2026",
+            coefficient = 1.25,
+            yearsService = 12,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = true,
+            zone = zone
+        )
+
+        assertEquals(11, estimate.evidence.goDays)
+        assertEquals(88L * 60L, estimate.evidence.compensatedAbsenceMinutes)
+        assertEquals(8L * 60L, estimate.evidence.overtimeMinutes)
+        assertTrue(estimate.overtimeBasePay > 0.0)
+        assertTrue(estimate.overtimeAddition > 0.0)
     }
 
     @Test
