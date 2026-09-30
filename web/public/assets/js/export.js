@@ -65,7 +65,8 @@ function downloadJson(){
   setTimeout(function(){URL.revokeObjectURL(url)},0);
 }
 function labelCode(code){
-  return {D:"D · dnevna smjena",N:"N · noćna smjena",GO:"GO · godišnji odmor",BO:"BO · bolovanje",PD:"PD · plaćeni dopust",SD:"SD · slobodan dan"}[code]||"—";
+  if(!code)return "—";
+  return {D:"D · dnevna smjena",N:"N · noćna smjena",GO:"GO · godišnji odmor",BO:"BO · bolovanje",PD:"PD · plaćeni dopust",SD:"SD · slobodan dan"}[code]||(String(code)+" · vlastita oznaka");
 }
 function workType(type){
   return {regular:"Redovni rad",shift1:"1. smjena",shift2:"2. smjena",shift3:"3. smjena",turnus:"Turnus",duty:"Dežurstvo",standby:"Pripravnost",callout:"Rad po pozivu",other:"Drugo"}[type]||"Redovni rad";
