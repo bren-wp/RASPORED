@@ -30,6 +30,11 @@ function auth_text(mixed $value, int $max): string
     return function_exists('mb_substr') ? mb_substr($value, 0, $max, 'UTF-8') : substr($value, 0, $max);
 }
 
+function auth_length(string $value): int
+{
+    return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+}
+
 function auth_email(mixed $value): string
 {
     $email = strtolower(trim((string) $value));
@@ -170,7 +175,7 @@ if ($action === 'register') {
     $password = (string) ($payload['password'] ?? '');
     $accountType = (($payload['accountType'] ?? 'individual') === 'manager') ? 'manager' : 'individual';
 
-    if (mb_strlen($firstName) < 2 || mb_strlen($lastName) < 2) {
+    if (auth_length($firstName) < 2 || auth_length($lastName) < 2) {
         auth_fail(422, 'Unesi valjano ime i prezime.');
     }
     if ($email === '') {
