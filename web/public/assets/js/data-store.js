@@ -2,7 +2,7 @@
 "use strict";
 
 var current={
-  schema:2,
+  schema:3,
   revision:0,
   schedule:{},
   evidence:[],
@@ -10,7 +10,7 @@ var current={
   colleagues:[],
   settings:{theme:"light",reducedMotion:false,notificationReadKey:""},
   scanSession:{people:[],selected:-1,month:null},
-  payroll:{roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,secondShift:false,customBase:null},
+  payroll:{county:"Primorsko-goranska",residence:"Rijeka",taxLower:20,taxHigher:25,sector:"Zdravstvo",institution:"Klinički bolnički centar Rijeka",regimeId:"kbc-rijeka-2026",roleId:"health-transport-sss",coefficient:1.25,yearsService:0,personalAllowance:600,extraPercent:0,secondShift:false,turnus:false,customBase:null},
   updatedAt:null
 };
 var writeChain=Promise.resolve();
@@ -72,7 +72,7 @@ function sanitize(raw){
   var people=sanitizePeople(scan.people);
   var selected=Number.isInteger(scan.selected)&&scan.selected>=-1&&scan.selected<people.length?scan.selected:-1;
   return {
-    schema:2,
+    schema:3,
     revision:Number.isInteger(raw.revision)&&raw.revision>=0?raw.revision:0,
     schedule:sanitizeSchedule(raw.schedule),
     evidence:sanitizeEvidence(raw.evidence),
@@ -81,11 +81,20 @@ function sanitize(raw){
     settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
     scanSession:{people:people,selected:selected,month:month},
     payroll:{
-      roleId:typeof payroll.roleId==="string"&&payroll.roleId?payroll.roleId.slice(0,80):"kbc-transport-nss",
-      coefficient:Number.isFinite(Number(payroll.coefficient))?Math.max(1,Math.min(8,Number(payroll.coefficient))):1.15,
+      county:typeof payroll.county==="string"&&payroll.county?payroll.county.slice(0,80):"Primorsko-goranska",
+      residence:typeof payroll.residence==="string"&&payroll.residence?payroll.residence.slice(0,100):"Rijeka",
+      taxLower:Number.isFinite(Number(payroll.taxLower))?Math.max(0,Math.min(50,Number(payroll.taxLower))):20,
+      taxHigher:Number.isFinite(Number(payroll.taxHigher))?Math.max(0,Math.min(50,Number(payroll.taxHigher))):25,
+      sector:typeof payroll.sector==="string"&&payroll.sector?payroll.sector.slice(0,100):"Zdravstvo",
+      institution:typeof payroll.institution==="string"&&payroll.institution?payroll.institution.slice(0,160):"Klinički bolnički centar Rijeka",
+      regimeId:typeof payroll.regimeId==="string"&&payroll.regimeId?payroll.regimeId.slice(0,80):"kbc-rijeka-2026",
+      roleId:typeof payroll.roleId==="string"&&payroll.roleId?payroll.roleId.slice(0,80):"health-transport-sss",
+      coefficient:Number.isFinite(Number(payroll.coefficient))?Math.max(0.1,Math.min(10,Number(payroll.coefficient))):1.25,
       yearsService:Number.isFinite(Number(payroll.yearsService))?Math.max(0,Math.min(60,Math.trunc(Number(payroll.yearsService)))):0,
+      personalAllowance:Number.isFinite(Number(payroll.personalAllowance))?Math.max(0,Math.min(10000,Number(payroll.personalAllowance))):600,
       extraPercent:Number.isFinite(Number(payroll.extraPercent))?Math.max(0,Math.min(100,Number(payroll.extraPercent))):0,
       secondShift:!!payroll.secondShift,
+      turnus:!!payroll.turnus,
       customBase:Number.isFinite(Number(payroll.customBase))?Math.max(0,Math.min(10000,Number(payroll.customBase))):null
     },
     updatedAt:typeof raw.updatedAt==="string"?raw.updatedAt:null
@@ -203,7 +212,7 @@ function removeKey(key){
   else if(key==="raspored.reducedMotion")current.settings.reducedMotion=false;
   else if(key==="raspored.scan.v1")current.scanSession={people:[],selected:-1,month:null};
   else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey="";
-  else if(key==="raspored.payroll.v1")current.payroll={roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,secondShift:false,customBase:null};
+  else if(key==="raspored.payroll.v1")current.payroll={county:"Primorsko-goranska",residence:"Rijeka",taxLower:20,taxHigher:25,sector:"Zdravstvo",institution:"Klinički bolnički centar Rijeka",regimeId:"kbc-rijeka-2026",roleId:"health-transport-sss",coefficient:1.25,yearsService:0,personalAllowance:600,extraPercent:0,secondShift:false,turnus:false,customBase:null};
   else return false;
   localGeneration++;
   queueWrite();
