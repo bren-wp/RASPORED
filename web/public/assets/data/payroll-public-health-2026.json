@@ -1,8 +1,8 @@
 {
-  "schema": 2,
+  "schema": 3,
   "title": "Javne zdravstvene ustanove RH — obračunski parametri 2026",
   "validYear": 2026,
-  "scopeNote": "Koeficijent je vezan uz službeno radno mjesto prema državnoj Uredbi, a ne uz naziv bolnice. Odabir ustanove služi za mapiranje lokalnog naziva radnog mjesta i eventualnog provjerljivog obračunskog profila. Za ustanove na koje se ne primjenjuje sustav plaća u javnim službama potrebno je koristiti ručne parametre.",
+  "scopeNote": "Koeficijent je vezan uz službeno radno mjesto prema državnoj Uredbi, a ne uz naziv bolnice. Odabir ustanove služi za mapiranje lokalnog naziva radnog mjesta. Službeni postotci dodataka zadani su prema TKU-u i tumačenju članka 109.; ako zaposlenik ima dokumentirano povoljnije pravo kod poslodavca, postotak se unosi ručno i ne generalizira na druge ustanove.",
   "disclaimer": "Procjena bruto plaće. Točan obračun ovisi o ugovoru/rješenju, službenom radnom mjestu, evidenciji rada, naknadama plaće i pravilima koja se primjenjuju kod konkretnog poslodavca.",
   "bases": [
     {
@@ -55,7 +55,7 @@
   "rateProfiles": [
     {
       "id": "national-public",
-      "label": "Javne službe — službeni minimum/propis",
+      "label": "Javne službe — službena pravila",
       "night": 0.4,
       "overtime": 0.5,
       "saturday": 0.25,
@@ -64,20 +64,7 @@
       "secondShift": 0.1,
       "turnus": 0.05,
       "sourceLevel": "official",
-      "note": "Temelji se na TKU-u i službenom tumačenju članka 109."
-    },
-    {
-      "id": "kbc-rijeka-observed-2026",
-      "label": "KBC Rijeka — obračunski profil 2026",
-      "night": 0.5,
-      "overtime": 0.5,
-      "saturday": 0.25,
-      "sunday": 0.5,
-      "holiday": 1.5,
-      "secondShift": 0.1,
-      "turnus": 0.05,
-      "sourceLevel": "employer-payroll-observed",
-      "note": "Noćni dodatak 50% potvrđen je na obračunskim ispravama KBC Rijeka iz 2026. To nije opći TKU minimum; profil je odvojen kako se 50% ne bi pogrešno primijenilo na druge ustanove."
+      "note": "TKU NN 29/2024: noć 40%, prekovremeni 50%, druga smjena 10%, subota 25%, nedjelja 50%, blagdan 150%; turnus 5% prema službenom tumačenju članka 109. Ako konkretni poslodavac priznaje povoljnije pravo, koristi ručni override uz vlastitu obračunsku ispravu ili drugi dokument."
     }
   ],
   "institutions": [
@@ -91,7 +78,7 @@
       "id": "kbc-rijeka",
       "name": "KLINIČKI BOLNIČKI CENTAR RIJEKA",
       "city": "Rijeka",
-      "profileId": "kbc-rijeka-observed-2026"
+      "profileId": "national-public"
     },
     {
       "id": "kbc-split",
@@ -663,7 +650,8 @@
       "notes": [
         "Transportni radnik može biti raspoređen kao Radnik III. vrste (SSS) ili Pomoćni radnik u sustavu s posebnim uvjetima rada (NSS); koeficijent se zato određuje prema ugovoru/rješenju, ne samo prema kolokvijalnom nazivu.",
         "Portir je u natječajima KBC Rijeka objavljen kao Stručni radnik na tehničkom održavanju.",
-        "KBC Rijeka redovito objavljuje izmjene sistematizacije; aplikacija ne zaključava lokalni naziv bez provjere službenog radnog mjesta."
+        "KBC Rijeka redovito objavljuje izmjene sistematizacije; aplikacija ne zaključava lokalni naziv bez provjere službenog radnog mjesta.",
+        "KBC Rijeka nije dobio automatski viši postotak noćnog rada: javni službeni minimum u kalkulatoru ostaje 40%. Povoljniji postotak unosi se ručno samo kada ga potvrđuje konkretna obračunska isprava, ugovor ili drugi važeći dokument."
       ]
     }
   },
