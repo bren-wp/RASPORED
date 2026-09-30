@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false,scanGeneration:0};
+var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false,scanGeneration:0};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -560,7 +560,17 @@ function renderMobileHome(){
   if(metrics){var weekendMinutes=data.weekendHolidayMinutes,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""],["moon","Noćni sati",hoursText(data.nightMinutes),"Ovaj mjesec","night"],["holiday","Vikendi i blagdani",hoursText(weekendMinutes),"Ovaj mjesec","weekend"]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
 }
 function nextShifts(){var list=[],start=appNow();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c==="D"||c==="N")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<button type="button" class="next-shift next-shift--button" data-open-date="'+iso(x[0])+'"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></button>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
-function renderSelected(){var el=document.getElementById("selectedDayCard");if(!el)return;var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}
+function renderSelected(){
+  var el=document.getElementById("selectedDayCard");if(!el)return;
+  var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);
+  var codes=["D","N","GO","BO","PD","SD"];
+  var editor='<div class="manual-shift-editor"><div><b>Ručno postavi oznaku</b><small>Promjena se odmah sprema i ostaje dostupna u povijesti mjeseci.</small></div><div class="manual-shift-grid">'+
+    codes.map(function(item){
+      return '<button type="button" class="manual-shift-btn '+(code===item?'is-selected ':'')+item.toLowerCase()+'" data-manual-shift="'+item+'" aria-pressed="'+(code===item?'true':'false')+'"><i class="shift '+item.toLowerCase()+'">'+item+'</i></button>';
+    }).join('')+
+    '</div><button type="button" class="link-btn manual-shift-clear" data-manual-shift="clear" '+(!code?'disabled':'')+'>Očisti oznaku</button></div>';
+  el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'+editor;
+}
 function renderRecognition(){
   var el=document.getElementById("recognitionDays");if(!el)return;
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate(),selected=selectedScanSchedule();
@@ -792,6 +802,16 @@ function bind(){
     if(dateTarget){
       var date=new Date(dateTarget.dataset.openDate+"T12:00:00");
       if(!Number.isNaN(date.getTime())){state.selected=date;state.cursor=new Date(date.getFullYear(),date.getMonth(),1);renderAll();route("calendar")}
+      return;
+    }
+    var manual=e.target.closest("[data-manual-shift]");
+    if(manual){
+      var value=manual.dataset.manualShift||"",key=iso(state.selected);
+      if(value==="clear")delete state.schedule[key];
+      else if(["D","N","GO","BO","PD","SD"].indexOf(value)>=0)state.schedule[key]=value;
+      else return;
+      if(!save()){loadSchedule();toast("Promjenu nije moguće spremiti u storage/data.");}
+      renderAll();
       return;
     }
     var remove=e.target.closest("[data-remove-colleague]");
