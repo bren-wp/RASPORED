@@ -296,7 +296,7 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
 });
 
 
-test("app remains usable when localStorage is unavailable", async ({browser}) => {
+test("server JSON storage works when browser Storage APIs are unavailable", async ({browser}) => {
   const context=await browser.newContext({viewport:{width:390,height:844}});
   const page=await context.newPage();
   const pageErrors:string[]=[];
@@ -312,9 +312,41 @@ test("app remains usable when localStorage is unavailable", async ({browser}) =>
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator('[data-view="settings"]')).toBeVisible();
   await page.locator("#themeToggle").check();
-  await expect(page.locator("#toast")).toContainText("nije moguće spremiti");
+  await page.reload();
+  await expect(page.locator("#themeToggle")).toBeChecked();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
   expect(pageErrors).toEqual([]);
   await context.close();
+});
+
+test("application data is persisted through the JSON state API", async ({page}) => {
+  await seedApp(page,{withScan:true});
+  await page.goto("/");
+  await expect(page.locator("#profileName")).toContainText("Ivana");
+  const stored=await page.evaluate(async () => {
+    const response=await fetch((document.body.dataset.base||"")+"/api/state.php",{cache:"no-store"});
+    return response.json();
+  });
+  expect(stored.ok).toBe(true);
+  expect(stored.state.revision).toBeGreaterThan(0);
+  expect(stored.state.schedule["2026-10-16"]).toBe("D");
+  expect(stored.state.evidence.length).toBeGreaterThan(0);
+  expect(stored.state.profile.name).toBe("Ivana Radić");
+  expect(stored.state.colleagues).toHaveLength(2);
+  expect(stored.state.scanSession.people).toHaveLength(3);
+});
+
+test("state API rejects writes without the application request header", async ({page}) => {
+  await page.goto("/");
+  const status=await page.evaluate(async () => {
+    const response=await fetch((document.body.dataset.base||"")+"/api/state.php",{
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({state:{schedule:{}}})
+    });
+    return response.status;
+  });
+  expect(status).toBe(403);
 });
 
 
