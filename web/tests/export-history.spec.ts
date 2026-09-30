@@ -29,8 +29,14 @@ test("guest storage cannot persist manager-only team schedules", async ({page}) 
 
 test("legacy evidence without millisecond timestamps keeps its worked duration", async ({page}) => {
   await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
   await page.locator('[data-route="stats"]:visible').first().click();
   await expect(page.locator("#workedTotal")).not.toHaveText("0:00 h");
-  await page.locator('[data-route="hours"]:visible').first().click();
+  if(width<=820){
+    await page.locator('[data-route="home"]:visible').first().click();
+    await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  }else{
+    await page.locator('[data-route="hours"]:visible').first().click();
+  }
   await expect(page.locator("#hoursHistory")).toContainText("12h 00min");
 });
