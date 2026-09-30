@@ -838,13 +838,18 @@ object ScheduleOcrParser {
     private fun namesProbablySame(left: String, right: String): Boolean {
         if (!validName(left) || !validName(right)) return false
         if (nameFingerprint(left) == nameFingerprint(right)) return true
+
         val leftWords = nameWords(left)
         val rightWords = nameWords(right)
+        if (leftWords.size != rightWords.size || leftWords.isEmpty()) return false
+
         val overlap = leftWords.intersect(rightWords).size
-        val union = leftWords.union(rightWords).size.coerceAtLeast(1)
-        val jaccard = overlap.toDouble() / union.toDouble()
         val edit = editSimilarity(left, right)
-        return edit >= 0.84 || (overlap >= 1 && jaccard >= 0.34 && edit >= 0.72)
+
+        // Without a trusted row number, identity matching must be conservative.
+        // Similar real names such as IVAN HORVAT / IVANA HORVAT must never be
+        // collapsed into one employee merely because their edit distance is low.
+        return edit >= 0.94 && overlap >= maxOf(1, leftWords.size - 1)
     }
 
     private fun nameQuality(value: String): Int {
@@ -917,22 +922,26 @@ object ScheduleOcrParser {
     internal fun finalizeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
         val merged = mergeRows(rows)
         val numbered = merged.filter { it.rowNumber != null }
-        if (numbered.size < 5) return merged
+        if (numbered.size < 5) {
+            return merged.filter { row ->
+                row.rowNumber != null || row.supportCount >= 2 || merged.size < 12
+            }
+        }
 
         val numbers = numbered.mapNotNull { it.rowNumber }.distinct().sorted()
         val first = numbers.firstOrNull() ?: return merged
         val last = numbers.lastOrNull() ?: return merged
         val span = (last - first + 1).coerceAtLeast(1)
         val denseRoster = first <= 3 && numbers.size.toDouble() / span.toDouble() >= 0.72
+        val missingSlots = (span - numbers.size).coerceAtLeast(0)
 
         val authoritative = numbered.toMutableList()
-        val leftovers = merged.filter { it.rowNumber == null }
-        leftovers.forEach { row ->
+        val unmatched = mutableListOf<RecognizedScheduleRow>()
+
+        merged.filter { it.rowNumber == null }.forEach { row ->
             val targetIndex = authoritative.indices
-                .map { index -> index to editSimilarity(authoritative[index].name, row.name) }
-                .filter { (_, score) -> score >= 0.78 }
-                .maxByOrNull { it.second }
-                ?.first
+                .filter { index -> namesProbablySame(authoritative[index].name, row.name) }
+                .maxByOrNull { index -> editSimilarity(authoritative[index].name, row.name) }
 
             if (targetIndex != null) {
                 val target = authoritative[targetIndex]
@@ -941,10 +950,27 @@ object ScheduleOcrParser {
                     dayShifts = (row.dayShifts + target.dayShifts).toSortedMap(),
                     supportCount = target.supportCount + row.supportCount
                 )
-            } else if (!denseRoster && row.supportCount >= 3 && validName(row.name)) {
-                authoritative += row
+            } else if (row.supportCount >= 3 && validName(row.name)) {
+                unmatched += row
             }
         }
+
+        val retainedUnnumbered = if (denseRoster) {
+            // A dense numbered roster gives us an expected employee count. Keep
+            // only repeated unnumbered names that can fill actually missing row
+            // numbers; this preserves a real employee whose number cell failed
+            // OCR without reintroducing dozens of one-off ghost names.
+            unmatched
+                .sortedWith(
+                    compareByDescending<RecognizedScheduleRow> { it.supportCount }
+                        .thenByDescending { nameQuality(it.name) }
+                        .thenByDescending { it.dayShifts.size }
+                )
+                .take(missingSlots)
+        } else {
+            unmatched
+        }
+        authoritative += retainedUnnumbered
 
         return authoritative.sortedWith(
             compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
