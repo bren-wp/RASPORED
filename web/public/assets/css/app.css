@@ -232,3 +232,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   .dialog-actions{display:grid;grid-template-columns:1fr 1fr}
   .dialog-actions>*{width:100%;justify-content:center}
 }
+
+@media(max-width:820px){
+  .brand--mobile>span{display:flex;flex-direction:column;line-height:1.05}
+  .brand--mobile small{margin-top:3px;color:#C6D4EA;font-size:9px}
+  body:not([data-route-current="home"]) .brand--mobile small{display:none}
+  .notification span[hidden]{display:none}
+}
