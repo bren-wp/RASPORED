@@ -900,16 +900,20 @@ object ScheduleOcrEngine {
         recognizer.process(InputImage.fromBitmap(bitmap, 0))
             .addOnSuccessListener { firstResult ->
                 val first = ScheduleOcrParser.parse(firstResult)
-                if (!needsDeepRecovery(first, bitmap)) {
+                // Pixel-grid detection is intentionally independent from OCR.
+                // A detected dense table forces the full recovery pipeline even
+                // when the first pass already found many rows, because a 20–30
+                // person schedule must not be accepted after only a partial read.
+                val detectedTable = ScheduleTableDetector.cropForRecovery(bitmap)
+                if (!needsDeepRecovery(first, bitmap) && detectedTable == null) {
                     onSuccess(first)
                     return@addOnSuccessListener
                 }
 
-                // Dense monthly schedules often occupy only part of the photo.
-                // Recovery OCR therefore works on the detected grid instead of
-                // spending pixels on monitor chrome, desk area and margins.
-                val recoverySource =
-                    ScheduleTableDetector.cropForRecovery(bitmap) ?: bitmap
+                // Recovery OCR works on the detected table instead of spending
+                // pixels on monitor chrome, desk area and page margins.
+                val recoverySource = detectedTable ?: bitmap
+                val forceDenseRecovery = detectedTable != null
                 fun finish(schedule: RecognizedSchedule) {
                     recycleTemporary(recoverySource, bitmap)
                     onSuccess(schedule)
@@ -923,7 +927,7 @@ object ScheduleOcrEngine {
                             monthHint = first.month
                         )
                         val merged = mergeSchedules(first, second)
-                        if (needsStripeRecovery(merged, recoverySource)) {
+                        if (forceDenseRecovery || needsStripeRecovery(merged, recoverySource)) {
                             recognizeStripes(
                                 source = recoverySource,
                                 baseline = merged,
@@ -934,7 +938,7 @@ object ScheduleOcrEngine {
                         }
                     }
                     .addOnFailureListener {
-                        if (needsStripeRecovery(first, recoverySource)) {
+                        if (forceDenseRecovery || needsStripeRecovery(first, recoverySource)) {
                             recognizeStripes(
                                 source = recoverySource,
                                 baseline = first,
