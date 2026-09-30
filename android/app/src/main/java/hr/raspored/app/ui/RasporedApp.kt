@@ -1162,13 +1162,31 @@ private fun largeMinutesLabel(minutes:Long):String {
     profileName:String,
     scheduleCodes:Map<String,String>,
     evidenceEntries:List<TimeEvidenceEntry>,
+    cloudAccount:CloudAccount?,
+    cloudBusy:Boolean,
+    cloudStatus:String,
     onProfileNameChange:(String)->Unit,
     onDarkModeChange:(Boolean)->Unit,
-    onReducedMotionChange:(Boolean)->Unit
+    onReducedMotionChange:(Boolean)->Unit,
+    onLogin:(String,String)->Unit,
+    onRegister:(String,String,String,String,String,Boolean)->Unit,
+    onLogout:()->Unit,
+    onPull:()->Unit,
+    onPush:()->Unit
 ){
     val context=LocalContext.current
     var exportStatus by remember { mutableStateOf("") }
     var exportMonth by remember { mutableStateOf(YearMonth.from(appDate())) }
+    var loginOpen by remember { mutableStateOf(false) }
+    var registerOpen by remember { mutableStateOf(false) }
+    var loginEmail by remember { mutableStateOf("") }
+    var loginPassword by remember { mutableStateOf("") }
+    var registerFirst by remember { mutableStateOf("") }
+    var registerLast by remember { mutableStateOf("") }
+    var registerEmail by remember { mutableStateOf("") }
+    var registerPhone by remember { mutableStateOf("") }
+    var registerPassword by remember { mutableStateOf("") }
+    var registerManager by remember { mutableStateOf(false) }
     fun openExternal(uri:String){
         runCatching{
             context.startActivity(
@@ -1209,15 +1227,112 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                    Text("Lokalni profil",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        Icon(Icons.Outlined.CloudSync,null,tint=Cyan)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)){
+                            Text("Račun i sinkronizacija",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                            Text(
+                                if(cloudAccount==null)
+                                    "Kalendar, OCR i evidencija rade bez registracije. Račun otključava spremanje podataka na raspored.eu i pristup s drugih uređaja."
+                                else
+                                    "Podaci računa spremaju se na raspored.eu u privatne JSON datoteke unutar storage/data.",
+                                color=MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize=12.sp
+                            )
+                        }
+                    }
+                    if(cloudAccount==null){
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement=Arrangement.spacedBy(8.dp)
+                        ){
+                            OutlinedButton(
+                                onClick={loginOpen=true},
+                                enabled=!cloudBusy,
+                                modifier=Modifier.weight(1f)
+                            ){Text("Prijava")}
+                            Button(
+                                onClick={registerOpen=true},
+                                enabled=!cloudBusy,
+                                modifier=Modifier.weight(1f)
+                            ){Text("Izradi račun")}
+                        }
+                    }else{
+                        Surface(
+                            shape=RoundedCornerShape(14.dp),
+                            color=MaterialTheme.colorScheme.surfaceVariant,
+                            modifier=Modifier.fillMaxWidth()
+                        ){
+                            Column(Modifier.padding(14.dp)){
+                                Text(cloudAccount.fullName,fontWeight=FontWeight.Bold)
+                                Text(cloudAccount.email,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    if(cloudAccount.isManager)"Voditelj tima · uvoz više djelatnika" else "Osobni račun · uvoz vlastitog rasporeda",
+                                    fontSize=11.sp,
+                                    color=if(cloudAccount.isManager)Teal else Cyan,
+                                    fontWeight=FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement=Arrangement.spacedBy(8.dp)
+                        ){
+                            OutlinedButton(
+                                onClick=onPull,
+                                enabled=!cloudBusy,
+                                modifier=Modifier.weight(1f)
+                            ){
+                                Icon(Icons.Outlined.CloudDownload,null)
+                                Spacer(Modifier.width(5.dp))
+                                Text("Preuzmi")
+                            }
+                            Button(
+                                onClick=onPush,
+                                enabled=!cloudBusy,
+                                modifier=Modifier.weight(1f)
+                            ){
+                                Icon(Icons.Outlined.CloudUpload,null)
+                                Spacer(Modifier.width(5.dp))
+                                Text("Spremi")
+                            }
+                        }
+                        TextButton(
+                            onClick=onLogout,
+                            enabled=!cloudBusy,
+                            modifier=Modifier.align(Alignment.End)
+                        ){Text("Odjava")}
+                    }
+                    if(cloudBusy){
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
+                    if(cloudStatus.isNotBlank()){
+                        Text(
+                            cloudStatus,
+                            color=MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize=11.sp
+                        )
+                    }
+                }
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    Text(if(cloudAccount==null)"Lokalni profil" else "Profil računa",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Kalendar i evidencija rade i bez dovršenog profila. Ime se koristi samo na ovom uređaju i u izvozu.",
+                        if(cloudAccount==null)
+                            "Kalendar i evidencija rade i bez dovršenog profila. Ime se koristi samo na ovom uređaju i u izvozu."
+                        else
+                            "Kod prijavljenog osobnog računa ime i prezime dolaze iz računa. To sprječava slučajan uvoz tuđeg retka iz zajedničkog rasporeda.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
                     OutlinedTextField(
                         value=profileName,
-                        onValueChange={ onProfileNameChange(it.take(80)) },
+                        onValueChange={ if(cloudAccount==null) onProfileNameChange(it.take(80)) },
+                        enabled=cloudAccount==null,
                         label={Text("Ime i prezime")},
                         singleLine=true,
                         modifier=Modifier.fillMaxWidth()
@@ -1325,6 +1440,97 @@ private fun largeMinutesLabel(minutes:Long):String {
                 }
             }
         }
+    }
+
+    if(loginOpen){
+        AlertDialog(
+            onDismissRequest={if(!cloudBusy)loginOpen=false},
+            title={Text("Prijava na RASPORED")},
+            text={
+                Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    OutlinedTextField(
+                        value=loginEmail,
+                        onValueChange={loginEmail=it.take(160)},
+                        label={Text("E-mail")},
+                        singleLine=true,
+                        keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType=androidx.compose.ui.text.input.KeyboardType.Email
+                        )
+                    )
+                    OutlinedTextField(
+                        value=loginPassword,
+                        onValueChange={loginPassword=it.take(128)},
+                        label={Text("Lozinka")},
+                        singleLine=true,
+                        visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    )
+                }
+            },
+            confirmButton={
+                Button(
+                    onClick={
+                        onLogin(loginEmail,loginPassword)
+                        loginOpen=false
+                        loginPassword=""
+                    },
+                    enabled=!cloudBusy&&loginEmail.isNotBlank()&&loginPassword.isNotBlank()
+                ){Text("Prijavi se")}
+            },
+            dismissButton={
+                TextButton(onClick={loginOpen=false},enabled=!cloudBusy){Text("Odustani")}
+            }
+        )
+    }
+
+    if(registerOpen){
+        AlertDialog(
+            onDismissRequest={if(!cloudBusy)registerOpen=false},
+            title={Text("Izradi RASPORED račun")},
+            text={
+                Column(
+                    modifier=Modifier.heightIn(max=520.dp),
+                    verticalArrangement=Arrangement.spacedBy(8.dp)
+                ){
+                    OutlinedTextField(value=registerFirst,onValueChange={registerFirst=it.take(60)},label={Text("Ime")},singleLine=true)
+                    OutlinedTextField(value=registerLast,onValueChange={registerLast=it.take(60)},label={Text("Prezime")},singleLine=true)
+                    OutlinedTextField(value=registerEmail,onValueChange={registerEmail=it.take(160)},label={Text("E-mail")},singleLine=true)
+                    OutlinedTextField(value=registerPhone,onValueChange={registerPhone=it.take(30)},label={Text("Broj telefona")},singleLine=true)
+                    OutlinedTextField(
+                        value=registerPassword,
+                        onValueChange={registerPassword=it.take(128)},
+                        label={Text("Lozinka · najmanje 10 znakova, slovo i broj")},
+                        singleLine=true,
+                        visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    )
+                    SettingSwitch(
+                        title="Voditelj tima",
+                        caption="Omogućuje uvoz svih prepoznatih djelatnika kao odvojenih rasporeda tima.",
+                        checked=registerManager,
+                        onCheckedChange={registerManager=it}
+                    )
+                }
+            },
+            confirmButton={
+                Button(
+                    onClick={
+                        onRegister(
+                            registerFirst,
+                            registerLast,
+                            registerEmail,
+                            registerPhone,
+                            registerPassword,
+                            registerManager
+                        )
+                        registerOpen=false
+                        registerPassword=""
+                    },
+                    enabled=!cloudBusy&&registerFirst.length>=2&&registerLast.length>=2&&registerEmail.contains("@")&&registerPhone.isNotBlank()&&registerPassword.length>=10
+                ){Text("Izradi račun")}
+            },
+            dismissButton={
+                TextButton(onClick={registerOpen=false},enabled=!cloudBusy){Text("Odustani")}
+            }
+        )
     }
 }
 @Composable private fun SupportAction(
