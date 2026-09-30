@@ -63,11 +63,18 @@ internal fun OcrScanScreen(
         selectedMonth = recognized.month ?: defaultMonth
         editedShifts.clear()
         editMode = false
+        val totalRecognizedDays = recognized.rows.sumOf { it.dayShifts.size }
+        val emptyRows = recognized.rows.count { it.dayShifts.isEmpty() }
         when {
             recognized.rows.isEmpty() -> {
                 selectedRow = -1
                 phase = OcrPhase.Error
                 message = "Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Pokušaj obuhvatiti cijelu tablicu, posebno zaglavlje s brojevima dana."
+            }
+            totalRecognizedDays == 0 -> {
+                selectedRow = -1
+                phase = OcrPhase.Error
+                message = "Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."
             }
             recognized.rows.size == 1 -> {
                 selectedRow = 0
@@ -81,8 +88,9 @@ internal fun OcrScanScreen(
                 selectedRow = -1
                 phase = OcrPhase.Success
                 val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
-                val recognizedDays = recognized.rows.sumOf { it.dayShifts.size }
-                message = "Prepoznate su $countLabel i ukupno $recognizedDays oznaka dana. Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                message = "Prepoznate su $countLabel i ukupno $totalRecognizedDays oznaka dana. " +
+                    if (emptyRows > 0) "$emptyRows numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih. " else "" +
+                    "Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }
