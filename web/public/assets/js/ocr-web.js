@@ -243,7 +243,9 @@ function inferDayCentersFromShiftXs(rawXs,maxDay){
     else clusters.push([x]);
   });
 
-  var observed=clusters.map(function(cluster){
+  var supported=clusters.filter(function(cluster){return cluster.length>=2});
+  var gridClusters=supported.length>=Math.max(10,Math.floor(maxDay/3))?supported:clusters;
+  var observed=gridClusters.map(function(cluster){
     return cluster.reduce(function(sum,v){return sum+v},0)/cluster.length;
   });
   if(observed.length<Math.max(12,Math.floor(maxDay/2)))return null;
