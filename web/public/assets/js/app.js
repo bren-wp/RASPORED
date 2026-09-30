@@ -706,6 +706,7 @@ function bind(){
 async function initApp(){
   if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
   await window.RasporedDataStore.init();
+  if(window.RasporedPayroll)await window.RasporedPayroll.init();
   loadSchedule();loadScanSession();configureProfile();bind();
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
   document.body.dataset.routeCurrent=state.route;
