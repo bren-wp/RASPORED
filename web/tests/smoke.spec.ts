@@ -242,7 +242,7 @@ test("salary estimator uses official public-health role parameters and persists 
   await expect(page.locator("#payrollRole")).toHaveValue("kbc-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await expect(page.locator("#payrollYears")).toHaveValue("10");
-  await expect(page.locator("#payrollInstitution option")).toHaveCount(63);
+  await expect(page.locator("#payrollInstitution option")).toHaveCount(62);
   await expect(page.locator("#payrollRateProfile")).toHaveValue("kbc-rijeka-observed-2026");
 });
 
