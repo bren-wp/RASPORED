@@ -6,7 +6,7 @@ test.beforeEach(async ({page}) => {
 });
 
 async function openReady(page:any){
-  await openReady(page);
+  await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
 }
 
