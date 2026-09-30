@@ -958,6 +958,7 @@ private fun largeMinutesLabel(minutes:Long):String {
 ){
     val context=LocalContext.current
     var exportStatus by remember { mutableStateOf("") }
+    var exportMonth by remember { mutableStateOf(YearMonth.from(appDate())) }
     fun openExternal(uri:String){
         runCatching{
             context.startActivity(
@@ -965,13 +966,12 @@ private fun largeMinutesLabel(minutes:Long):String {
             )
         }
     }
-    fun exportCurrentMonth(){
+    fun exportSelectedMonth(){
         exportStatus=""
         runCatching{
-            val month=YearMonth.from(appDate())
             val uri=ReportExporter.createMonthlyPdf(
                 context=context,
-                month=month,
+                month=exportMonth,
                 schedule=scheduleCodes,
                 evidence=evidenceEntries,
                 profileName=profileName
@@ -983,7 +983,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
             context.startActivity(Intent.createChooser(share,"Podijeli RASPORED PDF"))
         }.onSuccess{
-            exportStatus="PDF je izrađen za "+YearMonth.from(appDate())+"."
+            exportStatus="PDF je izrađen za "+exportMonth+"."
         }.onFailure{
             exportStatus="PDF trenutačno nije moguće izraditi."
         }
@@ -1020,12 +1020,34 @@ private fun largeMinutesLabel(minutes:Long):String {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                     Text("Izvoz",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Izradi stvarni PDF za tekući mjesec s rasporedom D/N/GO/BO/PD/SD i evidentiranim radom. Aktivna evidencija ostaje označena kao rad u tijeku.",
+                        "Odaberi bilo koji spremljeni mjesec i izradi stvarni PDF s rasporedom D/N/GO/BO/PD/SD i evidentiranim radom. Noćni rad preko ponoći ili granice mjeseca razdvaja se prema stvarnom vremenu.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment=Alignment.CenterVertically
+                    ){
+                        IconButton(onClick={exportMonth=exportMonth.minusMonths(1)}){
+                            Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")
+                        }
+                        Text(
+                            exportMonth.month.getDisplayName(
+                                TextStyle.FULL,
+                                Locale("hr","HR")
+                            ).replaceFirstChar{
+                                it.titlecase(Locale("hr","HR"))
+                            }+" "+exportMonth.year+".",
+                            modifier=Modifier.weight(1f),
+                            textAlign=TextAlign.Center,
+                            fontWeight=FontWeight.Bold
+                        )
+                        IconButton(onClick={exportMonth=exportMonth.plusMonths(1)}){
+                            Icon(Icons.Outlined.ChevronRight,"Sljedeći mjesec")
+                        }
+                    }
                     Button(
-                        onClick={exportCurrentMonth()},
+                        onClick={exportSelectedMonth()},
                         modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
                     ){
                         Icon(Icons.Outlined.PictureAsPdf,null)
