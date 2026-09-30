@@ -2,16 +2,22 @@ package hr.raspored.app.ocr
 
 import android.graphics.Bitmap
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.time.Month
 import java.time.YearMonth
 import java.util.Locale
+import kotlin.math.abs
 
 data class RecognizedScheduleRow(
+    val rowNumber: Int?,
     val name: String,
+    val dayShifts: Map<Int, String>
+) {
     val shifts: List<String>
-)
+        get() = dayShifts.toSortedMap().values.toList()
+}
 
 data class RecognizedSchedule(
     val month: YearMonth?,
@@ -21,7 +27,8 @@ data class RecognizedSchedule(
 
 object ScheduleOcrParser {
     private val shiftRegex = Regex("""(?<![\p{L}])(GO|BO|D|N)(?![\p{L}])""", RegexOption.IGNORE_CASE)
-    private val rowNumberRegex = Regex("""^\s*\d{1,3}[.)]?\s*""")
+    private val exactShiftRegex = Regex("""^(GO|BO|D|N)$""", RegexOption.IGNORE_CASE)
+    private val rowNumberRegex = Regex("""^\s*(\d{1,3})[.)]?\s*""")
     private val spaces = Regex("""\s+""")
     private val monthNames = mapOf(
         "SIJEČANJ" to Month.JANUARY,
