@@ -888,6 +888,116 @@
       "coefficient": 1.3
     },
     {
+      "id": "state-senior-adviser",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Viši savjetnik",
+      "official": "Viši savjetnik",
+      "code": "JRM",
+      "coefficient": 2.1
+    },
+    {
+      "id": "state-associate",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Suradnik",
+      "official": "Suradnik",
+      "code": "JRM",
+      "coefficient": 1.8
+    },
+    {
+      "id": "state-senior-referent",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Viši referent",
+      "official": "Viši referent",
+      "code": "JRM",
+      "coefficient": 1.7
+    },
+    {
+      "id": "state-it-technician",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Informatički tehničar",
+      "official": "Informatički tehničar",
+      "code": "JRM",
+      "coefficient": 1.5
+    },
+    {
+      "id": "state-admin-secretary",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Administrativni tajnik čelnika tijela",
+      "official": "Administrativni tajnik čelnika tijela",
+      "code": "JRM",
+      "coefficient": 1.44
+    },
+    {
+      "id": "state-referent",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Referent",
+      "official": "Referent",
+      "code": "JRM",
+      "coefficient": 1.43
+    },
+    {
+      "id": "state-driver",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Vozač",
+      "official": "Vozač",
+      "code": "JRM",
+      "coefficient": 1.37
+    },
+    {
+      "id": "state-employee-iii",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Namještenik III. vrste",
+      "official": "Namještenik – III. vrste",
+      "code": "JRM",
+      "coefficient": 1.25
+    },
+    {
+      "id": "state-caretaker",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Domar",
+      "official": "Domar",
+      "code": "JRM",
+      "coefficient": 1.25
+    },
+    {
+      "id": "state-doorman",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Portir",
+      "official": "Portir",
+      "code": "JRM",
+      "coefficient": 1.06
+    },
+    {
+      "id": "state-cleaner",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Spremač",
+      "official": "Spremač",
+      "code": "JRM",
+      "coefficient": 1.06
+    },
+    {
       "id": "manual",
       "regimes": [
         "public-health",
