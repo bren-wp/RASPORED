@@ -278,7 +278,7 @@ function detectEmployeeRowBandsFromBitmap(bitmap,rowsPerBand){
 
   var headerTop=lines[0];
   var headerBottom=Math.max(headerTop+1,lines[1]);
-  var safeRows=Math.max(2,Math.min(6,Number(rowsPerBand)||4));
+  var safeRows=Math.max(1,Math.min(6,Number(rowsPerBand)||4));
   var padding=Math.max(2,Math.round((headerBottom-headerTop)*.18));
   var bands=[],startLine=1;
   while(startLine<lines.length-1){
