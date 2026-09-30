@@ -283,3 +283,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   .scan-copy--with-help{margin-top:18px}
   .scan-help-btn{width:42px;height:42px}
 }
+
+.scan-month-field{display:grid;grid-template-columns:1fr minmax(170px,220px);align-items:center;gap:12px;margin-top:12px;font-size:13px;font-weight:700}
+.scan-month-field input{height:42px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);color:var(--text);padding:0 10px;font:inherit}
+.scan-month-field input:focus{border-color:#00A9E8;outline:3px solid rgba(0,194,255,.14)}
+@media(max-width:540px){
+  .scan-month-field{grid-template-columns:1fr;gap:6px}
+  .scan-month-field input{width:100%}
+}
