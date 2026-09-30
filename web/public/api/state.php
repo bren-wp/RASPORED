@@ -8,7 +8,7 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('X-Frame-Options: DENY');
 
-const RASPORED_SCHEMA_VERSION = 2;
+const RASPORED_SCHEMA_VERSION = 3;
 const RASPORED_MAX_BODY_BYTES = 524288;
 
 function default_state(): array
@@ -23,11 +23,20 @@ function default_state(): array
         'settings' => ['theme' => 'light', 'reducedMotion' => false, 'notificationReadKey' => ''],
         'scanSession' => ['people' => [], 'selected' => -1, 'month' => null],
         'payroll' => [
-            'roleId' => 'kbc-transport-nss',
-            'coefficient' => 1.15,
+            'county' => 'Primorsko-goranska',
+            'residence' => 'Rijeka',
+            'taxLower' => 20.0,
+            'taxHigher' => 25.0,
+            'sector' => 'Zdravstvo',
+            'institution' => 'Klinički bolnički centar Rijeka',
+            'regimeId' => 'kbc-rijeka-2026',
+            'roleId' => 'health-transport-sss',
+            'coefficient' => 1.25,
             'yearsService' => 0,
+            'personalAllowance' => 600.0,
             'extraPercent' => 0.0,
             'secondShift' => false,
+            'turnus' => false,
             'customBase' => null,
         ],
         'updatedAt' => null,
@@ -250,11 +259,20 @@ function clean_state(mixed $raw, int $revision): array
         ],
         'scanSession' => ['people' => $people, 'selected' => $selected, 'month' => $cleanMonth],
         'payroll' => [
-            'roleId' => clean_text($payroll['roleId'] ?? 'kbc-transport-nss', 80) ?: 'kbc-transport-nss',
-            'coefficient' => max(1.0, min(8.0, is_numeric($payroll['coefficient'] ?? null) ? (float) $payroll['coefficient'] : 1.15)),
+            'county' => clean_text($payroll['county'] ?? 'Primorsko-goranska', 80) ?: 'Primorsko-goranska',
+            'residence' => clean_text($payroll['residence'] ?? 'Rijeka', 100) ?: 'Rijeka',
+            'taxLower' => max(0.0, min(50.0, is_numeric($payroll['taxLower'] ?? null) ? (float) $payroll['taxLower'] : 20.0)),
+            'taxHigher' => max(0.0, min(50.0, is_numeric($payroll['taxHigher'] ?? null) ? (float) $payroll['taxHigher'] : 25.0)),
+            'sector' => clean_text($payroll['sector'] ?? 'Zdravstvo', 100) ?: 'Zdravstvo',
+            'institution' => clean_text($payroll['institution'] ?? 'Klinički bolnički centar Rijeka', 160) ?: 'Klinički bolnički centar Rijeka',
+            'regimeId' => clean_text($payroll['regimeId'] ?? 'kbc-rijeka-2026', 80) ?: 'kbc-rijeka-2026',
+            'roleId' => clean_text($payroll['roleId'] ?? 'health-transport-sss', 80) ?: 'health-transport-sss',
+            'coefficient' => max(0.1, min(10.0, is_numeric($payroll['coefficient'] ?? null) ? (float) $payroll['coefficient'] : 1.25)),
             'yearsService' => max(0, min(60, is_numeric($payroll['yearsService'] ?? null) ? (int) $payroll['yearsService'] : 0)),
+            'personalAllowance' => max(0.0, min(10000.0, is_numeric($payroll['personalAllowance'] ?? null) ? (float) $payroll['personalAllowance'] : 600.0)),
             'extraPercent' => max(0.0, min(100.0, is_numeric($payroll['extraPercent'] ?? null) ? (float) $payroll['extraPercent'] : 0.0)),
             'secondShift' => (bool) ($payroll['secondShift'] ?? false),
+            'turnus' => (bool) ($payroll['turnus'] ?? false),
             'customBase' => is_numeric($payroll['customBase'] ?? null)
                 ? max(0.0, min(10000.0, (float) $payroll['customBase']))
                 : null,
