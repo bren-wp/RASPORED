@@ -109,11 +109,17 @@ Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno od
 
 ## Okvirna plaća za javno zdravstvo
 
-Android i Web/PWA imaju zaseban kalkulator **okvirne bruto plaće**. Kalkulator ne koristi jedan izmišljeni “bod bolnice”, nego važeći model javnih službi: službenu osnovicu, koeficijent konkretnog radnog mjesta, staž i stvarno evidentirane sate.
+Android i Web/PWA imaju zaseban kalkulator **okvirne bruto plaće**. Kalkulator ne koristi jedan izmišljeni “bod bolnice”. U sustavu javnih službi koeficijent je vezan uz **službeno radno mjesto** iz državne Uredbe, pa isti službeni naziv radnog mjesta ima isti koeficijent neovisno o tome u kojoj se javnoj bolnici koristi. Lokalni naziv posla ipak se mora mapirati na stvarno radno mjesto iz ugovora, rješenja ili sistematizacije.
 
-Za 2026. ugrađene su službene osnovice po razdobljima iz NN 11/2026 te koeficijenti iz NN 22/2024. Dodaci za noćni rad, subotu, nedjelju, blagdan i prekovremeni rad temelje se na TKU-u NN 29/2024. KBC Rijeka preset nazivi mapiraju korisničke nazive poput transportnog radnika / nosača bolesnika, portira i prvostupnika fizioterapije na službene nazive iz sistematizacije i natječaja.
+Ugrađeno je **62 bolničkih zdravstvenih ustanova** s aktualnog popisa Ministarstva zdravstva. Odabir bolnice služi za kontekst i provjerljiva lokalna mapiranja; ne mijenja državni koeficijent bez dokumentirane osnove. KBC Rijeka ima potvrđena mapiranja za transportnog radnika / nosača bolesnika, portira i druge nazive koji se pojavljuju u sistematizaciji i natječajima.
 
-Procjena se namjerno prikazuje kao **bruto**. Neto iznos se ne izmišlja jer ovisi o osobnom odbitku, poreznim parametrima i drugim individualnim podacima. Posebni dodaci koji ovise o konkretnom rješenju, ugovoru, dežurstvu ili pripravnosti ne uključuju se automatski bez provjerljivog pravila.
+Za 2026. kalkulator koristi osnovice iz NN 11/2026, koeficijente iz NN 22/2024 i formulu cijene sata iz TKU-a NN 29/2024. Staž je +0,5% po navršenoj godini. Nacionalni obračunski profil koristi noć 40%, prekovremeni 50%, drugu smjenu 10%, subotu 25%, nedjelju 50% i blagdan 150%. Turnus 5% uključen je prema službenom tumačenju članka 109. TKU-a.
+
+KBC Rijeka ima zaseban **obračunski profil 2026** s noćnim dodatkom 50%, jer je takav obračun potvrđen na stvarnim obračunskim ispravama. Taj postotak namjerno se ne prenosi na druge ustanove kao opće pravilo. Sama dokumentacija s osobnim podacima nije dio repozitorija niti aplikacijskog spremišta.
+
+Prekovremeni se mogu procijeniti iz Evidencije sati ili ručno ispraviti. Sati turnusa i druge smjene unose se zasebno kako se prava koja se ne smiju kumulirati za iste sate ne bi automatski zbrajala. Za godišnji odmor, bolovanje i druge naknade koje ovise o prosjeku ili pojedinačnom rješenju postoji ručna bruto korekcija umjesto izmišljanja podataka koje aplikacija ne zna.
+
+Procjena se namjerno prikazuje kao **bruto**. Neto iznos se ne izmišlja jer ovisi o osobnom odbitku, poreznim parametrima i drugim individualnim podacima.
 
 ## Brand
 
