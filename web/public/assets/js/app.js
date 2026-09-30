@@ -716,14 +716,25 @@ async function handleScanFile(file){
     status.classList.remove("is-scanning");
     if(progress)progress.style.width="100%";
     if(state.scanPeople.length){
-      status.classList.add("is-success");
       var monthWarning=result.month?"":" Mjesec nije pouzdano prepoznat; provjeri ga prije spremanja.";
       var recognizedDays=state.scanPeople.reduce(function(total,person){
         return total+Object.keys(person.dayShifts||{}).length;
       },0);
-      status.querySelector("span").textContent=(state.scanPeople.length===1
-        ?"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja."
-        :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana. Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
+      var emptyRows=state.scanPeople.filter(function(person){
+        return Object.keys(person.dayShifts||{}).length===0;
+      }).length;
+      if(recognizedDays===0){
+        status.classList.add("is-error");
+        status.querySelector("span").textContent="Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."+monthWarning;
+      }else{
+        status.classList.add("is-success");
+        var emptyWarning=emptyRows
+          ?" "+emptyRows+" numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih."
+          :"";
+        status.querySelector("span").textContent=(state.scanPeople.length===1
+          ?"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja."
+          :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana."+emptyWarning+" Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
+      }
     }else{
       status.classList.add("is-error");
       status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Pokušaj s ravnijom i oštrijom fotografijom.";
