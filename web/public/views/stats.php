@@ -1,6 +1,6 @@
     <section class="view" id="view-stats" data-view="stats">
       <div class="stats-title-row">
-        <h1>Statistika</h1>
+        <div><h1>Statistika</h1><button class="link-btn stats-payroll-link" data-route="payroll">Izračunaj okvirnu plaću ›</button></div>
         <div class="period-picker">
           <button class="secondary-btn" id="statsPeriod" aria-haspopup="menu" aria-expanded="false">
             <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><span>—</span><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-down"></use></svg>
