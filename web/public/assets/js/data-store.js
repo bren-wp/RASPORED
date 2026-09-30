@@ -42,6 +42,7 @@ function sanitizeEvidence(raw){
       in:x.in,
       out:x.out||null,
       note:typeof x.note==="string"?x.note.slice(0,500):"",
+      workType:["regular","shift1","shift2","shift3","turnus","duty","standby","callout","other"].indexOf(x.workType)>=0?x.workType:"regular",
       startedAt:Number.isFinite(Number(x.startedAt))?Number(x.startedAt):null,
       endedAt:Number.isFinite(Number(x.endedAt))?Number(x.endedAt):null
     };
