@@ -769,8 +769,8 @@ private fun largeMinutesLabel(minutes:Long):String {
                     }
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-                        StatMini("Dnevne",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
-                        StatMini("Noćne",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
+                        StatMini("Dnevni sati",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
+                        StatMini("Noćni sati",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
                         StatMini("GO",data.values.count{it.code=="GO"}.toString()+" d",Teal,Modifier.weight(1f))
                         StatMini("BO",data.values.count{it.code=="BO"}.toString()+" d",Red,Modifier.weight(1f))
                     }
@@ -808,14 +808,14 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     DetailLine(
                         Icons.Outlined.WbSunny,
-                        "Dnevne smjene",
-                        data.values.count{it.code=="D"}.toString()+" smjena",
+                        "Dnevni sati",
+                        "D raspored · "+data.values.count{it.code=="D"}.toString()+" smjena",
                         minutesLabel(analytics.dayMinutes)
                     )
                     DetailLine(
                         Icons.Outlined.DarkMode,
-                        "Noćne smjene",
-                        data.values.count{it.code=="N"}.toString()+" smjena",
+                        "Noćni sati",
+                        "N raspored · "+data.values.count{it.code=="N"}.toString()+" smjena",
                         minutesLabel(analytics.nightMinutes)
                     )
                     DetailLine(
