@@ -1,4 +1,4 @@
-    <section class="view" id="view-calendar" data-view="calendar">
+    <section class="view is-active" id="view-calendar" data-view="calendar">
       <div class="mobile-page-title"><h1>Kalendar</h1></div>
       <section class="card mobile-calendar-card">
         <div class="calendar-mobile-head"><button class="icon-btn" id="calPrev" aria-label="Prethodni mjesec"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-left"></use></svg></button><h2 id="calMonthTitle">—</h2><button class="icon-btn" id="calNext" aria-label="Sljedeći mjesec"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-right"></use></svg></button></div>
