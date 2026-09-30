@@ -1118,13 +1118,19 @@ object ScheduleOcrEngine {
     }
 
     private fun dayBands(): List<DayBand> = listOf(
-        // Nakon automatskog izrezivanja tablice stupac imena obično zauzima
-        // oko 15–30% širine. Pojasevi zato počinju ranije i preklapaju se
-        // dovoljno da dani uz oba ruba ne nestanu zbog perspektive.
-        DayBand(0.15f, 0.39f),
-        DayBand(0.36f, 0.60f),
-        DayBand(0.57f, 0.81f),
-        DayBand(0.78f, 1.00f)
+        // Cijeli mjesečni raspored ima vrlo uske ćelije. Umjesto četiri široka
+        // pojasa koristimo osam preklapajućih mikro-pojaseva. Svaki prolaz
+        // povećava samo 4–7 stupaca dana pa ML Kit dobiva znatno više piksela
+        // po oznaci D/N/GO/BO/PD/SD. Preklapanje štiti rubne stupce i
+        // perspektivno snimljene tablice.
+        DayBand(0.12f, 0.28f),
+        DayBand(0.22f, 0.38f),
+        DayBand(0.32f, 0.48f),
+        DayBand(0.42f, 0.58f),
+        DayBand(0.52f, 0.68f),
+        DayBand(0.62f, 0.78f),
+        DayBand(0.72f, 0.88f),
+        DayBand(0.82f, 1.00f)
     )
 
     private fun createEnhancedDayBandComposite(
@@ -1132,7 +1138,7 @@ object ScheduleOcrEngine {
         startRatio: Float,
         endRatio: Float
     ): Bitmap {
-        val rosterWidth = (source.width * 0.28f).roundToInt()
+        val rosterWidth = (source.width * 0.34f).roundToInt()
             .coerceIn(1, source.width)
         val gridStart = (source.width * startRatio).roundToInt()
             .coerceIn(0, source.width - 1)
@@ -1141,12 +1147,12 @@ object ScheduleOcrEngine {
         val gridWidth = gridEnd - gridStart
         val rawWidth = rosterWidth + gridWidth
 
-        val targetPixels = 7_500_000.0
+        val targetPixels = 8_500_000.0
         val pixelScale = kotlin.math.sqrt(
             targetPixels / (rawWidth.toDouble() * source.height.toDouble())
         )
-        val edgeScale = 4200.0 / rawWidth.toDouble()
-        val scale = minOf(2.40, pixelScale, edgeScale).coerceAtLeast(0.70)
+        val edgeScale = 4600.0 / rawWidth.toDouble()
+        val scale = minOf(2.85, pixelScale, edgeScale).coerceAtLeast(0.75)
         val width = (rawWidth * scale).roundToInt().coerceAtLeast(1)
         val height = (source.height * scale).roundToInt().coerceAtLeast(1)
         val rosterOutWidth = (rosterWidth * scale).roundToInt()
@@ -1220,9 +1226,11 @@ object ScheduleOcrEngine {
         onSuccess: (RecognizedSchedule) -> Unit
     ) {
         val ranges = listOf(
-            0f to 0.44f,
-            0.28f to 0.73f,
-            0.57f to 1.00f
+            0f to 0.28f,
+            0.18f to 0.46f,
+            0.36f to 0.64f,
+            0.54f to 0.82f,
+            0.72f to 1.00f
         )
 
         fun processBand(index: Int, accumulated: RecognizedSchedule) {
@@ -1340,17 +1348,21 @@ object ScheduleOcrEngine {
 
     private fun stripeRanges(height: Int): List<IntRange> {
         if (height < 620) return emptyList()
-        // Tri preklapajuća pojasa daju veću efektivnu visinu retka nego
-        // dva velika polu-okvira. To je ključno kod fotografije cijelog
-        // mjesečnog rasporeda s 20–40 sitnih redaka.
-        val firstEnd = (height * 0.46f).roundToInt().coerceIn(1, height)
-        val secondStart = (height * 0.27f).roundToInt().coerceIn(0, height - 1)
-        val secondEnd = (height * 0.74f).roundToInt().coerceIn(secondStart + 1, height)
-        val thirdStart = (height * 0.55f).roundToInt().coerceIn(0, height - 1)
+        // Pet užih, preklapajućih pojasa povećava efektivnu visinu svakog
+        // retka. Kod fotografije cijelog rasporeda s 20–40 djelatnika ovo je
+        // preciznije od nekoliko velikih polu-okvira i još uvijek se obrađuje
+        // sekvencijalno kako ne bismo držali više velikih bitmapa u memoriji.
+        fun range(start: Float, end: Float): IntRange {
+            val top = (height * start).roundToInt().coerceIn(0, height - 1)
+            val bottom = (height * end).roundToInt().coerceIn(top + 1, height)
+            return top until bottom
+        }
         return listOf(
-            0 until firstEnd,
-            secondStart until secondEnd,
-            thirdStart until height
+            range(0.00f, 0.30f),
+            range(0.18f, 0.48f),
+            range(0.36f, 0.66f),
+            range(0.54f, 0.84f),
+            range(0.72f, 1.00f)
         )
     }
 
