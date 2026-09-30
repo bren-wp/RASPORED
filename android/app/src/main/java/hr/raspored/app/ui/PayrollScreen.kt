@@ -67,7 +67,12 @@ internal fun PayrollScreen(
     var sector by remember { mutableStateOf(initial.sector) }
     var institutionName by remember { mutableStateOf(initial.institution) }
     var manualInstitution by remember {
-        mutableStateOf(PublicSectorPayroll.institutions.none { it.name == initial.institution })
+        mutableStateOf(
+            PublicSectorPayroll.institutions
+                .firstOrNull { it.name == initial.institution }
+                ?.isPlaceholder()
+                ?: true
+        )
     }
     var customInstitutionText by remember {
         mutableStateOf(if (manualInstitution) initial.institution else "")
@@ -102,14 +107,15 @@ internal fun PayrollScreen(
     val customBase = customBaseText.toDecimalOrNull()
         ?.takeIf { it > 0.0 }?.coerceAtMost(10_000.0)
 
+    val scheduleSnapshot = scheduleCodes.toSortedMap().toMap()
     val estimate = remember(
-        month, evidenceEntries, regimeId, coefficient, years, personalAllowance,
+        month, evidenceEntries, scheduleSnapshot, regimeId, coefficient, years, personalAllowance,
         taxLower, taxHigher, extra, secondShift, turnus, customBase
     ) {
         PublicSectorPayroll.estimate(
             month = month,
             entries = evidenceEntries,
-            scheduleCodes = scheduleCodes,
+            scheduleCodes = scheduleSnapshot,
             regimeId = regimeId,
             coefficient = coefficient,
             yearsService = years,
@@ -212,7 +218,7 @@ internal fun PayrollScreen(
                         county = selected
                         val candidates = payrollInstitutionsFor(sector, selected)
                         val selectedInstitution = candidates.firstOrNull()
-                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder() || selectedInstitution.isPlaceholder() || selectedInstitution.isPlaceholder()
+                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder()
                         customInstitutionText = ""
                         institutionName = selectedInstitution?.name ?: genericInstitutionLabel(sector)
                         regimeId = selectedInstitution?.regimeId
@@ -302,7 +308,7 @@ internal fun PayrollScreen(
                         sector = selected
                         val candidates = payrollInstitutionsFor(selected, county)
                         val selectedInstitution = candidates.firstOrNull()
-                        manualInstitution = selectedInstitution == null
+                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder()
                         customInstitutionText = ""
                         institutionName = selectedInstitution?.name ?: genericInstitutionLabel(selected)
                         regimeId = selectedInstitution?.regimeId
@@ -322,7 +328,7 @@ internal fun PayrollScreen(
                         testTag = "payroll-institution"
                     ) { selected ->
                         val selectedInstitution = sectorInstitutions.firstOrNull { it.name == selected }
-                        manualInstitution = selectedInstitution == null
+                        manualInstitution = selectedInstitution == null || selectedInstitution.isPlaceholder()
                         customInstitutionText = ""
                         institutionName = selectedInstitution?.name ?: genericInstitutionLabel(sector)
                         regimeId = selectedInstitution?.regimeId
