@@ -32,7 +32,7 @@ RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju sm
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
-- **Kalendar smjena** — D, N, GO, BO, PD i SD oznake kroz cijeli mjesec.
+- **Kalendar smjena** — glavni početni ekran; D, N, GO, BO, PD i SD mogu se uvesti skeniranjem ili ručno postaviti za bilo koji datum.
 - **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
 - **Evidencija sati** — ulaz, izlaz, bilješka, trajanje rada i mjesečna povijest.
 - **Statistika** — dnevni/noćni sati, saldo, vikendi, blagdani i raspodjela po tjednima.
@@ -67,9 +67,9 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
-| **Mjesečni kalendar** | Brz pregled smjena po danima, vikendima i hrvatskim blagdanima. |
+| **Mjesečni kalendar** | Početni ekran aplikacije s pregledom smjena, hrvatskih blagdana i ručnim uređivanjem D / N / GO / BO / PD / SD oznaka po danu. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
-| **OCR na Androidu i Web/PWA** | Fotografija rasporeda → prepoznate osobe → izbor točno jedne osobe → provjera smjena → spremanje. |
+| **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza; osobe i stupci dana se geometrijski povezuju, a import se ne dopušta kada položaj dana nije dovoljno pouzdan. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
 | **Saldo sati** | Razlika između planiranih i stvarno evidentiranih minuta. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
@@ -85,10 +85,10 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
-3. Parser pronalazi imena i prezimena te oznake **D / N / GO / BO / PD / SD** po danima.
+3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
 4. Gost ili individualni korisnik u osobni kalendar uvozi **točno jednu osobu**. Registrirani individualni račun može spremiti samo raspored koji odgovara imenu računa.
 5. Voditeljski Web račun može iz istog skeniranja spremiti više djelatnika kao **odvojene rasporede tima**; rasporedi se nikada ne spajaju među osobama.
-6. Prije spremanja moguće je ručno ispraviti prepoznate dane i oznake.
+6. Prije spremanja moguće je ručno ispraviti svaki dan i oznaku; bez pouzdane geometrije stupaca aplikacija traži ponovno skeniranje umjesto tihog pomicanja dana ulijevo ili udesno.
 
 Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Fotografija se obrađuje u pregledniku, a potvrđeni raspored i evidencija spremaju se kroz isti-origin PHP API u per-instalacijski JSON pod `storage/data`.
 
@@ -119,7 +119,7 @@ Evidencija sati dodatno razlikuje **redovni rad, 1./2./3. smjenu, turnus, dežur
 
 Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija RASPORED-a. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
 
-Za 2026. ugrađene su službene osnovice javnih i državnih službi po razdobljima te provjerljivi koeficijenti za odabrana radna mjesta u zdravstvu, školstvu, policiji i profesionalnom vatrogastvu. Web katalog sadrži aktualni popis bolničkih zdravstvenih ustanova Ministarstva zdravstva. Za KBC Rijeka postoji zaseban 2026 preset organizacije rada; generički zdravstveni preset ne preuzima automatski ustanovne specifičnosti.
+Za 2026. ugrađene su službene osnovice javnih i državnih službi po razdobljima te provjerljivi koeficijenti za odabrana radna mjesta u zdravstvu, školstvu, policiji i profesionalnom vatrogastvu. Web katalog sadrži aktualni popis bolničkih zdravstvenih ustanova Ministarstva zdravstva, a posebna pravila pojedine ustanove ne primjenjuju se na druge ustanove bez provjerljivog izvora.
 
 Vrtići, lokalna i regionalna uprava te drugi slučajevi gdje osnovicu, koeficijent ili dodatke određuje lokalni/ustanovni akt koriste **ručni unos**. Aplikacija u tim slučajevima ne izmišlja nacionalnu vrijednost. Ako radno mjesto nije u katalogu, postoji **Drugo / ručni unos**.
 
@@ -258,7 +258,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED je pripremljen kao **v1.0.5** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
+RASPORED je pripremljen kao **v1.0.8** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 
