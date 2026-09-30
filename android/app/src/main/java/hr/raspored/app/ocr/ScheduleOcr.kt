@@ -984,7 +984,16 @@ object ScheduleOcrParser {
                     dayShifts = (row.dayShifts + target.dayShifts).toSortedMap(),
                     supportCount = target.supportCount + row.supportCount
                 )
-            } else if (row.supportCount >= 3 && validName(row.name)) {
+            } else if (
+                row.supportCount >= 3 &&
+                validName(row.name) &&
+                row.dayShifts.size >= 2
+            ) {
+                // Footer notes below hospital rosters often repeat a real
+                // employee name followed by a single "GO" date range. Those
+                // notes can be recognized in several recovery passes and must
+                // never be promoted into a missing roster slot. A genuine
+                // unnumbered employee row needs at least two mapped day cells.
                 unmatched += row
             }
         }
