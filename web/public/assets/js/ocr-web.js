@@ -320,14 +320,14 @@ function parseGeometry(blocks,maxDay){
   var rows=anchoredRows(tokens,header,tolerance);
   return mergeRows(rows.concat(clusterRows,lineRows));
 }
-async function prepareImage(file){
+async function prepareImage(file,strong){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
   try{
     bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
     var largest=Math.max(bitmap.width,bitmap.height);
-    var longEdgeScale=3200/largest;
-    var pixelScale=Math.sqrt(8000000/(bitmap.width*bitmap.height));
+    var longEdgeScale=4096/largest;
+    var pixelScale=Math.sqrt(10000000/(bitmap.width*bitmap.height));
     var scale=Math.min(1,longEdgeScale,pixelScale);
     var canvas=document.createElement("canvas");
     canvas.width=Math.max(1,Math.round(bitmap.width*scale));
@@ -336,11 +336,11 @@ async function prepareImage(file){
     if(!context)return file;
     context.fillStyle="#fff";
     context.fillRect(0,0,canvas.width,canvas.height);
-    context.filter="contrast(1.15) saturate(.85)";
+    context.filter=strong?"grayscale(1) contrast(1.34)":"contrast(1.15) saturate(.85)";
     context.drawImage(bitmap,0,0,canvas.width,canvas.height);
     context.filter="none";
     return await new Promise(function(resolve){
-      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.95);
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",strong?.96:.95);
     });
   }catch(error){
     return file;
@@ -385,11 +385,12 @@ async function recognizeScheduleNow(file,onProgress){
   activeProgressCallback=onProgress||null;
   try{
     var worker=await getWorker();
-    var source=await prepareImage(file);
+    var source=await prepareImage(file,false);
     var first=parsedResult(await worker.recognize(source,{}, {text:true,blocks:true}));
     if(!sparseResult(first))return first;
     if(onProgress)onProgress(.86,"recovery");
-    var second=parsedResult(await worker.recognize(file,{}, {text:true,blocks:true}));
+    var recoverySource=await prepareImage(file,true);
+    var second=parsedResult(await worker.recognize(recoverySource,{}, {text:true,blocks:true}));
     return mergeRecognized(first,second);
   }finally{
     activeProgressCallback=null;
