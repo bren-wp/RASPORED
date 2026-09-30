@@ -148,17 +148,17 @@ object ScheduleOcrParser {
             val text = ordered.joinToString(" ") { it.text }
                 .replace(spaces, " ")
                 .trim()
-            val firstToken = ordered.firstOrNull() ?: return@mapNotNull null
-            val rowNumber = firstToken.text
-                .trim()
-                .trim('.', ')')
-                .toIntOrNull()
+            val rowNumber = rowNumberRegex.find(text)
+                ?.groupValues?.getOrNull(1)
+                ?.toIntOrNull()
                 ?.takeIf { it in 1..100 }
                 ?: return@mapNotNull null
             val name = cleanName(text)
-            val words = name.split(spaces).filter { word -> word.any(Char::isLetter) }
             val hasYearLikeNoise = Regex("""\b20\d{2}\b|\d{4,}""").containsMatchIn(name)
-            if (!validName(name) || words.size < 2 || hasYearLikeNoise) {
+            // A numbered roster row is a strong structural anchor. Keep it even
+            // when OCR only recovers one of the two name tokens; later passes can
+            // merge a better reading by row number instead of dropping the person.
+            if (!validName(name) || hasYearLikeNoise) {
                 return@mapNotNull null
             }
             RecognizedScheduleRow(
