@@ -486,6 +486,22 @@ function renderStats(){
     ["scale","Saldo sati","Prema evidenciji",signedHoursText(d.balanceMinutes)]
   ].map(function(x){return '<div class="detail-item"><i>'+icon(x[0])+'</i><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span><b>'+x[3]+'</b></div>'}).join("");
 }
+function workTypeLabel(type){
+  return {
+    regular:"Redovni rad",
+    shift1:"1. smjena",
+    shift2:"2. smjena",
+    shift3:"3. smjena",
+    turnus:"Turnus / 12-satni rad",
+    duty:"Dežurstvo",
+    standby:"Pripravnost",
+    callout:"Rad po pozivu",
+    other:"Drugi oblik rada"
+  }[type]||"Redovni rad";
+}
+function normalizeWorkType(type){
+  return ["regular","shift1","shift2","shift3","turnus","duty","standby","callout","other"].indexOf(type)>=0?type:"regular";
+}
 function renderHours(){
   var root=document.getElementById("view-hours");if(!root)return;
   var now=appNow(),today=iso(now),entries=loadTimeEntries(),active=activeTimeEntry(entries),latest=active||latestTimeEntry(entries,today);
@@ -493,25 +509,27 @@ function renderHours(){
   var dateEl=document.getElementById("hoursDate");if(dateEl)dateEl.textContent=now.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
   var monthLabel=document.getElementById("hoursMonthLabel");if(monthLabel)monthLabel.textContent=months[now.getMonth()]+" "+now.getFullYear()+".";
   var plannedEl=document.getElementById("hoursPlannedShift");if(plannedEl)plannedEl.textContent=(state.schedule[plannedKey]?planned.name+" · "+planned.time:"Nema planirane smjene");
-  var status=document.getElementById("hoursStatus"),pill=document.getElementById("hoursStatusPill"),inEl=document.getElementById("hoursInValue"),outEl=document.getElementById("hoursOutValue"),durationEl=document.getElementById("hoursDurationValue"),note=document.getElementById("hoursNote");
+  var status=document.getElementById("hoursStatus"),pill=document.getElementById("hoursStatusPill"),inEl=document.getElementById("hoursInValue"),outEl=document.getElementById("hoursOutValue"),durationEl=document.getElementById("hoursDurationValue"),note=document.getElementById("hoursNote"),workType=document.getElementById("hoursWorkType");
   if(status)status.textContent=active?"Rad je u tijeku":latest&&latest.out?"Današnja evidencija je spremljena":"Nema evidentiranog ulaza";
   if(pill){pill.textContent=active?"U tijeku":latest&&latest.out?"Završeno":"Spremno";pill.classList.toggle("is-active",!!active);pill.classList.toggle("is-done",!!(latest&&latest.out))}
   if(inEl)inEl.textContent=latest?latest.in:"—";
   if(outEl)outEl.textContent=latest&&latest.out?latest.out:"—";
   if(durationEl)durationEl.textContent=latest?durationLabel(durationMinutes(latest,now)):"0h 00min";
   if(note&&document.activeElement!==note)note.value=latest&&latest.note?latest.note:"";
+  if(workType&&document.activeElement!==workType)workType.value=normalizeWorkType(latest&&latest.workType);
   var inBtn=document.getElementById("clockInBtn"),outBtn=document.getElementById("clockOutBtn");
   if(inBtn)inBtn.disabled=!!active;
   if(outBtn)outBtn.disabled=!active;
   var monthPrefix=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-",monthEntries=entries.filter(function(x){return x.date.indexOf(monthPrefix)===0});
   var total=monthEntries.reduce(function(sum,x){return sum+(x.out?durationMinutes(x,now):0)},0),totalEl=document.getElementById("hoursMonthTotal");if(totalEl)totalEl.textContent=durationLabel(total);
-  var history=document.getElementById("hoursHistory");if(history){var sorted=monthEntries.slice().reverse();history.innerHTML=sorted.length?sorted.map(function(x){var d=new Date(x.date+"T12:00:00"),mins=durationMinutes(x,now);return '<article class="hours-history-row"><span class="hours-history-date"><b>'+String(d.getDate()).padStart(2,"0")+'.'+String(d.getMonth()+1).padStart(2,"0")+'.</b><small>'+d.toLocaleDateString("hr-HR",{weekday:"short"})+'</small></span><span><b>'+x.in+' – '+(x.out||"u tijeku")+'</b><small>'+(x.note?escapeHtml(x.note):"Bez bilješke")+'</small></span><strong>'+durationLabel(mins)+'</strong></article>'}).join(""):'<div class="hours-empty">'+icon("clock")+'<p>Još nema evidentiranih sati za ovaj mjesec.</p></div>'}
+  var history=document.getElementById("hoursHistory");if(history){var sorted=monthEntries.slice().reverse();history.innerHTML=sorted.length?sorted.map(function(x){var d=new Date(x.date+"T12:00:00"),mins=durationMinutes(x,now);return '<article class="hours-history-row"><span class="hours-history-date"><b>'+String(d.getDate()).padStart(2,"0")+'.'+String(d.getMonth()+1).padStart(2,"0")+'.</b><small>'+d.toLocaleDateString("hr-HR",{weekday:"short"})+'</small></span><span><b>'+x.in+' – '+(x.out||"u tijeku")+'</b><small class="hours-work-label">'+escapeHtml(workTypeLabel(normalizeWorkType(x.workType)))+'</small><small>'+(x.note?escapeHtml(x.note):"Bez bilješke")+'</small></span><strong>'+durationLabel(mins)+'</strong></article>'}).join(""):'<div class="hours-empty">'+icon("clock")+'<p>Još nema evidentiranih sati za ovaj mjesec.</p></div>'}
 }
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
 function clockIn(){
   var entries=loadTimeEntries(),now=appNow(),today=iso(now);
   if(activeTimeEntry(entries)){toast("Ulaz je već evidentiran.");return}
-  entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:"",startedAt:now.getTime(),endedAt:null});
+  var workType=document.getElementById("hoursWorkType");
+  entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:"",workType:normalizeWorkType(workType&&workType.value),startedAt:now.getTime(),endedAt:null});
   if(!saveTimeEntries(entries)){toast("Ulaz nije spremljen u storage/data.");return}
   renderAll();toast("Ulaz je evidentiran.")
 }
@@ -527,6 +545,13 @@ function saveHoursNote(){
   var entries=loadTimeEntries(),today=iso(appNow()),entry=activeTimeEntry(entries)||latestTimeEntry(entries,today),note=document.getElementById("hoursNote");
   if(!entry||!note)return;
   entry.note=note.value.trim().slice(0,500);if(!saveTimeEntries(entries))toast("Bilješku nije moguće spremiti.")
+}
+function saveHoursWorkType(){
+  var entries=loadTimeEntries(),today=iso(appNow()),entry=activeTimeEntry(entries)||latestTimeEntry(entries,today),select=document.getElementById("hoursWorkType");
+  if(!entry||!select)return;
+  entry.workType=normalizeWorkType(select.value);
+  if(!saveTimeEntries(entries))toast("Vrstu rada nije moguće spremiti.");
+  else renderHours();
 }
 async function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
@@ -633,6 +658,7 @@ function bind(){
   document.getElementById("clockInBtn").addEventListener("click",clockIn);
   document.getElementById("clockOutBtn").addEventListener("click",clockOut);
   document.getElementById("hoursNote").addEventListener("change",saveHoursNote);
+  document.getElementById("hoursWorkType").addEventListener("change",saveHoursWorkType);
   document.getElementById("rescanBtn").addEventListener("click",function(){document.getElementById("cameraInput").click()});
   document.getElementById("rescanSecondary").addEventListener("click",function(){document.getElementById("cameraInput").click()});
   document.getElementById("galleryBtn").addEventListener("click",function(){document.getElementById("galleryInput").click()});
