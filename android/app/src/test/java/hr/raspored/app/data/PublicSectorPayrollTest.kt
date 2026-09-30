@@ -39,6 +39,17 @@ class PublicSectorPayrollTest {
     }
 
     @Test
+    fun androidHospitalCatalogMatchesCurrentWebMinistryCatalogSize() {
+        assertEquals(61, PublicSectorPayroll.institutions.size)
+        assertTrue(
+            PublicSectorPayroll.institutions.any {
+                it.name == "Klinički bolnički centar Rijeka" &&
+                    it.regimeId == "kbc-rijeka-2026"
+            }
+        )
+    }
+
+    @Test
     fun catalogContainsVerifiedEducationPoliceAndFirefighterExamples() {
         assertEquals(2.01, PublicSectorPayroll.role("edu-teacher", "public-education").coefficient ?: -1.0, 0.001)
         assertEquals(1.70, PublicSectorPayroll.role("police-station", "police").coefficient ?: -1.0, 0.001)
