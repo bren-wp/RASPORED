@@ -141,6 +141,18 @@ test("AI scan review requires consent and resolves conflicts before import", asy
   await expect(page.locator("#scanConflictCount")).toContainText("1 nejasnih");
   await expect(page.locator("#scanMonthLabel")).toHaveText("Listopad 2026.");
   await expect(page.locator("#saveSchedule")).toBeDisabled();
+  await expect(page.locator("#saveTeamSchedules")).toBeDisabled();
+
+  // A conflict on Ana must not block importing Luka's clean personal row.
+  await page.locator("#scanPersonButton").click();
+  await page.locator('#scanPersonMenu [data-scan-person="1"]').click();
+  await expect(page.locator("#scanPersonLabel")).toContainText("LUKA BABIĆ");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
+
+  // Selecting the conflicted row blocks only that personal import.
+  await page.locator("#scanPersonButton").click();
+  await page.locator('#scanPersonMenu [data-scan-person="0"]').click();
+  await expect(page.locator("#saveSchedule")).toBeDisabled();
 
   await page.locator("#scanReviewNextBtn").click();
   await expect(page.locator("#scanConflictDialog")).toBeVisible();
