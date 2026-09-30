@@ -932,3 +932,27 @@ test("dynamic assets honor a subdirectory deployment base", async ({page}) => {
   await expect(page.locator("#searchDialog")).toBeVisible();
   await expect(page.locator("#searchResults use").first()).toHaveAttribute("href",/^\/raspored\/assets\/brand\/icons\.svg#icon-/);
 });
+
+
+test("calendar saves and reloads a custom per-date schedule label", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const input=page.locator("#calendarCustomCode");
+  await expect(input).toBeVisible();
+  await input.fill("EDU");
+  await page.locator("[data-save-custom-shift]").click();
+
+  await expect(page.locator("#selectedDayCard")).toContainText("EDU");
+  const stored=await page.evaluate(() => {
+    return JSON.parse((window as any).RasporedDataStore.get("raspored.schedule")||"{}");
+  });
+  expect(Object.values(stored)).toContain("EDU");
+
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const afterReload=await page.evaluate(() => {
+    return JSON.parse((window as any).RasporedDataStore.get("raspored.schedule")||"{}");
+  });
+  expect(Object.values(afterReload)).toContain("EDU");
+});
