@@ -1,6 +1,6 @@
     <section class="view" id="view-scan" data-view="scan">
       <div class="scan-header"><button class="back-btn" data-route="home" aria-label="Natrag"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-left"></use></svg></button><div class="brand-inline"><img src="assets/brand/logo.svg" alt="" width="40"><b>RASPORED</b></div></div>
-      <div class="scan-copy scan-copy--with-help"><div><h1>Skeniraj raspored</h1><p>Slikaj raspored s papira ili učitaj fotografiju.<br>Mi ćemo automatski prepoznati podatke.</p></div><button class="icon-btn scan-help-btn" id="scanHelpBtn" aria-label="Pomoć za skeniranje">?</button></div>
+      <div class="scan-copy scan-copy--with-help"><div><h1>Skeniraj raspored</h1><p>Slikaj cijelu tablicu ili učitaj fotografiju.<br>Moraju biti vidljivi svi redci osoba i svi stupci dana.</p></div><button class="icon-btn scan-help-btn" id="scanHelpBtn" aria-label="Pomoć za skeniranje">?</button></div>
       <section class="scan-preview" id="scanPreview">
         <div class="scan-corners" aria-hidden="true"></div>
         <img id="scanPreviewImage" class="scan-preview-image" alt="Odabrana fotografija rasporeda">

@@ -88,6 +88,137 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun infersDenseMonthGridFromShiftColumnsWhenHeaderIsUnreadable() {
+        val xs = buildList {
+            for (day in 1..31) {
+                val center = 120 + (day - 1) * 42
+                add(center - 2)
+                add(center)
+                add(center + 2)
+            }
+        }
+        val centers = ScheduleOcrParser.inferDayCentersFromShiftXs(xs, 31)
+        requireNotNull(centers)
+        assertEquals(120, centers[1])
+        assertEquals(750, centers[16])
+        assertEquals(1380, centers[31])
+    }
+
+    @Test
+    fun rejectsAmbiguousLeadingBlankDayWithoutHeaderEvidence() {
+        val xs = buildList {
+            for (day in 2..31) {
+                val center = 120 + (day - 1) * 42
+                add(center - 2)
+                add(center)
+                add(center + 2)
+            }
+        }
+        assertNull(ScheduleOcrParser.inferDayCentersFromShiftXs(xs, 31))
+    }
+
+    @Test
+    fun usesSingleHeaderAnchorToPreserveLeadingBlankDay() {
+        val xs = buildList {
+            for (day in 2..31) {
+                val center = 120 + (day - 1) * 42
+                add(center - 2)
+                add(center)
+                add(center + 2)
+            }
+        }
+        val centers = ScheduleOcrParser.inferDayCentersFromShiftXs(
+            rawXs = xs,
+            maxDay = 31,
+            absoluteAnchors = mapOf(2 to listOf(162))
+        )
+        requireNotNull(centers)
+        assertEquals(120, centers[1])
+        assertEquals(162, centers[2])
+        assertEquals(1380, centers[31])
+    }
+
+    @Test
+    fun rejectsSparseShiftColumnsInsteadOfInventingCalendarDays() {
+        assertNull(
+            ScheduleOcrParser.inferDayCentersFromShiftXs(
+                listOf(100, 300, 500, 700, 900),
+                31
+            )
+        )
+    }
+
+    @Test
+    fun filtersDistantRowNumberNoiseFromDenseRoster() {
+        val rows = (1..12).map { number ->
+            RecognizedScheduleRow(
+                rowNumber = number,
+                name = "Osoba Primjer $number",
+                dayShifts = mapOf(1 to "D")
+            )
+        } + RecognizedScheduleRow(
+            rowNumber = 80,
+            name = "Lažni Rubni Tekst",
+            dayShifts = emptyMap()
+        )
+
+        val merged = ScheduleOcrParser.mergeRows(rows)
+
+        assertEquals(12, merged.size)
+        assertEquals((1..12).toList(), merged.mapNotNull { it.rowNumber })
+    }
+
+    @Test
+    fun mergesPartialDayBandsByRosterRowNumber() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = 1,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(1 to "D", 2 to "N")
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 1,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(15 to "GO", 31 to "SD")
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 2,
+                    name = "LUKA BABIĆ",
+                    dayShifts = mapOf(1 to "N")
+                )
+            )
+        )
+
+        assertEquals(2, merged.size)
+        assertEquals(
+            mapOf(1 to "D", 2 to "N", 15 to "GO", 31 to "SD"),
+            merged.first { it.rowNumber == 1 }.dayShifts
+        )
+    }
+
+    @Test
+    fun mergesReorderedNamesWhenRowNumberIsMissingInRecoveryPass() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(1 to "D")
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "HORVAT ANA",
+                    dayShifts = mapOf(20 to "N")
+                )
+            )
+        )
+
+        assertEquals(1, merged.size)
+        assertEquals(mapOf(1 to "D", 20 to "N"), merged.single().dayShifts)
+    }
+
+    @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
         assertEquals(YearMonth.of(2027, 1), result.month)

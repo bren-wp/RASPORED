@@ -1,6 +1,6 @@
   <nav class="bottom-nav" aria-label="Mobilna navigacija">
-    <button class="is-active" data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-home"></use></svg><small>Početna</small></button>
-    <button data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><small>Kalendar</small></button>
+    <button data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-home"></use></svg><small>Početna</small></button>
+    <button class="is-active" data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><small>Kalendar</small></button>
     <button class="scan-nav" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><small>Skeniraj</small></button>
     <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><small>Statistika</small></button>
     <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><small>Postavke</small></button>
@@ -24,9 +24,9 @@
       <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
     </div>
     <div class="scan-help-list">
-      <p><b>1.</b> Obuhvati cijelu tablicu i zaglavlje s brojevima dana.</p>
-      <p><b>2.</b> Izbjegni sjene, odsjaj i zamućenje.</p>
-      <p><b>3.</b> Ako je na rasporedu više osoba, nakon prepoznavanja odaberi samo jedno ime i prezime.</p>
+      <p><b>1.</b> Obuhvati cijelu tablicu: prvi i zadnji redak osobe te sve stupce dana.</p>
+      <p><b>2.</b> Za široku mjesečnu tablicu fotografiraj vodoravno; izbjegni sjene, odsjaj i zamućenje.</p>
+      <p><b>3.</b> U pregledu se fotografija prikazuje cijela, bez rezanja rubova. Ako ima više osoba, odaberi samo jedno ime i prezime.</p>
       <p><b>4.</b> Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.</p>
     </div>
   </form>
@@ -107,6 +107,7 @@
 <div class="connectivity-banner" id="connectivityBanner" role="status" aria-live="polite">Nema internetske veze. Spremljeni raspored ostaje dostupan.</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/data-store.js', ENT_QUOTES) ?>" defer></script>
+<script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-table.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/payroll.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/auth.js', ENT_QUOTES) ?>" defer></script>

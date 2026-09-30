@@ -63,11 +63,41 @@ internal fun OcrScanScreen(
         selectedMonth = recognized.month ?: defaultMonth
         editedShifts.clear()
         editMode = false
+        val totalRecognizedDays = recognized.rows.sumOf { it.dayShifts.size }
+        val emptyRows = recognized.rows.count { it.dayShifts.isEmpty() }
+        val numberedRows = recognized.rows
+            .mapNotNull { it.rowNumber }
+            .filter { it in 1..100 }
+            .distinct()
+            .sorted()
+        val expectedRows = if (
+            numberedRows.size >= 5 &&
+            numberedRows.firstOrNull()?.let { it <= 3 } == true
+        ) {
+            val first = numberedRows.first()
+            val last = numberedRows.last()
+            (last - first + 1).takeIf { it >= 8 }
+        } else {
+            null
+        }
+        val rosterWarning = expectedRows?.let { expected ->
+            val found = numberedRows.size
+            if (found * 100 < expected * 88) {
+                " Upozorenje: prepoznato je $found od najmanje $expected numeriranih redaka; za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra."
+            } else {
+                ""
+            }
+        }.orEmpty()
         when {
             recognized.rows.isEmpty() -> {
                 selectedRow = -1
                 phase = OcrPhase.Error
                 message = "Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Pokušaj obuhvatiti cijelu tablicu, posebno zaglavlje s brojevima dana."
+            }
+            totalRecognizedDays == 0 -> {
+                selectedRow = -1
+                phase = OcrPhase.Error
+                message = "Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."
             }
             recognized.rows.size == 1 -> {
                 selectedRow = 0
@@ -81,8 +111,10 @@ internal fun OcrScanScreen(
                 selectedRow = -1
                 phase = OcrPhase.Success
                 val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
-                val recognizedDays = recognized.rows.sumOf { it.dayShifts.size }
-                message = "Prepoznate su $countLabel i ukupno $recognizedDays oznaka dana. Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                message = "Prepoznate su $countLabel i ukupno $totalRecognizedDays oznaka dana." +
+                    rosterWarning +
+                    if (emptyRows > 0) " $emptyRows numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih." else "" +
+                    " Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }
@@ -104,20 +136,32 @@ internal fun OcrScanScreen(
         ScheduleOcrEngine.recognize(
             bitmap = source,
             onSuccess = { recognized ->
-                if (ocrGeneration == generation) applyResult(recognized)
+                if (ocrGeneration == generation) {
+                    applyResult(recognized)
+                } else if (!source.isRecycled) {
+                    source.recycle()
+                }
             },
             onError = {
                 if (ocrGeneration == generation) {
                     phase = OcrPhase.Error
                     message = "Prepoznavanje nije uspjelo. Pokušaj ponovno ili odaberi drugu fotografiju."
+                } else if (!source.isRecycled) {
+                    source.recycle()
                 }
             }
         )
     }
 
     fun loadAndProcess(uri: android.net.Uri, errorMessage: String) {
+        val previousBitmap = bitmap
+        val previousWasProcessing = phase == OcrPhase.Processing
         val generation = ocrGeneration + 1
         ocrGeneration = generation
+        if (!previousWasProcessing && previousBitmap != null && !previousBitmap.isRecycled) {
+            previousBitmap.recycle()
+            if (bitmap === previousBitmap) bitmap = null
+        }
         result = null
         selectedRow = -1
         editedShifts.clear()
@@ -143,6 +187,9 @@ internal fun OcrScanScreen(
     DisposableEffect(Unit) {
         onDispose {
             ocrGeneration += 1
+            if (phase != OcrPhase.Processing) {
+                bitmap?.takeIf { !it.isRecycled }?.recycle()
+            }
         }
     }
 
@@ -188,7 +235,7 @@ internal fun OcrScanScreen(
                 Column(Modifier.weight(1f)) {
                     Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Slikaj raspored s papira ili učitaj fotografiju.\nMi ćemo automatski prepoznati podatke.",
+                        "Slikaj cijelu tablicu ili učitaj fotografiju. Važno je da su vidljivi svi redci osoba i zaglavlje sa svim danima.",
                         color = RasporedTokens.Slate
                     )
                 }
@@ -218,7 +265,7 @@ internal fun OcrScanScreen(
                                 bitmap = bitmap!!.asImageBitmap(),
                                 contentDescription = "Fotografija rasporeda za OCR",
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Fit
                             )
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -233,6 +280,22 @@ internal fun OcrScanScreen(
                             }
                         }
                         ScanFrame()
+                        if (bitmap != null) {
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                                shape = RoundedCornerShape(999.dp),
+                                color = Color(0xD90B1F44)
+                            ) {
+                                Text(
+                                    "OCR obrađuje cijelu fotografiju — provjeri da je cijela tablica vidljiva.",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    color = Color.White,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
                     }
 
                     Row(
@@ -496,7 +559,9 @@ internal fun OcrScanScreen(
             title = { Text("Kako dobiti dobar rezultat") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("• Obuhvati cijelu tablicu i zaglavlje s brojevima dana.")
+                    Text("• Obuhvati cijelu tablicu: prvi i zadnji redak osobe te sve stupce od 1. do zadnjeg dana mjeseca.")
+                    Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
+                    Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Ako je na rasporedu više osoba, odaberi samo jedno ime i prezime.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.")

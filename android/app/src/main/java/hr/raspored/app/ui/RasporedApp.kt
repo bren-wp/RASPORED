@@ -73,7 +73,7 @@ private val SD=Shift("SD","Slobodan dan","—",0)
 private val NONE=Shift("","Nema planirane smjene","—",0)
 
 @Composable fun RasporedApp(){
-    var screen by remember { mutableStateOf(Screen.Home) }
+    var screen by remember { mutableStateOf(Screen.Calendar) }
     val context = LocalContext.current.applicationContext
     val store = remember(context) { ScheduleStore(context) }
     val uiSettings = remember(context) { UiSettingsStore(context) }
@@ -130,7 +130,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
             containerColor=MaterialTheme.colorScheme.background,
             snackbarHost={ SnackbarHost(snackbarHostState) },
             topBar={
-                if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Home})
+                if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Calendar})
                 else BrandHeader(
                     screen=screen,
                     onScan={screen=Screen.Scan},
@@ -157,7 +157,15 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
                     Screen.Home->HomeScreen(scheduleCodes,evidenceEntries){screen=it}
-                    Screen.Calendar->CalendarScreen(scheduleCodes,evidenceEntries)
+                    Screen.Calendar->CalendarScreen(
+                        scheduleCodes=scheduleCodes,
+                        evidenceEntries=evidenceEntries,
+                        onShiftChange={date,code->
+                            store.record(date,code)
+                            if(code==null) scheduleCodes.remove(date.toString())
+                            else scheduleCodes[date.toString()]=code
+                        }
+                    )
                     Screen.Scan->OcrScanScreen(YearMonth.from(appDate())) { month, shifts ->
                         store.saveMonth(month, shifts)
                         (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
@@ -483,7 +491,11 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
-@Composable private fun CalendarScreen(scheduleCodes:Map<String,String>,evidenceEntries:List<TimeEvidenceEntry>){
+@Composable private fun CalendarScreen(
+    scheduleCodes:Map<String,String>,
+    evidenceEntries:List<TimeEvidenceEntry>,
+    onShiftChange:(LocalDate,String?)->Unit
+){
     val today=appDate()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     var selected by remember { mutableStateOf(today) }
@@ -576,6 +588,47 @@ private fun largeMinutesLabel(minutes:Long):String {
                         }
                         Icon(Icons.Outlined.ChevronRight,null)
                     }
+                    HorizontalDivider(Modifier.padding(vertical=12.dp))
+                    Text("Ručno postavi oznaku",fontSize=13.sp,fontWeight=FontWeight.Bold)
+                    Text(
+                        "Dodirni oznaku za odabrani datum. Promjena se odmah sprema i ostaje dostupna u prošlim mjesecima.",
+                        fontSize=11.sp,
+                        color=Slate,
+                        modifier=Modifier.padding(top=2.dp,bottom=8.dp)
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement=Arrangement.spacedBy(7.dp)
+                    ){
+                        listOf(D,N,GO).forEach{shift->
+                            ManualShiftButton(
+                                shift=shift,
+                                selected=selectedShift?.code==shift.code,
+                                modifier=Modifier.weight(1f),
+                                onClick={onShiftChange(selected,shift.code)}
+                            )
+                        }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().padding(top=7.dp),
+                        horizontalArrangement=Arrangement.spacedBy(7.dp)
+                    ){
+                        listOf(BO,PD,SD).forEach{shift->
+                            ManualShiftButton(
+                                shift=shift,
+                                selected=selectedShift?.code==shift.code,
+                                modifier=Modifier.weight(1f),
+                                onClick={onShiftChange(selected,shift.code)}
+                            )
+                        }
+                    }
+                    TextButton(
+                        onClick={onShiftChange(selected,null)},
+                        enabled=selectedShift!=null,
+                        modifier=Modifier.align(Alignment.End).padding(top=4.dp)
+                    ){
+                        Text("Očisti oznaku")
+                    }
                 }
             }
         }
@@ -601,6 +654,34 @@ private fun largeMinutesLabel(minutes:Long):String {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable private fun ManualShiftButton(
+    shift:Shift,
+    selected:Boolean,
+    modifier:Modifier=Modifier,
+    onClick:()->Unit
+){
+    OutlinedButton(
+        onClick=onClick,
+        modifier=modifier.height(46.dp).testTag("calendar-set-"+shift.code.lowercase()),
+        shape=RoundedCornerShape(12.dp),
+        border=BorderStroke(
+            if(selected) 2.dp else 1.dp,
+            if(selected) Cyan else MaterialTheme.colorScheme.outlineVariant
+        ),
+        contentPadding=PaddingValues(horizontal=6.dp,vertical=0.dp)
+    ){
+        Surface(
+            shape=RoundedCornerShape(8.dp),
+            color=shiftBg(shift),
+            modifier=Modifier.size(30.dp)
+        ){
+            Box(contentAlignment=Alignment.Center){
+                Text(shift.code,color=shiftFg(shift),fontWeight=FontWeight.ExtraBold,fontSize=11.sp)
             }
         }
     }

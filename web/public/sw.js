@@ -1,10 +1,11 @@
-const CACHE="raspored-v1.0.7";
+const CACHE="raspored-v1.0.8";
 const ASSETS=[
   "./",
   "./version.txt",
   "./assets/css/app.css",
   "./assets/js/data-store.js",
   "./assets/js/app.js",
+  "./assets/js/ocr-table.js",
   "./assets/js/ocr-web.js",
   "./assets/js/payroll.js",
   "./assets/js/auth.js",

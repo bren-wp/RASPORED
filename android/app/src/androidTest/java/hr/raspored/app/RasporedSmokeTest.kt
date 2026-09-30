@@ -5,6 +5,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
 
@@ -13,6 +14,10 @@ class RasporedSmokeTest {
 
     @Test
     fun glavneNavigacijeOtvarajuProdukcijskeEkrane() {
+        composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
+        composeRule.onNodeWithTag("calendar-set-d").performScrollTo().performClick()
+
+        composeRule.onNodeWithTag("nav-home").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-calendar").performClick()

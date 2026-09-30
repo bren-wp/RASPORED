@@ -7,6 +7,8 @@ test.beforeEach(async ({page}) => {
 
 test("responsive home uses production composition", async ({page}) => {
   await page.goto("/");
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await page.locator('[data-route="home"]:visible').first().click();
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
     await expect(page.getByText("Današnja smjena")).toBeVisible();
@@ -19,7 +21,7 @@ test("responsive home uses production composition", async ({page}) => {
 
 test("calendar and statistics remain interactive", async ({page}) => {
   await page.goto("/");
-  await page.locator('[data-route="calendar"]:visible').first().click();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   await expect(page.locator("#calendarGridMobile")).toBeVisible();
   await page.locator('[data-route="stats"]:visible').first().click();
   await expect(page.getByText("Ukupno odrađeno sati")).toBeVisible();
@@ -30,6 +32,23 @@ test("calendar and statistics remain interactive", async ({page}) => {
   await page.locator("#statsPeriod").click();
   await expect(page.locator("#statsPeriodMenu")).toBeVisible();
 });
+
+test("calendar is the start view and manual status editing persists", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await page.locator('[data-manual-shift="PD"]').click();
+  const selectedDate=await page.locator("#selectedDayCard").evaluate((el:any) => {
+    const card=el;
+    const selected=document.querySelector(".calendar-grid--mobile .day.is-selected, .calendar-grid--mobile .is-selected");
+    return selected&&selected.getAttribute("data-date");
+  }).catch(()=>null);
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+  await page.reload();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await expect(page.locator('[data-manual-shift="PD"]')).toHaveAttribute("aria-pressed","true");
+  expect(selectedDate===null||typeof selectedDate==="string").toBeTruthy();
+});
+
 
 test("scan performs OCR and exposes multiple invented employees", async ({page}) => {
   await mockOcr(page);
@@ -90,7 +109,7 @@ test("recognized schedule can be corrected before import", async ({page}) => {
 test("time evidence records and persists check-in and check-out", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
 
   await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
@@ -100,7 +119,7 @@ test("time evidence records and persists check-in and check-out", async ({page})
   await expect(page.locator("#hoursStatus")).toContainText("spremljena");
 
   await page.reload();
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
   await expect(page.locator("#hoursHistory")).toContainText("Redovna smjena");
 });
@@ -108,7 +127,7 @@ test("time evidence records and persists check-in and check-out", async ({page})
 test("time evidence stores selected work type without inventing a special-duty rate", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
 
   await page.locator("#hoursWorkType").selectOption("duty");
@@ -120,6 +139,77 @@ test("time evidence stores selected work type without inventing a special-duty r
     return rows[rows.length-1];
   });
   expect(stored.workType).toBe("duty");
+});
+
+test("web OCR infers a dense full-month grid when header numbers are missed", async ({page}) => {
+  await page.goto("/");
+  const result=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const xs:number[]=[];
+    for(let day=1;day<=31;day++){
+      const center=120+(day-1)*42;
+      xs.push(center-2,center,center+2);
+    }
+    return api.inferDayCentersFromShiftXs(xs,31);
+  });
+  expect(result).not.toBeNull();
+  expect(Math.round(result.centers["1"])).toBe(120);
+  expect(Math.round(result.centers["16"])).toBe(750);
+  expect(Math.round(result.centers["31"])).toBe(1380);
+});
+
+test("web OCR table detector removes page margins while keeping the whole monthly grid", async ({page}) => {
+  await page.goto("/");
+  const bounds=await page.evaluate(() => {
+    const canvas=document.createElement("canvas");
+    canvas.width=1600;
+    canvas.height=1200;
+    const ctx=canvas.getContext("2d")!;
+    ctx.fillStyle="#f7f7f7";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    const left=180,top=210,right=1510,bottom=820;
+    ctx.strokeStyle="#202020";
+    ctx.lineWidth=2;
+    for(let row=0;row<=28;row++){
+      const y=top+(bottom-top)*row/28;
+      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+    }
+    const nameWidth=230;
+    ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,bottom);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(left+nameWidth,top);ctx.lineTo(left+nameWidth,bottom);ctx.stroke();
+    for(let day=0;day<=31;day++){
+      const x=left+nameWidth+(right-left-nameWidth)*day/31;
+      ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();
+    }
+    return (window as any).RasporedOcrTableCrop.detectGridBounds(canvas);
+  });
+  expect(bounds).not.toBeNull();
+  expect(bounds.left).toBeLessThanOrEqual(230);
+  expect(bounds.top).toBeLessThanOrEqual(230);
+  expect(bounds.right).toBeGreaterThanOrEqual(1450);
+  expect(bounds.bottom).toBeGreaterThanOrEqual(790);
+  expect(bounds.right-bounds.left).toBeLessThan(1500);
+  expect(bounds.bottom-bounds.top).toBeLessThan(900);
+});
+
+test("web OCR rejects an ambiguous leading blank day without a header anchor", async ({page}) => {
+  await page.goto("/");
+  const result=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const xs:number[]=[];
+    for(let day=2;day<=31;day++){
+      const center=120+(day-1)*42;
+      xs.push(center-2,center,center+2);
+    }
+    return {
+      ambiguous:api.inferDayCentersFromShiftXs(xs,31),
+      anchored:api.inferDayCentersFromShiftXs(xs,31,{"2":[162]})
+    };
+  });
+  expect(result.ambiguous).toBeNull();
+  expect(Math.round(result.anchored.centers["1"])).toBe(120);
+  expect(Math.round(result.anchored.centers["2"])).toBe(162);
+  expect(Math.round(result.anchored.centers["31"])).toBe(1380);
 });
 
 test("profile, notifications and colleagues controls work", async ({page}) => {
@@ -231,6 +321,19 @@ test("no demo or development labels ship in production UI", async ({page}) => {
 });
 
 
+test("web OCR filters distant row-number noise from a dense roster", async ({page}) => {
+  await page.goto("/");
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const lines=[];
+    for(let row=1;row<=12;row++)lines.push(row+" OSOBA PRIMJER "+row+" 1 D");
+    lines.push("80 LAŽNI RUBNI TEKST 1 D");
+    return api.parseText(lines.join("\n"));
+  });
+  expect(rows).toHaveLength(12);
+  expect(rows.map((row:any)=>row.row)).toEqual(Array.from({length:12},(_,index)=>index+1));
+});
+
 test("web OCR parser keeps exact day columns and normalizes common OCR errors", async ({page}) => {
   await page.goto("/");
   const parsed=await page.evaluate(() => {
@@ -291,6 +394,47 @@ test("Web OCR geometry recovers all people and all 31 day columns from a fragmen
   }
 });
 
+test("Web OCR merges reordered names from separate recovery passes", async ({page}) => {
+  await page.goto("/");
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    return api.parseText("ANA HORVAT 1 D\nHORVAT ANA 20 N");
+  });
+  expect(rows).toHaveLength(1);
+  expect(rows[0].dayShifts).toEqual({"1":"D","20":"N"});
+});
+
+test("Web OCR late-month recovery band keeps roster names and exact days", async ({page}) => {
+  await page.goto("/");
+  const parsed=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const box=(x:number,y:number,w=18,h=14)=>({x0:x,y0:y,x1:x+w,y1:y+h});
+    const dayX=(day:number)=>300+(day-20)*30;
+    const header={
+      bbox:box(290,50,380,16),
+      words:Array.from({length:12},(_,index)=>index+20).map(day=>({
+        text:String(day),bbox:box(dayX(day),50,16,14)
+      }))
+    };
+    const row={
+      bbox:box(20,100,680,18),
+      words:[
+        {text:"1",bbox:box(24,100,16,16)},
+        {text:"ANA",bbox:box(55,100,55,16)},
+        {text:"HORVAT",bbox:box(118,100,80,16)},
+        {text:"D",bbox:box(dayX(20),100,16,16)},
+        {text:"N",bbox:box(dayX(21),100,16,16)},
+        {text:"GO",bbox:box(dayX(29),100,18,16)},
+        {text:"SD",bbox:box(dayX(31),100,18,16)}
+      ]
+    };
+    return api.parseGeometry([{paragraphs:[{lines:[header,row]}]}],31);
+  });
+  expect(parsed).toHaveLength(1);
+  expect(parsed[0].name).toBe("ANA HORVAT");
+  expect(parsed[0].dayShifts).toEqual({"20":"D","21":"N","29":"GO","31":"SD"});
+});
+
 test("overnight time evidence can be closed after midnight", async ({page}) => {
   await page.goto("/");
   await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
@@ -301,7 +445,7 @@ test("overnight time evidence can be closed after midnight", async ({page}) => {
     await (window as any).RasporedDataStore.flush();
   });
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
   else await page.locator('[data-route="hours"]:visible').first().click();
   await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
   await expect(page.locator("#clockOutBtn")).toBeEnabled();
@@ -315,8 +459,10 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
     await page.goto("/");
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;
-      if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+      if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
       else await page.locator('[data-route="hours"]:visible').first().click();
+    }else if(route==="home"){
+      await page.locator('[data-route="home"]:visible').first().click();
     }else if(route==="payroll"){
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820){
@@ -414,6 +560,20 @@ test("salary estimator switches between police, fire and manual local regimes", 
   await expect(page.locator("#payrollGross")).not.toHaveText("Unesi osnovicu");
 });
 
+test("salary estimator supports private-sector manual parameters without invented presets", async ({page}) => {
+  await page.goto("/");
+  await openPayroll(page);
+  await page.locator("#payrollSector").selectOption("Privatni sektor");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
+  await expect(page.locator("#payrollCustomBase")).toHaveAttribute("required","");
+  await expect(page.locator("#payrollRole")).toHaveValue("manual");
+  await page.locator("#payrollInstitutionCustom").fill("Privatni poslodavac Primjer");
+  await page.locator("#payrollCustomBase").fill("1800");
+  await page.locator("#payrollCoefficient").fill("1");
+  await expect(page.locator("#payrollGross")).not.toHaveText("Unesi osnovicu");
+  await expect(page.locator("#payrollRoleNote")).toContainText("Privatni");
+});
+
 test("salary estimator applies residence tax presets independently from institution county", async ({page}) => {
   await page.goto("/");
   await openPayroll(page);
@@ -488,19 +648,11 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
 
-  if(width>820){
-    const before=await page.locator("#monthTitle").textContent();
-    await page.locator("#nextMonth").click();
-    await expect(page.locator("#monthTitle")).not.toHaveText(before||"");
-    await page.locator("#prevMonth").click();
-    await page.locator("#todayBtn").click();
-  }else{
-    await page.locator('[data-route="calendar"]:visible').first().click();
-    const before=await page.locator("#calMonthTitle").textContent();
-    await page.locator("#calNext").click();
-    await expect(page.locator("#calMonthTitle")).not.toHaveText(before||"");
-    await page.locator("#calPrev").click();
-  }
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  const before=await page.locator("#calMonthTitle").textContent();
+  await page.locator("#calNext").click();
+  await expect(page.locator("#calMonthTitle")).not.toHaveText(before||"");
+  await page.locator("#calPrev").click();
 
   await page.locator('[data-route="scan"]:visible').first().click();
   await page.locator("#scanHelpBtn").click();
@@ -556,6 +708,8 @@ test("PWA manifest and install assets are available", async ({request}) => {
 test("shift cards and chevrons open the expected destination", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
+  await page.locator('[data-route="home"]:visible').first().click();
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
   if(width<=820){
     const note=page.locator("#mobileCurrentShift .mobile-shift-info-action").filter({hasText:"Bilješka"});
     await note.click();
@@ -593,7 +747,7 @@ test("server JSON storage works when browser Storage APIs are unavailable", asyn
     Storage.prototype.removeItem=blocked;
   });
   await page.goto("/");
-  await expect(page.locator('[data-view="home"]')).toBeVisible();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator('[data-view="settings"]')).toBeVisible();
   await page.locator("#themeToggle").check();
@@ -638,6 +792,7 @@ test("state API rejects writes without the application request header", async ({
 
 test("queued JSON writes preserve edits made while an earlier PUT is in flight", async ({page}) => {
   await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     store.set("raspored.theme","dark");

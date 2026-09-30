@@ -86,7 +86,8 @@ object ScheduleOcrParser {
     private data class HeaderGeometry(
         val bottom: Int,
         val dayCenters: Map<Int, Int>,
-        val observedDays: Set<Int>
+        val observedDays: Set<Int>,
+        val gridStartX: Int
     )
 
     private data class DayToken(
@@ -100,11 +101,16 @@ object ScheduleOcrParser {
         val centerY: Double
     )
 
-    fun parse(result: Text): RecognizedSchedule {
+    fun parse(
+        result: Text,
+        monthHint: YearMonth? = null
+    ): RecognizedSchedule {
         val rawText = result.text.replace('\u00A0', ' ')
-        val month = detectMonth(rawText)
+        val month = detectMonth(rawText) ?: monthHint
         val lines = result.textBlocks.flatMap { it.lines }
-        val header = findDayHeader(lines, month?.lengthOfMonth() ?: 31)
+        val maxDay = month?.lengthOfMonth() ?: 31
+        val header = findDayHeader(lines, maxDay)
+            ?: inferDayHeaderFromShiftColumns(lines, maxDay)
         val geometryRows = header?.let { parseGeometryRows(lines, it) }.orEmpty()
         val textFallback = parse(rawText)
 
@@ -128,6 +134,40 @@ object ScheduleOcrParser {
             rows = mergeRows(rows),
             rawText = normalized
         )
+    }
+
+    internal fun parseRosterRows(result: Text): List<RecognizedScheduleRow> {
+        val lines = result.textBlocks.flatMap { it.lines }
+        val tokens = allTokens(lines)
+        if (tokens.isEmpty()) return emptyList()
+        val medianHeight = medianInt(tokens.map { it.box.height().coerceAtLeast(1) }).toDouble()
+        val tolerance = max(8.0, medianHeight * 0.90)
+
+        val rows = clusterTokensByY(tokens, tolerance).mapNotNull { cluster ->
+            val ordered = cluster.sortedBy { it.centerX }
+            val text = ordered.joinToString(" ") { it.text }
+                .replace(spaces, " ")
+                .trim()
+            val rowNumber = rowNumberRegex.find(text)
+                ?.groupValues?.getOrNull(1)
+                ?.toIntOrNull()
+                ?.takeIf { it in 1..100 }
+                ?: return@mapNotNull null
+            val name = cleanName(text)
+            val hasYearLikeNoise = Regex("""\b20\d{2}\b|\d{4,}""").containsMatchIn(name)
+            // A numbered roster row is a strong structural anchor. Keep it even
+            // when OCR only recovers one of the two name tokens; later passes can
+            // merge a better reading by row number instead of dropping the person.
+            if (!validName(name) || hasYearLikeNoise) {
+                return@mapNotNull null
+            }
+            RecognizedScheduleRow(
+                rowNumber = rowNumber,
+                name = name,
+                dayShifts = emptyMap()
+            )
+        }
+        return mergeRows(rows)
     }
 
     private fun allTokens(lines: List<Text.Line>): List<Token> =
@@ -198,8 +238,170 @@ object ScheduleOcrParser {
         return HeaderGeometry(
             bottom = bottom,
             dayCenters = centers,
-            observedDays = observed.keys
+            observedDays = observed.keys,
+            // For partial recovery bands this must be the first ACTUALLY
+            // observed day column, not extrapolated day 1. Otherwise late-month
+            // bands can extrapolate day 1 left of the image and hide the roster
+            // column from name parsing.
+            gridStartX = observed.values.minOrNull() ?: centers.values.minOrNull() ?: 0
         )
+    }
+
+    private fun inferDayHeaderFromShiftColumns(
+        lines: List<Text.Line>,
+        maxDay: Int
+    ): HeaderGeometry? {
+        val tokens = allTokens(lines)
+        val shiftTokens = tokens.filter { canonicalShift(it.text) != null }
+        if (shiftTokens.size < 12) return null
+
+        val minShiftY = shiftTokens.minOf { it.centerY }
+        val medianHeight = medianInt(
+            shiftTokens.map { it.box.height().coerceAtLeast(1) }
+        ).toDouble()
+        val shiftMinX = shiftTokens.minOf { it.centerX }
+        val shiftMaxX = shiftTokens.maxOf { it.centerX }
+        val roughSpacing = if (maxDay > 1) {
+            (shiftMaxX - shiftMinX).toDouble() / (maxDay - 1).toDouble()
+        } else {
+            0.0
+        }
+        val weakAnchors = tokens.mapNotNull { token ->
+            val day = dayNumber(token.text, maxDay) ?: return@mapNotNull null
+            val inHeaderBand = token.centerY <= minShiftY + max(10.0, medianHeight * 1.25)
+            val inGridBand = token.centerX >= shiftMinX - roughSpacing * 3.0 &&
+                token.centerX <= shiftMaxX + roughSpacing * 3.0
+            if (inHeaderBand && inGridBand) day to token.centerX else null
+        }.groupBy(
+            keySelector = { it.first },
+            valueTransform = { it.second }
+        )
+
+        val centers = inferDayCentersFromShiftXs(
+            rawXs = shiftTokens.map { it.centerX },
+            maxDay = maxDay,
+            absoluteAnchors = weakAnchors
+        ) ?: return null
+
+        return HeaderGeometry(
+            // Nema stvarnog zaglavlja, pa zadržavamo cijelu tablicu i
+            // kasnije redove određujemo prema imenima i Y geometriji.
+            bottom = Int.MIN_VALUE,
+            dayCenters = centers,
+            observedDays = emptySet(),
+            gridStartX = shiftMinX
+        )
+    }
+
+    internal fun inferDayCentersFromShiftXs(
+        rawXs: List<Int>,
+        maxDay: Int,
+        absoluteAnchors: Map<Int, List<Int>> = emptyMap()
+    ): Map<Int, Int>? {
+        if (maxDay !in 28..31 || rawXs.size < 12) return null
+        val sorted = rawXs.sorted()
+        val span = (sorted.last() - sorted.first()).toDouble()
+        if (span <= 0.0) return null
+
+        val clusterTolerance = max(3.0, span / (maxDay * 5.5))
+        val clusters = mutableListOf<MutableList<Int>>()
+        sorted.forEach { x ->
+            val current = clusters.lastOrNull()
+            val mean = current?.average()
+            if (current != null && mean != null && abs(x - mean) <= clusterTolerance) {
+                current += x
+            } else {
+                clusters += mutableListOf(x)
+            }
+        }
+
+        val supportedClusters = clusters.filter { it.size >= 2 }
+        val gridClusters = if (supportedClusters.size >= maxOf(10, maxDay / 3)) {
+            supportedClusters
+        } else {
+            clusters
+        }
+        val observedCenters = gridClusters
+            .map { cluster -> cluster.average() }
+            .sorted()
+        if (observedCenters.size < maxOf(12, maxDay / 2)) return null
+
+        data class Candidate(
+            val firstDay: Int,
+            val lastDay: Int,
+            val slope: Double,
+            val intercept: Double,
+            val residual: Double,
+            val anchorResidual: Double,
+            val assigned: List<Int>
+        )
+
+        val candidates = mutableListOf<Candidate>()
+        for (leadingMissing in 0..3) {
+            for (trailingMissing in 0..3) {
+                val firstDay = 1 + leadingMissing
+                val lastDay = maxDay - trailingMissing
+                val daySpan = lastDay - firstDay
+                if (daySpan <= 0) continue
+                val slope = (observedCenters.last() - observedCenters.first()) / daySpan
+                if (slope < 3.0) continue
+                val intercept = observedCenters.first() - (firstDay - 1) * slope
+                val assigned = observedCenters.map { x ->
+                    (((x - intercept) / slope).roundToInt() + 1)
+                        .coerceIn(1, maxDay)
+                }
+                if (assigned.zipWithNext().any { (a, b) -> b <= a }) continue
+                val residual = observedCenters.indices
+                    .map { index ->
+                        abs(
+                            observedCenters[index] -
+                                (intercept + (assigned[index] - 1) * slope)
+                        )
+                    }
+                    .average() / slope
+                val anchorErrors = absoluteAnchors.flatMap { (day, xs) ->
+                    if (day !in 1..maxDay) emptyList()
+                    else xs.map { x ->
+                        abs(x - (intercept + (day - 1) * slope)) / slope
+                    }
+                }
+                val anchorResidual = if (anchorErrors.isEmpty()) {
+                    0.0
+                } else {
+                    anchorErrors.average()
+                }
+                val edgePenalty = (leadingMissing + trailingMissing) * 0.025
+                candidates += Candidate(
+                    firstDay = firstDay,
+                    lastDay = lastDay,
+                    slope = slope,
+                    intercept = intercept,
+                    residual = residual + edgePenalty + anchorResidual * 2.5,
+                    anchorResidual = anchorResidual,
+                    assigned = assigned
+                )
+            }
+        }
+
+        val orderedCandidates = candidates.sortedBy { it.residual }
+        val best = orderedCandidates.firstOrNull() ?: return null
+        if (best.residual > 0.30) return null
+        if (absoluteAnchors.isNotEmpty() && best.anchorResidual > 0.35) return null
+        val second = orderedCandidates.getOrNull(1)
+        val ambiguousWithoutAnchor = absoluteAnchors.isEmpty() &&
+            second != null &&
+            abs(second.residual - best.residual) < 0.012 &&
+            (second.firstDay != best.firstDay || second.lastDay != best.lastDay)
+        if (ambiguousWithoutAnchor) return null
+        val coveredDays = best.assigned.toSet()
+        if (coveredDays.size < maxOf(12, maxDay / 2)) return null
+        if ((coveredDays.maxOrNull() ?: 0) - (coveredDays.minOrNull() ?: maxDay) < maxDay - 7) {
+            return null
+        }
+
+        return (1..maxDay).associateWith { day ->
+            (best.intercept + (day - 1) * best.slope).roundToInt()
+        }
     }
 
     private fun longestIncreasingDayChain(items: List<DayToken>): List<DayToken> {
@@ -278,7 +480,7 @@ object ScheduleOcrParser {
     ): List<RecognizedScheduleRow> {
         val dayCenters = header.dayCenters
         if (dayCenters.size < 2) return emptyList()
-        val minDayX = dayCenters.values.minOrNull() ?: return emptyList()
+        val minDayX = header.gridStartX
         val spacing = medianDaySpacing(dayCenters)
         val maxDistance = max(12.0, spacing * 0.52)
 
@@ -312,7 +514,10 @@ object ScheduleOcrParser {
                 canonicalShift(token.text)?.let { token to it }
             }
             val dayShifts = mapShiftTokensToDays(shiftTokens, dayCenters, maxDistance)
-            if (dayShifts.isEmpty()) {
+            // Ako je redak numeriran, zadržavamo osobu i kada OCR nije
+            // pročitao nijednu oznaku smjene. Korisnik tada vidi da redak
+            // postoji i može ga ručno provjeriti umjesto da osoba nestane.
+            if (dayShifts.isEmpty() && anchor.rowNumber == null) {
                 null
             } else {
                 RecognizedScheduleRow(
@@ -395,16 +600,63 @@ object ScheduleOcrParser {
         return clusters
     }
 
+    private data class RowAlignment(
+        val scale: Double,
+        val offset: Double,
+        val pivot: Double
+    ) {
+        fun adjust(x: Int): Double =
+            pivot + (x - pivot) * scale + offset
+    }
+
+    private fun bestRowAlignment(
+        xs: List<Int>,
+        dayCenters: Map<Int, Int>
+    ): RowAlignment {
+        val pivot = dayCenters.values.average()
+        if (xs.size < 4) return RowAlignment(1.0, 0.0, pivot)
+        val spacing = medianDaySpacing(dayCenters)
+        if (spacing <= 0.0) return RowAlignment(1.0, 0.0, pivot)
+
+        var best = RowAlignment(1.0, 0.0, pivot)
+        var bestScore = Double.POSITIVE_INFINITY
+        for (scaleStep in -6..6) {
+            val scale = 1.0 + scaleStep * 0.01
+            for (offsetStep in -6..6) {
+                val offset = spacing * offsetStep * 0.05
+                val candidate = RowAlignment(scale, offset, pivot)
+                val residual = xs.sumOf { x ->
+                    val adjusted = candidate.adjust(x)
+                    dayCenters.values.minOf { center -> abs(center - adjusted) }
+                } / xs.size.toDouble() / spacing
+                val penalty =
+                    abs(scale - 1.0) * 0.10 +
+                    abs(offset) / spacing * 0.015
+                val score = residual + penalty
+                if (score < bestScore) {
+                    bestScore = score
+                    best = candidate
+                }
+            }
+        }
+        return if (bestScore <= 0.30) best else RowAlignment(1.0, 0.0, pivot)
+    }
+
     private fun mapShiftTokensToDays(
         shiftTokens: List<Pair<Token, String>>,
         dayCenters: Map<Int, Int>,
         maxDistance: Double
     ): Map<Int, String> = buildMap {
+        val alignment = bestRowAlignment(
+            shiftTokens.map { it.first.centerX },
+            dayCenters
+        )
         shiftTokens.forEach { (token, code) ->
+            val adjustedX = alignment.adjust(token.centerX)
             val nearest = dayCenters.minByOrNull { (_, center) ->
-                abs(center - token.centerX)
+                abs(center - adjustedX)
             } ?: return@forEach
-            if (abs(nearest.value - token.centerX) <= maxDistance) {
+            if (abs(nearest.value - adjustedX) <= maxDistance) {
                 put(nearest.key, code)
             }
         }
@@ -529,7 +781,11 @@ object ScheduleOcrParser {
     }
 
     private fun nameFingerprint(value: String): String =
-        normalizeAscii(value).filter { it.isLetterOrDigit() }
+        normalizeAscii(value)
+            .split(Regex("""[^A-Z0-9]+"""))
+            .filter(String::isNotBlank)
+            .sorted()
+            .joinToString("")
 
     internal fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
         val merged = mutableListOf<RecognizedScheduleRow>()
@@ -557,10 +813,45 @@ object ScheduleOcrParser {
                 )
             }
         }
-        return merged.sortedWith(
+        val filtered = filterRowNumberOutliers(merged)
+        return filtered.sortedWith(
             compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
                 .thenBy { normalizeAscii(it.name) }
         )
+    }
+
+    private fun filterRowNumberOutliers(
+        rows: List<RecognizedScheduleRow>
+    ): List<RecognizedScheduleRow> {
+        val numbered = rows
+            .mapNotNull { it.rowNumber }
+            .distinct()
+            .sorted()
+        if (numbered.size < 6) return rows
+
+        val positiveGaps = numbered.zipWithNext()
+            .map { (left, right) -> right - left }
+            .filter { it > 0 }
+            .sorted()
+        val medianGap = positiveGaps.getOrNull(positiveGaps.size / 2) ?: return rows
+        val splitGap = maxOf(12, medianGap * 6)
+
+        val clusters = mutableListOf<MutableList<Int>>()
+        numbered.forEach { number ->
+            val current = clusters.lastOrNull()
+            if (current != null && number - current.last() <= splitGap) {
+                current += number
+            } else {
+                clusters += mutableListOf(number)
+            }
+        }
+        val best = clusters.maxByOrNull { it.size } ?: return rows
+        if (best.size * 10 < numbered.size * 6) return rows
+
+        val accepted = best.toSet()
+        return rows.filter { row ->
+            row.rowNumber == null || row.rowNumber in accepted
+        }
     }
 
     internal fun detectMonth(text: String): YearMonth? {
@@ -620,35 +911,490 @@ object ScheduleOcrEngine {
         recognizer.process(InputImage.fromBitmap(bitmap, 0))
             .addOnSuccessListener { firstResult ->
                 val first = ScheduleOcrParser.parse(firstResult)
-                if (!needsRecoveryPass(first)) {
+                // Pixel-grid detection is intentionally independent from OCR.
+                // A detected dense table forces the full recovery pipeline even
+                // when the first pass already found many rows, because a 20–30
+                // person schedule must not be accepted after only a partial read.
+                val detectedTable = ScheduleTableDetector.cropForRecovery(bitmap)
+                if (!needsDeepRecovery(first, bitmap) && detectedTable == null) {
                     onSuccess(first)
                     return@addOnSuccessListener
                 }
 
-                val enhanced = enhanceForOcr(bitmap)
+                // Recovery OCR works on the detected table instead of spending
+                // pixels on monitor chrome, desk area and page margins.
+                val recoverySource = detectedTable ?: bitmap
+                val forceDenseRecovery = detectedTable != null
+                fun finish(schedule: RecognizedSchedule) {
+                    recycleTemporary(recoverySource, bitmap)
+                    onSuccess(schedule)
+                }
+
+                val enhanced = enhanceForOcr(recoverySource)
                 recognizer.process(InputImage.fromBitmap(enhanced, 0))
                     .addOnSuccessListener { secondResult ->
-                        val second = ScheduleOcrParser.parse(secondResult)
-                        onSuccess(mergeSchedules(first, second))
+                        val second = ScheduleOcrParser.parse(
+                            secondResult,
+                            monthHint = first.month
+                        )
+                        val merged = mergeSchedules(first, second)
+                        if (forceDenseRecovery || needsStripeRecovery(merged, recoverySource)) {
+                            recognizeStripes(
+                                source = recoverySource,
+                                baseline = merged,
+                                onSuccess = ::finish
+                            )
+                        } else {
+                            finish(merged)
+                        }
                     }
                     .addOnFailureListener {
-                        onSuccess(first)
+                        if (forceDenseRecovery || needsStripeRecovery(first, recoverySource)) {
+                            recognizeStripes(
+                                source = recoverySource,
+                                baseline = first,
+                                onSuccess = ::finish
+                            )
+                        } else {
+                            finish(first)
+                        }
                     }
                     .addOnCompleteListener {
-                        if (enhanced !== bitmap && !enhanced.isRecycled) {
-                            enhanced.recycle()
-                        }
+                        recycleTemporary(enhanced, recoverySource)
                     }
             }
             .addOnFailureListener(onError)
+    }
+
+    private fun recycleTemporary(candidate: Bitmap, source: Bitmap) {
+        if (candidate !== source && !candidate.isRecycled) {
+            candidate.recycle()
+        }
     }
 
     private fun needsRecoveryPass(schedule: RecognizedSchedule): Boolean {
         val rows = schedule.rows
         if (rows.isEmpty()) return true
         val mapped = rows.sumOf { it.dayShifts.size }
-        val expectedPerRow = minOf(schedule.month?.lengthOfMonth() ?: 31, 8)
-        return mapped < maxOf(12, rows.size * expectedPerRow)
+        val expectedPerRow = minOf(schedule.month?.lengthOfMonth() ?: 31, 12)
+        return mapped < maxOf(18, rows.size * expectedPerRow)
+    }
+
+    private fun hasMissingNumberedRows(schedule: RecognizedSchedule): Boolean {
+        val numbers = schedule.rows
+            .mapNotNull { it.rowNumber }
+            .filter { it in 1..100 }
+            .distinct()
+            .sorted()
+        if (numbers.size < 5) return false
+        val first = numbers.first()
+        val last = numbers.last()
+        if (first > 3 || last - first + 1 < 8) return false
+        val expected = last - first + 1
+        return numbers.size * 100 < expected * 88
+    }
+
+    private fun needsDeepRecovery(
+        schedule: RecognizedSchedule,
+        source: Bitmap
+    ): Boolean {
+        if (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule)) return true
+        return source.width >= 1600 &&
+            source.height >= 1000 &&
+            schedule.rows.size in 1..15
+    }
+
+    private fun needsStripeRecovery(
+        schedule: RecognizedSchedule,
+        source: Bitmap
+    ): Boolean = source.width >= 900 &&
+        source.height >= 450 &&
+        (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule) || schedule.rows.size in 1..15)
+
+    private fun recognizeStripes(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val ranges = stripeRanges(source.height)
+        if (ranges.isEmpty()) {
+            recognizeDayBands(source, baseline, onSuccess)
+            return
+        }
+
+        fun processStripe(
+            index: Int,
+            accumulated: RecognizedSchedule
+        ) {
+            if (index >= ranges.size) {
+                recognizeDayBands(
+                    source = source,
+                    baseline = accumulated,
+                    onSuccess = onSuccess
+                )
+                return
+            }
+
+            val range = ranges[index]
+            val stripe = createEnhancedStripe(source, range.first, range.last + 1)
+            recognizer.process(InputImage.fromBitmap(stripe, 0))
+                .addOnSuccessListener { stripeResult ->
+                    val parsed = ScheduleOcrParser.parse(
+                        stripeResult,
+                        monthHint = accumulated.month
+                    )
+                    processStripe(
+                        index + 1,
+                        mergeSchedules(accumulated, parsed)
+                    )
+                }
+                .addOnFailureListener {
+                    processStripe(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!stripe.isRecycled) stripe.recycle()
+                }
+        }
+
+        processStripe(0, baseline)
+    }
+
+    private data class DayBand(
+        val startRatio: Float,
+        val endRatio: Float
+    )
+
+    private fun recognizeDayBands(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val mapped = baseline.rows.sumOf { it.dayShifts.size }
+        val maxDay = baseline.month?.lengthOfMonth() ?: 31
+        val target = maxOf(24, baseline.rows.size * minOf(maxDay, 18))
+        val sparseNumberedRow = baseline.rows.any { row ->
+            row.rowNumber != null && row.dayShifts.size < 3
+        }
+        if (mapped >= target &&
+            !hasMissingNumberedRows(baseline) &&
+            !sparseNumberedRow
+        ) {
+            recognizeRosterColumn(source, baseline, onSuccess)
+            return
+        }
+
+        val bands = dayBands()
+        fun processBand(index: Int, accumulated: RecognizedSchedule) {
+            if (index >= bands.size) {
+                recognizeRosterColumn(source, accumulated, onSuccess)
+                return
+            }
+
+            val band = bands[index]
+            val composite = createEnhancedDayBandComposite(
+                source = source,
+                startRatio = band.startRatio,
+                endRatio = band.endRatio
+            )
+            recognizer.process(InputImage.fromBitmap(composite, 0))
+                .addOnSuccessListener { result ->
+                    val parsed = ScheduleOcrParser.parse(
+                        result,
+                        monthHint = accumulated.month
+                    )
+                    processBand(
+                        index + 1,
+                        mergeSchedules(accumulated, parsed)
+                    )
+                }
+                .addOnFailureListener {
+                    processBand(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!composite.isRecycled) composite.recycle()
+                }
+        }
+        processBand(0, baseline)
+    }
+
+    private fun dayBands(): List<DayBand> = listOf(
+        // Nakon automatskog izrezivanja tablice stupac imena obično zauzima
+        // oko 15–30% širine. Pojasevi zato počinju ranije i preklapaju se
+        // dovoljno da dani uz oba ruba ne nestanu zbog perspektive.
+        DayBand(0.15f, 0.39f),
+        DayBand(0.36f, 0.60f),
+        DayBand(0.57f, 0.81f),
+        DayBand(0.78f, 1.00f)
+    )
+
+    private fun createEnhancedDayBandComposite(
+        source: Bitmap,
+        startRatio: Float,
+        endRatio: Float
+    ): Bitmap {
+        val rosterWidth = (source.width * 0.28f).roundToInt()
+            .coerceIn(1, source.width)
+        val gridStart = (source.width * startRatio).roundToInt()
+            .coerceIn(0, source.width - 1)
+        val gridEnd = (source.width * endRatio).roundToInt()
+            .coerceIn(gridStart + 1, source.width)
+        val gridWidth = gridEnd - gridStart
+        val rawWidth = rosterWidth + gridWidth
+
+        val targetPixels = 7_500_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (rawWidth.toDouble() * source.height.toDouble())
+        )
+        val edgeScale = 4200.0 / rawWidth.toDouble()
+        val scale = minOf(2.40, pixelScale, edgeScale).coerceAtLeast(0.70)
+        val width = (rawWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (source.height * scale).roundToInt().coerceAtLeast(1)
+        val rosterOutWidth = (rosterWidth * scale).roundToInt()
+            .coerceIn(1, width)
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.50f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = ColorMatrixColorFilter(grayscale)
+            isFilterBitmap = true
+        }
+        val canvas = Canvas(output)
+        canvas.drawColor(android.graphics.Color.WHITE)
+        canvas.drawBitmap(
+            source,
+            Rect(0, 0, rosterWidth, source.height),
+            Rect(0, 0, rosterOutWidth, height),
+            paint
+        )
+        canvas.drawBitmap(
+            source,
+            Rect(gridStart, 0, gridEnd, source.height),
+            Rect(rosterOutWidth, 0, width, height),
+            paint
+        )
+        return output
+    }
+
+    private fun recognizeRosterColumn(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val crop = createEnhancedRosterColumn(source)
+        recognizer.process(InputImage.fromBitmap(crop, 0))
+            .addOnSuccessListener { rosterResult ->
+                val rosterRows = ScheduleOcrParser.parseRosterRows(rosterResult)
+                val merged = baseline.copy(
+                    rows = ScheduleOcrParser.mergeRows(baseline.rows + rosterRows),
+                    rawText = if (rosterResult.text.length > baseline.rawText.length) {
+                        rosterResult.text
+                    } else {
+                        baseline.rawText
+                    }
+                )
+                recognizeRosterBands(source, merged, onSuccess)
+            }
+            .addOnFailureListener {
+                recognizeRosterBands(source, baseline, onSuccess)
+            }
+            .addOnCompleteListener {
+                if (!crop.isRecycled) crop.recycle()
+            }
+    }
+
+    private fun recognizeRosterBands(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val ranges = listOf(
+            0f to 0.44f,
+            0.28f to 0.73f,
+            0.57f to 1.00f
+        )
+
+        fun processBand(index: Int, accumulated: RecognizedSchedule) {
+            if (index >= ranges.size) {
+                onSuccess(accumulated)
+                return
+            }
+            val (startRatio, endRatio) = ranges[index]
+            val crop = createEnhancedRosterBand(source, startRatio, endRatio)
+            recognizer.process(InputImage.fromBitmap(crop, 0))
+                .addOnSuccessListener { rosterResult ->
+                    val rows = ScheduleOcrParser.parseRosterRows(rosterResult)
+                    processBand(
+                        index + 1,
+                        accumulated.copy(
+                            rows = ScheduleOcrParser.mergeRows(accumulated.rows + rows),
+                            rawText = if (rosterResult.text.length > accumulated.rawText.length) {
+                                rosterResult.text
+                            } else {
+                                accumulated.rawText
+                            }
+                        )
+                    )
+                }
+                .addOnFailureListener {
+                    processBand(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!crop.isRecycled) crop.recycle()
+                }
+        }
+        processBand(0, baseline)
+    }
+
+    private fun createEnhancedRosterBand(
+        source: Bitmap,
+        startRatio: Float,
+        endRatio: Float
+    ): Bitmap {
+        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val top = (source.height * startRatio).roundToInt().coerceIn(0, source.height - 1)
+        val bottom = (source.height * endRatio).roundToInt().coerceIn(top + 1, source.height)
+        val cropHeight = bottom - top
+        val targetPixels = 4_500_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (cropWidth.toDouble() * cropHeight.toDouble())
+        )
+        val edgeScale = 3200.0 / cropWidth.toDouble()
+        val scale = minOf(2.80, pixelScale, edgeScale).coerceAtLeast(1.0)
+        val width = (cropWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (cropHeight * scale).roundToInt().coerceAtLeast(1)
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.48f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        Canvas(output).drawBitmap(
+            source,
+            Rect(0, top, cropWidth, bottom),
+            Rect(0, 0, width, height),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(grayscale)
+                isFilterBitmap = true
+            }
+        )
+        return output
+    }
+
+    private fun createEnhancedRosterColumn(source: Bitmap): Bitmap {
+        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val targetPixels = 5_000_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (cropWidth.toDouble() * source.height.toDouble())
+        )
+        val edgeScale = 3000.0 / cropWidth.toDouble()
+        val scale = minOf(2.20, pixelScale, edgeScale).coerceAtLeast(1.0)
+        val width = (cropWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (source.height * scale).roundToInt().coerceAtLeast(1)
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.42f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        Canvas(output).drawBitmap(
+            source,
+            Rect(0, 0, cropWidth, source.height),
+            Rect(0, 0, width, height),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(grayscale)
+                isFilterBitmap = true
+            }
+        )
+        return output
+    }
+
+    private fun stripeRanges(height: Int): List<IntRange> {
+        if (height < 620) return emptyList()
+        // Tri preklapajuća pojasa daju veću efektivnu visinu retka nego
+        // dva velika polu-okvira. To je ključno kod fotografije cijelog
+        // mjesečnog rasporeda s 20–40 sitnih redaka.
+        val firstEnd = (height * 0.46f).roundToInt().coerceIn(1, height)
+        val secondStart = (height * 0.27f).roundToInt().coerceIn(0, height - 1)
+        val secondEnd = (height * 0.74f).roundToInt().coerceIn(secondStart + 1, height)
+        val thirdStart = (height * 0.55f).roundToInt().coerceIn(0, height - 1)
+        return listOf(
+            0 until firstEnd,
+            secondStart until secondEnd,
+            thirdStart until height
+        )
+    }
+
+    private fun createEnhancedStripe(
+        source: Bitmap,
+        top: Int,
+        bottom: Int
+    ): Bitmap {
+        val safeTop = top.coerceIn(0, source.height - 1)
+        val safeBottom = bottom.coerceIn(safeTop + 1, source.height)
+        val cropHeight = safeBottom - safeTop
+        val targetPixels = 7_000_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (source.width.toDouble() * cropHeight.toDouble())
+        )
+        val edgeScale = 6000.0 / source.width.toDouble()
+        val scale = minOf(1.65, pixelScale, edgeScale).coerceAtLeast(0.25)
+        val width = (source.width * scale).roundToInt().coerceAtLeast(1)
+        val height = (cropHeight * scale).roundToInt().coerceAtLeast(1)
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.40f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        Canvas(output).drawBitmap(
+            source,
+            Rect(0, safeTop, source.width, safeBottom),
+            Rect(0, 0, width, height),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(grayscale)
+                isFilterBitmap = true
+            }
+        )
+        return output
     }
 
     private fun mergeSchedules(

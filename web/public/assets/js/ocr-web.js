@@ -70,7 +70,7 @@ function sortedShiftMap(raw){
     .reduce(function(out,day){out[day]=raw[day];return out},{});
 }
 function nameFingerprint(value){
-  return normalizeAscii(value).replace(/[^A-Z0-9ČĆŽŠĐ]/g,"");
+  return normalizeAscii(value).split(/[^A-Z0-9]+/).filter(Boolean).sort().join("");
 }
 function mergeRows(rows){
   var merged=[];
@@ -94,6 +94,27 @@ function mergeRows(rows){
       dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},existing.dayShifts||{}))
     };
   });
+  var numbered=Array.from(new Set(merged.filter(function(row){return row.row!=null}).map(function(row){return Number(row.row)})))
+    .filter(Number.isFinite).sort(function(a,b){return a-b});
+  if(numbered.length>=6){
+    var gaps=[];
+    for(var gi=1;gi<numbered.length;gi++)if(numbered[gi]>numbered[gi-1])gaps.push(numbered[gi]-numbered[gi-1]);
+    gaps.sort(function(a,b){return a-b});
+    var medianGap=gaps.length?gaps[Math.floor(gaps.length/2)]:1;
+    var splitGap=Math.max(12,medianGap*6);
+    var clusters=[];
+    numbered.forEach(function(number){
+      var current=clusters[clusters.length-1];
+      if(current&&number-current[current.length-1]<=splitGap)current.push(number);
+      else clusters.push([number]);
+    });
+    clusters.sort(function(a,b){return b.length-a.length});
+    var best=clusters[0]||[];
+    if(best.length*10>=numbered.length*6){
+      var accepted=new Set(best);
+      merged=merged.filter(function(row){return row.row==null||accepted.has(Number(row.row))});
+    }
+  }
   return merged.sort(function(a,b){
     var ar=a.row==null?9999:a.row,br=b.row==null?9999:b.row;
     return ar-br||a.name.localeCompare(b.name,"hr");
@@ -220,9 +241,126 @@ function findHeader(lines,maxDay){
   return {
     centers:inferred.centers,
     spacing:inferred.spacing,
-    minX:Math.min.apply(null,Object.values(inferred.centers)),
+    // Keep the roster boundary tied to the first actually observed day.
+    // Extrapolated day 1 can be far outside late-month recovery bands.
+    minX:Math.min.apply(null,Object.keys(observed).map(function(day){return observed[day]})),
     bottom:Math.max.apply(null,best.items.map(function(item){return Number(item.word.bbox.y1)}))+Math.max(2,Math.round(medianHeight*.35)),
     observedDays:Object.keys(observed).map(Number)
+  };
+}
+function inferDayCentersFromShiftXs(rawXs,maxDay,absoluteAnchors){
+  absoluteAnchors=absoluteAnchors||{};
+  if(maxDay<28||maxDay>31||!Array.isArray(rawXs)||rawXs.length<12)return null;
+  var sorted=rawXs.slice().map(Number).filter(Number.isFinite).sort(function(a,b){return a-b});
+  if(sorted.length<12)return null;
+  var span=sorted[sorted.length-1]-sorted[0];
+  if(!(span>0))return null;
+
+  var tolerance=Math.max(3,span/(maxDay*5.5));
+  var clusters=[];
+  sorted.forEach(function(x){
+    var current=clusters[clusters.length-1];
+    var mean=current&&current.length
+      ?current.reduce(function(sum,v){return sum+v},0)/current.length
+      :null;
+    if(current&&mean!=null&&Math.abs(x-mean)<=tolerance)current.push(x);
+    else clusters.push([x]);
+  });
+
+  var supported=clusters.filter(function(cluster){return cluster.length>=2});
+  var gridClusters=supported.length>=Math.max(10,Math.floor(maxDay/3))?supported:clusters;
+  var observed=gridClusters.map(function(cluster){
+    return cluster.reduce(function(sum,v){return sum+v},0)/cluster.length;
+  });
+  if(observed.length<Math.max(12,Math.floor(maxDay/2)))return null;
+
+  var candidates=[];
+  for(var leading=0;leading<=3;leading++){
+    for(var trailing=0;trailing<=3;trailing++){
+      var firstDay=1+leading,lastDay=maxDay-trailing,daySpan=lastDay-firstDay;
+      if(daySpan<=0)continue;
+      var slope=(observed[observed.length-1]-observed[0])/daySpan;
+      if(!(slope>=3))continue;
+      var intercept=observed[0]-(firstDay-1)*slope;
+      var assigned=observed.map(function(x){
+        return Math.max(1,Math.min(maxDay,Math.round((x-intercept)/slope)+1));
+      });
+      var strictlyIncreasing=true;
+      for(var i=1;i<assigned.length;i++)if(assigned[i]<=assigned[i-1]){strictlyIncreasing=false;break}
+      if(!strictlyIncreasing)continue;
+      var residual=observed.reduce(function(sum,x,index){
+        return sum+Math.abs(x-(intercept+(assigned[index]-1)*slope));
+      },0)/observed.length/slope;
+      var anchorErrors=[];
+      Object.keys(absoluteAnchors).forEach(function(dayKey){
+        var day=Number(dayKey);
+        if(!(day>=1&&day<=maxDay))return;
+        (absoluteAnchors[dayKey]||[]).forEach(function(x){
+          anchorErrors.push(Math.abs(x-(intercept+(day-1)*slope))/slope);
+        });
+      });
+      var anchorResidual=anchorErrors.length
+        ?anchorErrors.reduce(function(sum,v){return sum+v},0)/anchorErrors.length
+        :0;
+      residual+=(leading+trailing)*.025+anchorResidual*2.5;
+      candidates.push({
+        firstDay:firstDay,lastDay:lastDay,slope:slope,intercept:intercept,
+        residual:residual,anchorResidual:anchorResidual,assigned:assigned
+      });
+    }
+  }
+  if(!candidates.length)return null;
+  candidates.sort(function(a,b){return a.residual-b.residual});
+  var best=candidates[0];
+  if(best.residual>.30)return null;
+  var hasAnchors=Object.keys(absoluteAnchors).some(function(day){
+    return Array.isArray(absoluteAnchors[day])&&absoluteAnchors[day].length;
+  });
+  if(hasAnchors&&best.anchorResidual>.35)return null;
+  var second=candidates[1];
+  if(!hasAnchors&&second&&Math.abs(second.residual-best.residual)<.012&&
+    (second.firstDay!==best.firstDay||second.lastDay!==best.lastDay))return null;
+  var unique=Array.from(new Set(best.assigned));
+  if(unique.length<Math.max(12,Math.floor(maxDay/2)))return null;
+  if(Math.max.apply(null,unique)-Math.min.apply(null,unique)<maxDay-7)return null;
+
+  var centers={};
+  for(var day=1;day<=maxDay;day++)centers[day]=best.intercept+(day-1)*best.slope;
+  return {centers:centers,spacing:best.slope};
+}
+function inferHeaderFromShiftColumns(lines,maxDay){
+  var words=allWords(lines);
+  var shiftWords=words.filter(function(word){return !!canonicalShift(word.text)});
+  if(shiftWords.length<12)return null;
+  var minShiftY=Math.min.apply(null,shiftWords.map(function(word){return centerY(word.bbox)}));
+  var medianHeight=median(shiftWords.map(function(word){return boxHeight(word.bbox)}))||12;
+  var shiftXs=shiftWords.map(function(word){return centerX(word.bbox)});
+  var minShiftX=Math.min.apply(null,shiftXs),maxShiftX=Math.max.apply(null,shiftXs);
+  var roughSpacing=maxDay>1?(maxShiftX-minShiftX)/(maxDay-1):0;
+  var anchors={};
+  words.forEach(function(word){
+    var day=dayNumber(word.text,maxDay);
+    if(day==null)return;
+    var x=centerX(word.bbox),y=centerY(word.bbox);
+    var inHeaderBand=y<=minShiftY+Math.max(10,medianHeight*1.25);
+    var inGridBand=x>=minShiftX-roughSpacing*3&&x<=maxShiftX+roughSpacing*3;
+    if(inHeaderBand&&inGridBand){
+      if(!anchors[day])anchors[day]=[];
+      anchors[day].push(x);
+    }
+  });
+  var inferred=inferDayCentersFromShiftXs(
+    shiftXs,
+    maxDay,
+    anchors
+  );
+  if(!inferred)return null;
+  return {
+    centers:inferred.centers,
+    spacing:inferred.spacing,
+    minX:minShiftX,
+    bottom:-Infinity,
+    observedDays:[]
   };
 }
 function clusterByY(tokens,tolerance){
@@ -239,12 +377,44 @@ function clusterByY(tokens,tolerance){
   });
   return clusters;
 }
+function bestRowAlignment(xs,geometry){
+  var centers=Object.values(geometry.centers||{}).map(Number).filter(Number.isFinite);
+  var pivot=centers.length?centers.reduce(function(sum,v){return sum+v},0)/centers.length:0;
+  if(xs.length<4||!(geometry.spacing>0))return {scale:1,offset:0,pivot:pivot};
+  var best={scale:1,offset:0,pivot:pivot},bestScore=Infinity;
+  for(var scaleStep=-6;scaleStep<=6;scaleStep++){
+    var scale=1+scaleStep*.01;
+    for(var offsetStep=-6;offsetStep<=6;offsetStep++){
+      var offset=geometry.spacing*offsetStep*.05;
+      var residual=xs.reduce(function(sum,x){
+        var adjusted=pivot+(x-pivot)*scale+offset;
+        var nearest=Math.min.apply(null,centers.map(function(center){return Math.abs(center-adjusted)}));
+        return sum+nearest;
+      },0)/xs.length/geometry.spacing;
+      var penalty=Math.abs(scale-1)*.10+Math.abs(offset)/geometry.spacing*.015;
+      var score=residual+penalty;
+      if(score<bestScore){
+        bestScore=score;
+        best={scale:scale,offset:offset,pivot:pivot};
+      }
+    }
+  }
+  return bestScore<=.30?best:{scale:1,offset:0,pivot:pivot};
+}
 function mapShiftTokens(tokens,geometry){
   var dayShifts={},maxDistance=Math.max(12,geometry.spacing*.52);
-  tokens.forEach(function(token){
+  var shiftTokens=tokens.filter(function(token){
+    return token&&token.bbox&&canonicalShift(token.text);
+  });
+  var alignment=bestRowAlignment(
+    shiftTokens.map(function(token){return centerX(token.bbox)}),
+    geometry
+  );
+  shiftTokens.forEach(function(token){
     var code=canonicalShift(token.text);
-    if(!code||!token.bbox)return;
-    var x=centerX(token.bbox),nearest=null,best=Infinity;
+    var rawX=centerX(token.bbox);
+    var x=alignment.pivot+(rawX-alignment.pivot)*alignment.scale+alignment.offset;
+    var nearest=null,best=Infinity;
     Object.keys(geometry.centers).forEach(function(day){
       var distance=Math.abs(geometry.centers[day]-x);
       if(distance<best){best=distance;nearest=Number(day)}
@@ -300,12 +470,36 @@ function anchoredRows(tokens,geometry,tolerance){
       name:anchor.name,
       dayShifts:mapShiftTokens(rowTokens,geometry)
     };
-  }).filter(function(row){return Object.keys(row.dayShifts).length>0});
+  }).filter(function(row){
+    return row.row!=null||Object.keys(row.dayShifts).length>0;
+  });
+}
+function parseRosterRows(blocks){
+  var lines=flattenLines(blocks);
+  var tokens=allWords(lines);
+  if(!tokens.length)return [];
+  var tolerance=Math.max(8,(median(tokens.map(function(token){return boxHeight(token.bbox)}))||12)*.90);
+  var rows=clusterByY(tokens,tolerance).map(function(cluster){
+    var ordered=cluster.slice().sort(function(a,b){return centerX(a.bbox)-centerX(b.bbox)});
+    if(!ordered.length)return null;
+    var text=ordered.map(function(token){return token.text}).join(" ").replace(/\s+/g," ").trim();
+    var rowMatch=text.match(/^\s*(\d{1,3})[.)]?\s*/);
+    var row=rowMatch?Number(rowMatch[1]):NaN;
+    if(!Number.isInteger(row)||row<1||row>100)return null;
+    var name=cleanName(text);
+    var yearNoise=/\b20\d{2}\b|\d{4,}/.test(name);
+    // Keep a numbered roster row even if one name token was missed. Other OCR
+    // passes merge a more complete name by row number instead of losing a person.
+    if(!validName(name)||yearNoise)return null;
+    return {row:row,name:name,dayShifts:{}};
+  }).filter(Boolean);
+  return mergeRows(rows);
 }
 function parseGeometry(blocks,maxDay){
   var lines=flattenLines(blocks);
   if(!lines.length)return [];
-  var header=findHeader(lines,maxDay||31);
+  var resolvedMaxDay=maxDay||31;
+  var header=findHeader(lines,resolvedMaxDay)||inferHeaderFromShiftColumns(lines,resolvedMaxDay);
   if(!header)return [];
   var linesBelow=lines.filter(function(line){
     return line.bbox&&centerY(line.bbox)>header.bottom;
@@ -348,6 +542,149 @@ async function prepareImage(file,strong){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
+async function prepareStripe(tableSource,startRatio,endRatio){
+  if(typeof createImageBitmap!=="function")return tableSource;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
+    var top=Math.max(0,Math.floor(bitmap.height*startRatio));
+    var bottom=Math.min(bitmap.height,Math.ceil(bitmap.height*endRatio));
+    var cropHeight=Math.max(1,bottom-top);
+    var pixelScale=Math.sqrt(7000000/(bitmap.width*cropHeight));
+    var edgeScale=6000/bitmap.width;
+    var scale=Math.max(.18,Math.min(1.65,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+    canvas.height=Math.max(1,Math.round(cropHeight*scale));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return tableSource;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.40)";
+    context.drawImage(
+      bitmap,
+      0,top,bitmap.width,cropHeight,
+      0,0,canvas.width,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.96);
+    });
+  }catch(error){
+    return tableSource;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
+async function prepareDayBandComposite(tableSource,startRatio,endRatio){
+  if(typeof createImageBitmap!=="function")return tableSource;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
+    var rosterWidth=Math.max(1,Math.round(bitmap.width*.28));
+    var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*startRatio)));
+    var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*endRatio)));
+    var gridWidth=gridEnd-gridStart;
+    var rawWidth=rosterWidth+gridWidth;
+    var pixelScale=Math.sqrt(7500000/(rawWidth*bitmap.height));
+    var edgeScale=4200/rawWidth;
+    var scale=Math.max(.70,Math.min(2.40,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(rawWidth*scale));
+    canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+    var rosterOutWidth=Math.max(1,Math.min(canvas.width,Math.round(rosterWidth*scale)));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return tableSource;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.50)";
+    context.drawImage(
+      bitmap,
+      0,0,rosterWidth,bitmap.height,
+      0,0,rosterOutWidth,canvas.height
+    );
+    context.drawImage(
+      bitmap,
+      gridStart,0,gridWidth,bitmap.height,
+      rosterOutWidth,0,canvas.width-rosterOutWidth,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.97);
+    });
+  }catch(error){
+    return tableSource;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
+async function prepareRosterBand(tableSource,startRatio,endRatio){
+  if(typeof createImageBitmap!=="function")return tableSource;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var top=Math.max(0,Math.min(bitmap.height-1,Math.round(bitmap.height*startRatio)));
+    var bottom=Math.max(top+1,Math.min(bitmap.height,Math.round(bitmap.height*endRatio)));
+    var cropHeight=bottom-top;
+    var pixelScale=Math.sqrt(4500000/(cropWidth*cropHeight));
+    var edgeScale=3200/cropWidth;
+    var scale=Math.max(1,Math.min(2.80,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(cropWidth*scale));
+    canvas.height=Math.max(1,Math.round(cropHeight*scale));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return tableSource;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.48)";
+    context.drawImage(
+      bitmap,
+      0,top,cropWidth,cropHeight,
+      0,0,canvas.width,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.97);
+    });
+  }catch(error){
+    return tableSource;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
+async function prepareRosterColumn(file){
+  if(typeof createImageBitmap!=="function")return file;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var pixelScale=Math.sqrt(5000000/(cropWidth*bitmap.height));
+    var edgeScale=3000/cropWidth;
+    var scale=Math.max(1,Math.min(2.20,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(cropWidth*scale));
+    canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return file;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.42)";
+    context.drawImage(
+      bitmap,
+      0,0,cropWidth,bitmap.height,
+      0,0,canvas.width,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.96);
+    });
+  }catch(error){
+    return file;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
 async function getWorker(){
   if(workerPromise)return workerPromise;
   workerPromise=(async function(){
@@ -360,9 +697,9 @@ async function getWorker(){
   })();
   try{return await workerPromise}catch(error){workerPromise=null;throw error}
 }
-function parsedResult(result){
+function parsedResult(result,monthHint){
   var text=result&&result.data?result.data.text:"";
-  var month=detectMonth(text);
+  var month=detectMonth(text)||monthHint||null;
   var geometryRows=parseGeometry(result&&result.data?result.data.blocks:null,daysInMonth(month));
   var textRows=parseText(text);
   return {month:month,people:mergeRows(geometryRows.concat(textRows)),rawText:text};
@@ -371,8 +708,18 @@ function sparseResult(parsed){
   var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
   if(!rows.length)return true;
   var mapped=rows.reduce(function(sum,row){return sum+Object.keys(row.dayShifts||{}).length},0);
-  var expected=Math.min(daysInMonth(parsed.month),8);
-  return mapped<Math.max(12,rows.length*expected);
+  var expected=Math.min(daysInMonth(parsed.month),12);
+  return mapped<Math.max(18,rows.length*expected);
+}
+function missingNumberedRows(parsed){
+  var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
+  var numbers=Array.from(new Set(rows.map(function(row){return Number(row.row)}).filter(function(value){
+    return Number.isInteger(value)&&value>=1&&value<=100;
+  }))).sort(function(a,b){return a-b});
+  if(numbers.length<5)return false;
+  var first=numbers[0],last=numbers[numbers.length-1],expected=last-first+1;
+  if(first>3||expected<8)return false;
+  return numbers.length*100<expected*88;
 }
 function mergeRecognized(first,second){
   return {
@@ -387,11 +734,72 @@ async function recognizeScheduleNow(file,onProgress){
     var worker=await getWorker();
     var source=await prepareImage(file,false);
     var first=parsedResult(await worker.recognize(source,{}, {text:true,blocks:true}));
-    if(!sparseResult(first))return first;
-    if(onProgress)onProgress(.86,"recovery");
-    var recoverySource=await prepareImage(file,true);
-    var second=parsedResult(await worker.recognize(recoverySource,{}, {text:true,blocks:true}));
-    return mergeRecognized(first,second);
+
+    if(onProgress)onProgress(.76,"table-detection");
+    var tableSource=window.RasporedOcrTableCrop
+      ?await window.RasporedOcrTableCrop.cropScheduleTable(file)
+      :file;
+    var forceDenseRecovery=tableSource!==file;
+    var needsDeep=forceDenseRecovery||sparseResult(first)||missingNumberedRows(first)||(first.people||[]).length<16;
+    if(!needsDeep)return first;
+
+    if(onProgress)onProgress(.78,"recovery");
+    var recoverySource=await prepareImage(tableSource,true);
+    var second=parsedResult(
+      await worker.recognize(recoverySource,{}, {text:true,blocks:true}),
+      first.month
+    );
+    var merged=mergeRecognized(first,second);
+    if(!forceDenseRecovery&&!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
+
+    var stripes=[[0,.46],[.27,.74],[.55,1]];
+    for(var i=0;i<stripes.length;i++){
+      if(onProgress)onProgress(.80+i*.025,"table-stripe-"+(i+1));
+      var stripeSource=await prepareStripe(tableSource,stripes[i][0],stripes[i][1]);
+      var stripe=parsedResult(
+        await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
+        merged.month
+      );
+      merged=mergeRecognized(merged,stripe);
+    }
+
+    var mappedAfterStripes=(merged.people||[]).reduce(function(sum,row){
+      return sum+Object.keys(row.dayShifts||{}).length;
+    },0);
+    var dayBandTarget=Math.max(24,(merged.people||[]).length*Math.min(daysInMonth(merged.month),18));
+    var sparseNumberedRow=(merged.people||[]).some(function(row){
+      return Number.isInteger(Number(row.row))&&Object.keys(row.dayShifts||{}).length<3;
+    });
+    if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)||sparseNumberedRow){
+      var dayBands=[[.15,.39],[.36,.60],[.57,.81],[.78,1]];
+      for(var b=0;b<dayBands.length;b++){
+        if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
+        var bandSource=await prepareDayBandComposite(tableSource,dayBands[b][0],dayBands[b][1]);
+        var band=parsedResult(
+          await worker.recognize(bandSource,{}, {text:true,blocks:true}),
+          merged.month
+        );
+        merged=mergeRecognized(merged,band);
+      }
+    }
+
+    if(onProgress)onProgress(.97,"roster-column");
+    var rosterSource=await prepareRosterColumn(tableSource);
+    var rosterResult=await worker.recognize(rosterSource,{}, {text:true,blocks:true});
+    var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
+    merged.people=mergeRows((merged.people||[]).concat(rosterRows));
+
+    var rosterBands=[[0,.44],[.28,.73],[.57,1]];
+    for(var r=0;r<rosterBands.length;r++){
+      if(onProgress)onProgress(.98+r*.006,"roster-band-"+(r+1));
+      var rosterBandSource=await prepareRosterBand(tableSource,rosterBands[r][0],rosterBands[r][1]);
+      var rosterBandResult=await worker.recognize(rosterBandSource,{}, {text:true,blocks:true});
+      var rosterBandRows=parseRosterRows(
+        rosterBandResult&&rosterBandResult.data?rosterBandResult.data.blocks:null
+      );
+      merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
+    }
+    return merged;
   }finally{
     activeProgressCallback=null;
   }
@@ -407,6 +815,7 @@ window.RasporedWebOcr={
   parseText:parseText,
   parseGeometry:parseGeometry,
   detectMonth:detectMonth,
-  inferDayCenters:inferDayCenters
+  inferDayCenters:inferDayCenters,
+  inferDayCentersFromShiftXs:inferDayCentersFromShiftXs
 };
 })();

@@ -986,7 +986,8 @@ private fun genericInstitutionLabel(sector: String): String = when (sector) {
     "Socijalna skrb" -> "Javna ustanova socijalne skrbi — ručni naziv"
     "Kultura" -> "Javna ustanova u kulturi — ručni naziv"
     "Znanost i visoko obrazovanje" -> "Javna visokoškolska/znanstvena ustanova — ručni naziv"
-    else -> "Druga javna ustanova — ručni naziv"
+    "Privatni sektor" -> "Privatni poslodavac — ručni naziv"
+    else -> "Druga ustanova / poslodavac — ručni naziv"
 }
 
 private fun automaticRatesText(regime: PayrollRegime): String {

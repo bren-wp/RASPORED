@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false,scanGeneration:0};
+var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false,scanGeneration:0};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -131,7 +131,7 @@ function importScannedTeamSchedules(){
   if(!state.scanPeople.length){toast("Najprije skeniraj raspored.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   var members=loadTeamMembers(),byName={};
-  members.forEach(function(item,index){byName[item.name.toLocaleLowerCase("hr-HR")]=index});
+  members.forEach(function(item,index){byName[normalizePersonName(item.name)]=index});
   var imported=0,skipped=0;
   state.scanPeople.forEach(function(person){
     var recognized=Object.keys(person.dayShifts||{}).filter(function(day){
@@ -139,7 +139,7 @@ function importScannedTeamSchedules(){
       return n>=1&&n<=days&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0;
     });
     if(!recognized.length){skipped++;return}
-    var key=person.name.toLocaleLowerCase("hr-HR"),index=byName[key],member=index===undefined?{name:person.name,note:"",schedule:{}}:members[index];
+    var key=normalizePersonName(person.name),index=byName[key],member=index===undefined?{name:person.name,note:"",schedule:{}}:members[index];
     member.schedule=sanitizeSchedule(member.schedule);
     for(var day=1;day<=days;day++)delete member.schedule[iso(new Date(y,m,day))];
     recognized.forEach(function(day){
@@ -560,7 +560,17 @@ function renderMobileHome(){
   if(metrics){var weekendMinutes=data.weekendHolidayMinutes,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""],["moon","Noćni sati",hoursText(data.nightMinutes),"Ovaj mjesec","night"],["holiday","Vikendi i blagdani",hoursText(weekendMinutes),"Ovaj mjesec","weekend"]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
 }
 function nextShifts(){var list=[],start=appNow();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c==="D"||c==="N")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<button type="button" class="next-shift next-shift--button" data-open-date="'+iso(x[0])+'"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></button>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
-function renderSelected(){var el=document.getElementById("selectedDayCard");if(!el)return;var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}
+function renderSelected(){
+  var el=document.getElementById("selectedDayCard");if(!el)return;
+  var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);
+  var codes=["D","N","GO","BO","PD","SD"];
+  var editor='<div class="manual-shift-editor"><div><b>Ručno postavi oznaku</b><small>Promjena se odmah sprema i ostaje dostupna u povijesti mjeseci.</small></div><div class="manual-shift-grid">'+
+    codes.map(function(item){
+      return '<button type="button" class="manual-shift-btn '+(code===item?'is-selected ':'')+item.toLowerCase()+'" data-manual-shift="'+item+'" aria-pressed="'+(code===item?'true':'false')+'"><i class="shift '+item.toLowerCase()+'">'+item+'</i></button>';
+    }).join('')+
+    '</div><button type="button" class="link-btn manual-shift-clear" data-manual-shift="clear" '+(!code?'disabled':'')+'>Očisti oznaku</button></div>';
+  el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'+editor;
+}
 function renderRecognition(){
   var el=document.getElementById("recognitionDays");if(!el)return;
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate(),selected=selectedScanSchedule();
@@ -716,14 +726,35 @@ async function handleScanFile(file){
     status.classList.remove("is-scanning");
     if(progress)progress.style.width="100%";
     if(state.scanPeople.length){
-      status.classList.add("is-success");
       var monthWarning=result.month?"":" Mjesec nije pouzdano prepoznat; provjeri ga prije spremanja.";
       var recognizedDays=state.scanPeople.reduce(function(total,person){
         return total+Object.keys(person.dayShifts||{}).length;
       },0);
-      status.querySelector("span").textContent=(state.scanPeople.length===1
-        ?"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja."
-        :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana. Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
+      var emptyRows=state.scanPeople.filter(function(person){
+        return Object.keys(person.dayShifts||{}).length===0;
+      }).length;
+      var rowNumbers=Array.from(new Set(state.scanPeople.map(function(person){return Number(person.row)}).filter(function(value){
+        return Number.isInteger(value)&&value>=1&&value<=100;
+      }))).sort(function(a,b){return a-b});
+      var rosterWarning="";
+      if(rowNumbers.length>=5&&rowNumbers[0]<=3){
+        var expectedRows=rowNumbers[rowNumbers.length-1]-rowNumbers[0]+1;
+        if(expectedRows>=8&&rowNumbers.length*100<expectedRows*88){
+          rosterWarning=" Upozorenje: prepoznato je "+rowNumbers.length+" od najmanje "+expectedRows+" numeriranih redaka; za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra.";
+        }
+      }
+      if(recognizedDays===0){
+        status.classList.add("is-error");
+        status.querySelector("span").textContent="Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."+monthWarning;
+      }else{
+        status.classList.add("is-success");
+        var emptyWarning=emptyRows
+          ?" "+emptyRows+" numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih."
+          :"";
+        status.querySelector("span").textContent=(state.scanPeople.length===1
+          ?"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja."
+          :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana."+rosterWarning+emptyWarning+" Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
+      }
     }else{
       status.classList.add("is-error");
       status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Pokušaj s ravnijom i oštrijom fotografijom.";
@@ -756,7 +787,10 @@ function route(name){
   if(name==="hours")renderHours();
   if(name==="colleagues")renderColleagues();
   if(name==="payroll"&&window.RasporedPayroll)window.RasporedPayroll.render();
-  window.scrollTo({top:0,behavior:document.body.dataset.reducedMotion==="true"?"auto":"smooth"});
+  // Main-screen navigation must land at the top immediately. Smooth scrolling
+  // here can leave mobile users briefly between screens and can place the sticky
+  // header over content while the new route is already interactive.
+  window.scrollTo({top:0,behavior:"auto"});
 }
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
@@ -781,6 +815,16 @@ function bind(){
     if(dateTarget){
       var date=new Date(dateTarget.dataset.openDate+"T12:00:00");
       if(!Number.isNaN(date.getTime())){state.selected=date;state.cursor=new Date(date.getFullYear(),date.getMonth(),1);renderAll();route("calendar")}
+      return;
+    }
+    var manual=e.target.closest("[data-manual-shift]");
+    if(manual){
+      var value=manual.dataset.manualShift||"",key=iso(state.selected);
+      if(value==="clear")delete state.schedule[key];
+      else if(["D","N","GO","BO","PD","SD"].indexOf(value)>=0)state.schedule[key]=value;
+      else return;
+      if(!save()){loadSchedule();toast("Promjenu nije moguće spremiti u storage/data.");}
+      renderAll();
       return;
     }
     var remove=e.target.closest("[data-remove-colleague]");
@@ -895,14 +939,14 @@ function bind(){
 }
 async function initApp(){
   if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
-  bind();
-  document.body.dataset.routeCurrent=state.route;
-  renderAll();
+  document.body.dataset.appReady="loading";
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
   await window.RasporedDataStore.init();
+  bind();
   if(window.RasporedPayroll)await window.RasporedPayroll.init();
   loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();
   syncAuthenticatedProfile();
+  route(state.route);
   renderAll();
   document.body.dataset.appReady=window.RasporedDataStore.isAvailable()?"true":"storage-unavailable";
   if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
@@ -910,7 +954,7 @@ async function initApp(){
   if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
 }
 initApp().catch(function(){
-  document.body.dataset.routeCurrent=state.route;
+  route(state.route);
   document.body.dataset.appReady="error";
   renderAll();
   toast("Podatkovni sloj nije dostupan. Spremanje je onemogućeno.");

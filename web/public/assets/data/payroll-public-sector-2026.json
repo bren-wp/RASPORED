@@ -400,6 +400,22 @@
       "note": "Osnovicu utvrđuje kolektivni ugovor ili župan/gradonačelnik/općinski načelnik, a koeficijent lokalni akt. Potreban je ručni unos ili verificirani preset."
     },
     {
+      "id": "private-manual",
+      "sector": "Privatni sektor",
+      "label": "Privatni poslodavac / ručni obračunski parametri",
+      "baseType": "manual",
+      "additions": {
+        "night": null,
+        "overtime": null,
+        "saturday": null,
+        "sunday": null,
+        "holiday": null,
+        "secondShift": null,
+        "turnus": null
+      },
+      "note": "Privatni sektor nema jedinstvenu državnu osnovicu ni koeficijent. Unesi ugovorenu bruto osnovicu/koeficijent i dodatke samo kada su poznati iz ugovora, pravilnika ili kolektivnog ugovora."
+    },
+    {
       "id": "other-public",
       "sector": "Ostalo",
       "label": "Druga javna ustanova / ručni unos",
@@ -1010,7 +1026,8 @@
         "science",
         "preschool-local",
         "local-government",
-        "other-public"
+        "other-public",
+        "private-manual"
       ],
       "label": "Drugo / ručni unos",
       "official": "Drugo radno mjesto",
@@ -1489,6 +1506,14 @@
         "city": "*",
         "name": "Druga javna ustanova — ručni unos",
         "regime": "other-public"
+      }
+    ],
+    "Privatni sektor": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Privatni poslodavac — ručni naziv",
+        "regime": "private-manual"
       }
     ]
   },

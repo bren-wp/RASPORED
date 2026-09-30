@@ -1,4 +1,4 @@
-    <section class="view is-active" id="view-home" data-view="home">
+    <section class="view" id="view-home" data-view="home">
       <div class="mobile-home-dashboard">
         <div class="mobile-greeting">
           <h1 id="mobileTodayTitle">—</h1>
