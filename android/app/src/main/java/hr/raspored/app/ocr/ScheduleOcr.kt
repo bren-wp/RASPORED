@@ -1161,23 +1161,109 @@ object ScheduleOcrEngine {
         recognizer.process(InputImage.fromBitmap(crop, 0))
             .addOnSuccessListener { rosterResult ->
                 val rosterRows = ScheduleOcrParser.parseRosterRows(rosterResult)
-                onSuccess(
-                    baseline.copy(
-                        rows = ScheduleOcrParser.mergeRows(baseline.rows + rosterRows),
-                        rawText = if (rosterResult.text.length > baseline.rawText.length) {
-                            rosterResult.text
-                        } else {
-                            baseline.rawText
-                        }
-                    )
+                val merged = baseline.copy(
+                    rows = ScheduleOcrParser.mergeRows(baseline.rows + rosterRows),
+                    rawText = if (rosterResult.text.length > baseline.rawText.length) {
+                        rosterResult.text
+                    } else {
+                        baseline.rawText
+                    }
                 )
+                recognizeRosterBands(source, merged, onSuccess)
             }
             .addOnFailureListener {
-                onSuccess(baseline)
+                recognizeRosterBands(source, baseline, onSuccess)
             }
             .addOnCompleteListener {
                 if (!crop.isRecycled) crop.recycle()
             }
+    }
+
+    private fun recognizeRosterBands(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val ranges = listOf(
+            0f to 0.44f,
+            0.28f to 0.73f,
+            0.57f to 1.00f
+        )
+
+        fun processBand(index: Int, accumulated: RecognizedSchedule) {
+            if (index >= ranges.size) {
+                onSuccess(accumulated)
+                return
+            }
+            val (startRatio, endRatio) = ranges[index]
+            val crop = createEnhancedRosterBand(source, startRatio, endRatio)
+            recognizer.process(InputImage.fromBitmap(crop, 0))
+                .addOnSuccessListener { rosterResult ->
+                    val rows = ScheduleOcrParser.parseRosterRows(rosterResult)
+                    processBand(
+                        index + 1,
+                        accumulated.copy(
+                            rows = ScheduleOcrParser.mergeRows(accumulated.rows + rows),
+                            rawText = if (rosterResult.text.length > accumulated.rawText.length) {
+                                rosterResult.text
+                            } else {
+                                accumulated.rawText
+                            }
+                        )
+                    )
+                }
+                .addOnFailureListener {
+                    processBand(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!crop.isRecycled) crop.recycle()
+                }
+        }
+        processBand(0, baseline)
+    }
+
+    private fun createEnhancedRosterBand(
+        source: Bitmap,
+        startRatio: Float,
+        endRatio: Float
+    ): Bitmap {
+        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val top = (source.height * startRatio).roundToInt().coerceIn(0, source.height - 1)
+        val bottom = (source.height * endRatio).roundToInt().coerceIn(top + 1, source.height)
+        val cropHeight = bottom - top
+        val targetPixels = 4_500_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (cropWidth.toDouble() * cropHeight.toDouble())
+        )
+        val edgeScale = 3200.0 / cropWidth.toDouble()
+        val scale = minOf(2.80, pixelScale, edgeScale).coerceAtLeast(1.0)
+        val width = (cropWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (cropHeight * scale).roundToInt().coerceAtLeast(1)
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.48f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        Canvas(output).drawBitmap(
+            source,
+            Rect(0, top, cropWidth, bottom),
+            Rect(0, 0, width, height),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(grayscale)
+                isFilterBitmap = true
+            }
+        )
+        return output
     }
 
     private fun createEnhancedRosterColumn(source: Bitmap): Bitmap {
