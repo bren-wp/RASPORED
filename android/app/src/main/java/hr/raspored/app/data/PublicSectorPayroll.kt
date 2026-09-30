@@ -81,6 +81,8 @@ data class PayrollEstimate(
     val sundayAddition: Double,
     val holidayAddition: Double,
     val overtimeAddition: Double,
+    val secondShiftPaidMinutes: Long,
+    val turnusPaidMinutes: Long,
     val secondShiftAddition: Double,
     val turnusAddition: Double,
     val customAddition: Double,
@@ -370,13 +372,17 @@ object PublicSectorPayroll {
         fun add(minutes: Long, rate: Double?): Double =
             if (rate == null) 0.0 else hourly * (minutes / 60.0) * rate
 
+        val turnusMinutes =
+            if (turnus && rates.turnus != null) evidence.turnusMinutes else 0L
         val secondMinutes = if (secondShift && rates.secondShift != null) {
-            evidence.shift2Minutes.takeIf { it > 0L } ?: evidence.secondShiftMinutes
+            when {
+                evidence.shift2Minutes > 0L -> evidence.shift2Minutes
+                turnusMinutes > 0L -> 0L
+                else -> evidence.secondShiftMinutes
+            }
         } else {
             0L
         }
-        val turnusMinutes =
-            if (turnus && rates.turnus != null) evidence.turnusMinutes else 0L
         val custom = basicGross * (extraPercent.coerceIn(0.0, 100.0) / 100.0)
 
         val nightAddition = add(evidence.nightMinutes, rates.night)
@@ -411,6 +417,8 @@ object PublicSectorPayroll {
             sundayAddition = sundayAddition,
             holidayAddition = holidayAddition,
             overtimeAddition = overtimeAddition,
+            secondShiftPaidMinutes = secondMinutes,
+            turnusPaidMinutes = turnusMinutes,
             secondShiftAddition = secondShiftAddition,
             turnusAddition = turnusAddition,
             customAddition = custom,
