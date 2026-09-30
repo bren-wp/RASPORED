@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import hr.raspored.app.BuildConfig
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
 import kotlinx.coroutines.delay
@@ -269,10 +268,4 @@ private fun epochToTime(epoch: Long, formatter: DateTimeFormatter, zone: ZoneId)
 private fun durationLabel(minutes: Long): String =
     "${minutes / 60}h ${(minutes % 60).toString().padStart(2, '0')}min"
 
-private fun evidenceNow(): Long {
-    if (!BuildConfig.DEBUG) return System.currentTimeMillis()
-    return LocalDateTime.of(2026, 10, 16, 9, 20)
-        .atZone(ZoneId.systemDefault())
-        .toInstant()
-        .toEpochMilli()
-}
+private fun evidenceNow(): Long = System.currentTimeMillis()
