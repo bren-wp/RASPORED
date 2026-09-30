@@ -13,6 +13,20 @@ test("OCR text fallback never compresses missing calendar days", async ({page}) 
   expect(parsed[1].dayShifts).toEqual({});
 });
 
+test("OCR text fallback accepts table-border separators without shifting days", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const parsed=await page.evaluate(() => (window as any).RasporedWebOcr.parseText(
+    "6 ANA HORVAT 1 | D 2 | N 4 | GO 7 | PD 9 | SD"
+  ));
+
+  expect(parsed).toHaveLength(1);
+  expect(parsed[0].dayShifts).toEqual({
+    "1":"D","2":"N","4":"GO","7":"PD","9":"SD"
+  });
+});
+
 test("OCR geometry reconstructs fragmented day header and all employee rows", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
