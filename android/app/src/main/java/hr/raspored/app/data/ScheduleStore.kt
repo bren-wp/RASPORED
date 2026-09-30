@@ -3,12 +3,19 @@ package hr.raspored.app.data
 import android.content.Context
 import java.time.LocalDate
 import java.time.YearMonth
+import java.util.Locale
 
 /**
- * Small, deterministic local schedule store.
+ * Deterministic local schedule store.
  *
- * The persisted format is deliberately simple (date -> semantic shift code) so it
- * can be migrated to Room/API storage later without coupling UI code to a database.
+ * Values are short user-visible schedule labels. Built-in semantic codes
+ * (D/N/GO/BO/PD/SD) keep their special meaning, while users may also save
+ * their own short labels for workplace-specific roster notation.
+ *
+ * The store never auto-prunes old months. A monthly import only replaces the
+ * selected month, so schedules from previous months/years remain available.
+ * The product guarantee is at least 10 years of local calendar history unless
+ * the user explicitly clears app data or uninstalls the application.
  */
 class ScheduleStore(context: Context) {
     private val preferences =
@@ -17,43 +24,45 @@ class ScheduleStore(context: Context) {
     fun load(): Map<String, String> =
         preferences.all
             .mapNotNull { (key, value) ->
-                val code = value as? String ?: return@mapNotNull null
-                if (DATE.matches(key) && code in VALID_CODES) key to code else null
+                val code = normalizeCode(value as? String) ?: return@mapNotNull null
+                if (DATE.matches(key)) key to code else null
             }
             .toMap()
-
-    fun replaceAll(schedule: Map<String, String>) {
-        val editor = preferences.edit().clear()
-        schedule.toSortedMap().forEach { (date, code) ->
-            if (DATE.matches(date) && code in VALID_CODES) {
-                editor.putString(date, code)
-            }
-        }
-        editor.apply()
-    }
 
     fun saveMonth(month: YearMonth, shifts: Map<Int, String>) {
         val editor = preferences.edit()
         (1..month.lengthOfMonth()).forEach { day ->
             editor.remove(month.atDay(day).toString())
         }
-        shifts.forEach { (day, code) ->
-            if (day in 1..month.lengthOfMonth() && code in VALID_CODES) {
+        shifts.forEach { (day, rawCode) ->
+            val code = normalizeCode(rawCode)
+            if (day in 1..month.lengthOfMonth() && code != null) {
                 editor.putString(month.atDay(day).toString(), code)
             }
         }
         editor.apply()
     }
 
-    fun record(date: LocalDate, code: String?) {
+    fun record(date: LocalDate, rawCode: String?) {
         val editor = preferences.edit()
-        if (code in VALID_CODES) editor.putString(date.toString(), code)
+        val code = normalizeCode(rawCode)
+        if (code != null) editor.putString(date.toString(), code)
         else editor.remove(date.toString())
         editor.apply()
     }
 
-    private companion object {
-        val DATE = Regex("""\d{4}-\d{2}-\d{2}""")
-        val VALID_CODES = setOf("D", "N", "GO", "BO", "PD", "SD")
+    companion object {
+        const val ARCHIVE_GUARANTEE_YEARS = 10
+        val BUILT_IN_CODES = setOf("D", "N", "GO", "BO", "PD", "SD")
+        private val DATE = Regex("""\d{4}-\d{2}-\d{2}""")
+        private val CODE = Regex("""^[\p{L}\p{N}]{1,8}$""")
+
+        fun normalizeCode(raw: String?): String? {
+            val value = raw
+                ?.trim()
+                ?.uppercase(Locale("hr", "HR"))
+                .orEmpty()
+            return value.takeIf { CODE.matches(it) }
+        }
     }
 }

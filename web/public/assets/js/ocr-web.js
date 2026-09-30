@@ -23,6 +23,29 @@ function canonicalShift(raw){
   if(value==="B0")return "BO";
   return VALID.has(value)?value:null;
 }
+function canonicalGridCode(raw){
+  var known=canonicalShift(raw);
+  if(known)return known;
+  var value=normalize(raw).toLocaleUpperCase("hr-HR")
+    .replace(/^[.,;:|\[\](){}_\-]+|[.,;:|\[\](){}_\-]+$/g,"");
+  if(!/^[\p{L}\p{N}]{1,3}$/u.test(value))return null;
+  if(/^\d+$/.test(value)&&!["1","2","3"].includes(value))return null;
+  if(["RB","OD","DO"].includes(value))return null;
+  return value;
+}
+function gridCodeForToken(token,geometry){
+  var known=canonicalShift(token&&token.text);
+  if(known)return known;
+  if(!token||!token.bbox||!geometry)return null;
+  var minX=Number(geometry.minX);
+  var spacing=Number(geometry.spacing)||0;
+  // Custom labels are valid only inside the physically observed grid.
+  // Late-month recovery bands extrapolate missing day centers to the left;
+  // without this guard row numbers and short names (e.g. "1", "ANA")
+  // can be misread as schedule codes for those extrapolated days.
+  if(Number.isFinite(minX)&&centerX(token.bbox)<minX-Math.max(4,spacing*.55))return null;
+  return canonicalGridCode(token.text);
+}
 function centerX(bbox){return bbox?(Number(bbox.x0)+Number(bbox.x1))/2:NaN}
 function centerY(bbox){return bbox?(Number(bbox.y0)+Number(bbox.y1))/2:NaN}
 function boxHeight(bbox){return bbox?Math.max(1,Number(bbox.y1)-Number(bbox.y0)):1}
@@ -60,9 +83,58 @@ function cleanName(text){
     .replace(/^[\s|:;.,-]+|[\s|:;.,-]+$/g,"");
 }
 function validName(name){
-  if(name.length<3||(name.match(/\p{L}/gu)||[]).length<3)return false;
+  if(name.length<3||name.length>64||(name.match(/\p{L}/gu)||[]).length<3)return false;
   var normalized=normalizeAscii(name);
-  return !["IME PREZIME","IME I PREZIME","DJELATNIK","ZAPOSLENIK","RADNIK"].includes(normalized);
+  if(["IME PREZIME","IME I PREZIME","DJELATNIK","ZAPOSLENIK","RADNIK","RB","NOSAC BOLESNIKA","NOSAC BOLESNIKA PREZIME IME"].includes(normalized))return false;
+  var letters=(name.match(/\p{L}/gu)||[]).length;
+  var digits=(name.match(/\d/g)||[]).length;
+  if(digits>2||letters/Math.max(1,name.length)<.52)return false;
+  return normalizeAscii(name).split(/[^A-Z]+/).filter(function(word){return word.length>=2}).length>0;
+}
+function nameWords(value){
+  return new Set(normalizeAscii(value).split(/[^A-Z]+/).filter(function(word){return word.length>=2}));
+}
+function editSimilarity(left,right){
+  var a=normalizeAscii(left).replace(/[^A-Z0-9]/g,""),b=normalizeAscii(right).replace(/[^A-Z0-9]/g,"");
+  if(!a||!b)return 0;
+  if(a===b)return 1;
+  var prev=Array.from({length:b.length+1},function(_,i){return i}),curr=new Array(b.length+1);
+  for(var i=0;i<a.length;i++){
+    curr[0]=i+1;
+    for(var j=0;j<b.length;j++){
+      var cost=a[i]===b[j]?0:1;
+      curr[j+1]=Math.min(curr[j]+1,prev[j+1]+1,prev[j]+cost);
+    }
+    for(var k=0;k<prev.length;k++)prev[k]=curr[k];
+  }
+  return 1-prev[b.length]/Math.max(a.length,b.length);
+}
+function namesProbablySame(left,right){
+  if(!validName(left)||!validName(right))return false;
+  if(nameFingerprint(left)===nameFingerprint(right))return true;
+  var lw=nameWords(left),rw=nameWords(right);
+  if(!lw.size||lw.size!==rw.size)return false;
+  var overlap=0;
+  lw.forEach(function(x){if(rw.has(x))overlap++});
+  var edit=editSimilarity(left,right);
+  // Without a trusted row number, identity matching is deliberately strict.
+  // Similar real names (e.g. IVAN / IVANA with the same surname) must stay apart.
+  return edit>=.94&&overlap>=Math.max(1,lw.size-1);
+}
+function nameQuality(value){
+  if(!validName(value))return -1000000;
+  var words=nameWords(value).size,letters=(value.match(/\p{L}/gu)||[]).length;
+  var punctuation=(value.match(/[^\p{L}\s'-]/gu)||[]).length;
+  var bonus=words===2?28:words===3?24:words===4?16:words===1?2:-8;
+  return letters+bonus-punctuation*8-(value.match(/\d/g)||[]).length*10-Math.max(0,value.length-42);
+}
+function betterName(left,right){
+  if(!validName(left))return right;
+  if(!validName(right))return left;
+  var l=nameQuality(left),r=nameQuality(right);
+  if(r>l)return right;
+  if(r<l)return left;
+  return right.length<left.length?right:left;
 }
 function sortedShiftMap(raw){
   return Object.keys(raw||{}).map(Number).filter(function(day){return day>=1&&day<=31})
@@ -79,22 +151,21 @@ function mergeRows(rows){
     var numbered=Number.isInteger(Number(row.row))&&Number(row.row)>=1&&Number(row.row)<=100;
     var valid=validName(row.name||"");
     if(!valid&&!numbered)return;
-    var key=valid?nameFingerprint(row.name):("__ROW__"+Number(row.row));
     var index=merged.findIndex(function(existing){
       var sameRow=row.row!=null&&existing.row!=null&&Number(row.row)===Number(existing.row);
       var conflictingRows=row.row!=null&&existing.row!=null&&Number(row.row)!==Number(existing.row);
-      var sameName=nameFingerprint(existing.name)===key;
-      return sameRow||(sameName&&!conflictingRows);
+      return sameRow||(!conflictingRows&&namesProbablySame(existing.name,row.name));
     });
     if(index<0){
-      merged.push({row:row.row==null?null:Number(row.row),name:row.name,dayShifts:sortedShiftMap(row.dayShifts||{})});
+      merged.push({row:row.row==null?null:Number(row.row),name:valid?String(row.name).trim():"",dayShifts:sortedShiftMap(row.dayShifts||{}),supportCount:Math.max(1,Number(row.supportCount)||1)});
       return;
     }
     var existing=merged[index];
     merged[index]={
       row:existing.row==null?row.row:existing.row,
-      name:existing.name.length>=row.name.length?existing.name:row.name,
-      dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},existing.dayShifts||{}))
+      name:betterName(existing.name,row.name),
+      dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},existing.dayShifts||{})),
+      supportCount:(Number(existing.supportCount)||1)+Math.max(1,Number(row.supportCount)||1)
     };
   });
   var numbered=Array.from(new Set(merged.filter(function(row){return row.row!=null}).map(function(row){return Number(row.row)})))
@@ -119,6 +190,62 @@ function mergeRows(rows){
     }
   }
   return merged.sort(function(a,b){
+    var ar=a.row==null?9999:a.row,br=b.row==null?9999:b.row;
+    return ar-br||a.name.localeCompare(b.name,"hr");
+  });
+}
+function finalizeRows(rows){
+  var merged=mergeRows(rows),numbered=merged.filter(function(row){return row.row!=null});
+  if(numbered.length<5){
+    return merged.filter(function(row){
+      return row.row!=null||(Number(row.supportCount)||1)>=2||merged.length<12;
+    });
+  }
+  var numbers=Array.from(new Set(numbered.map(function(row){return Number(row.row)}))).sort(function(a,b){return a-b});
+  var first=numbers[0],last=numbers[numbers.length-1],span=Math.max(1,last-first+1);
+  var denseRoster=first<=3&&numbers.length/span>=.72;
+  var missingSlots=Math.max(0,span-numbers.length);
+  var authoritative=numbered.slice(),unmatched=[];
+
+  merged.filter(function(row){return row.row==null}).forEach(function(row){
+    var best=-1,bestScore=0;
+    authoritative.forEach(function(target,index){
+      if(!namesProbablySame(target.name,row.name))return;
+      var score=editSimilarity(target.name,row.name);
+      if(score>bestScore){bestScore=score;best=index}
+    });
+    if(best>=0){
+      var target=authoritative[best];
+      authoritative[best]={
+        row:target.row,
+        name:betterName(target.name,row.name),
+        dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},target.dayShifts||{})),
+        supportCount:(Number(target.supportCount)||1)+(Number(row.supportCount)||1)
+      };
+    }else if(
+      (Number(row.supportCount)||1)>=3&&
+      validName(row.name||"")&&
+      Object.keys(row.dayShifts||{}).length>=2
+    ){
+      // Footer leave notes can repeat a real name and one GO marker across
+      // several OCR passes. Do not promote such notes into a missing roster
+      // slot; a genuine unnumbered employee row needs multiple mapped cells.
+      unmatched.push(row);
+    }
+  });
+
+  if(denseRoster){
+    unmatched.sort(function(a,b){
+      return (Number(b.supportCount)||1)-(Number(a.supportCount)||1)||
+        nameQuality(b.name)-nameQuality(a.name)||
+        Object.keys(b.dayShifts||{}).length-Object.keys(a.dayShifts||{}).length;
+    });
+    authoritative=authoritative.concat(unmatched.slice(0,missingSlots));
+  }else{
+    authoritative=authoritative.concat(unmatched);
+  }
+
+  return authoritative.sort(function(a,b){
     var ar=a.row==null?9999:a.row,br=b.row==null?9999:b.row;
     return ar-br||a.name.localeCompare(b.name,"hr");
   });
@@ -407,14 +534,14 @@ function bestRowAlignment(xs,geometry){
 function mapShiftTokens(tokens,geometry){
   var dayShifts={},maxDistance=Math.max(12,geometry.spacing*.52);
   var shiftTokens=tokens.filter(function(token){
-    return token&&token.bbox&&canonicalShift(token.text);
+    return token&&token.bbox&&gridCodeForToken(token,geometry);
   });
   var alignment=bestRowAlignment(
     shiftTokens.map(function(token){return centerX(token.bbox)}),
     geometry
   );
   shiftTokens.forEach(function(token){
-    var code=canonicalShift(token.text);
+    var code=gridCodeForToken(token,geometry);
     var rawX=centerX(token.bbox);
     var x=alignment.pivot+(rawX-alignment.pivot)*alignment.scale+alignment.offset;
     var nearest=null,best=Infinity;
@@ -427,7 +554,7 @@ function mapShiftTokens(tokens,geometry){
   return dayShifts;
 }
 function parseTokenRow(tokens,geometry){
-  var shifts=tokens.filter(function(token){return token.bbox&&canonicalShift(token.text)});
+  var shifts=tokens.filter(function(token){return token.bbox&&gridCodeForToken(token,geometry)});
   if(!shifts.length)return null;
   var firstShiftX=Math.min.apply(null,shifts.map(function(item){return centerX(item.bbox)}));
   var boundary=Math.min(firstShiftX,geometry.minX);
@@ -695,7 +822,7 @@ async function prepareRosterBand(tableSource,startRatio,endRatio){
   var bitmap;
   try{
     bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
-    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.34));
     var top=Math.max(0,Math.min(bitmap.height-1,Math.round(bitmap.height*startRatio)));
     var bottom=Math.max(top+1,Math.min(bitmap.height,Math.round(bitmap.height*endRatio)));
     var cropHeight=bottom-top;
@@ -730,7 +857,7 @@ async function prepareRosterColumn(file){
   var bitmap;
   try{
     bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
-    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.34));
     var pixelScale=Math.sqrt(5000000/(cropWidth*bitmap.height));
     var edgeScale=3000/cropWidth;
     var scale=Math.max(1,Math.min(2.20,pixelScale,edgeScale));
@@ -864,14 +991,22 @@ async function recognizeScheduleNow(file,onProgress){
     var mappedAfterBands=(merged.people||[]).reduce(function(sum,row){
       return sum+Object.keys(row.dayShifts||{}).length;
     },0);
-    var minimumMapped=Math.max(12,(merged.people||[]).length*2);
-    if((merged.people||[]).length>=4&&mappedAfterBands<minimumMapped){
-      // Extremely dense photographed schedules can yield the roster but almost
-      // no one-letter cell codes. Cross-tiling both axes is slower, so it is
-      // reserved for this failure mode. Each pass keeps the header + roster and
-      // enlarges only one row band and one day band.
-      var rowBands=[[.12,.44],[.36,.70],[.62,1]];
-      var focusedDayBands=[[.18,.62],[.56,1]];
+    var denseRoster=(merged.people||[]).length>=12;
+    var minimumMapped=Math.max(24,(merged.people||[]).length*(denseRoster?12:8));
+    if((merged.people||[]).length>=4&&(mappedAfterBands<minimumMapped||missingNumberedRows(merged))){
+      // Dense 27–31 row schedules from a monitor are deliberately expensive:
+      // accuracy wins over speed. If only a few cells per employee survive the
+      // first passes, use finer overlapping row/day tiles rather than accepting
+      // an incomplete roster.
+      var severeDenseFailure=denseRoster&&(
+        mappedAfterBands<(merged.people||[]).length*6||missingNumberedRows(merged)
+      );
+      var rowBands=severeDenseFailure
+        ?[[.08,.29],[.24,.45],[.40,.61],[.56,.77],[.72,.93],[.86,1]]
+        :[[.10,.36],[.30,.58],[.52,.80],[.74,1]];
+      var focusedDayBands=severeDenseFailure
+        ?[[.14,.34],[.30,.50],[.46,.66],[.62,.82],[.78,1]]
+        :[[.16,.48],[.42,.74],[.68,1]];
       var pass=0,totalPasses=rowBands.length*focusedDayBands.length;
       for(var rb=0;rb<rowBands.length;rb++){
         for(var db=0;db<focusedDayBands.length;db++){
@@ -907,7 +1042,7 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
     }
-    merged.people=(merged.people||[]).filter(function(row){return validName(row.name||"")});
+    merged.people=finalizeRows(merged.people||[]).filter(function(row){return validName(row.name||"")});
     return merged;
   }finally{
     activeProgressCallback=null;
@@ -925,6 +1060,7 @@ window.RasporedWebOcr={
   parseGeometry:parseGeometry,
   detectMonth:detectMonth,
   inferDayCenters:inferDayCenters,
-  inferDayCentersFromShiftXs:inferDayCentersFromShiftXs
+  inferDayCentersFromShiftXs:inferDayCentersFromShiftXs,
+  finalizeRows:finalizeRows
 };
 })();

@@ -21,7 +21,8 @@ import kotlin.math.roundToInt
 data class RecognizedScheduleRow(
     val rowNumber: Int?,
     val name: String,
-    val dayShifts: Map<Int, String>
+    val dayShifts: Map<Int, String>,
+    val supportCount: Int = 1
 ) {
     val shifts: List<String>
         get() = dayShifts.toSortedMap().values.toList()
@@ -81,6 +82,39 @@ object ScheduleOcrParser {
         "PD" -> "PD"
         "SD" -> "SD"
         else -> null
+    }
+
+    /**
+     * Dense hospital and public-sector rosters often contain workplace-specific
+     * cell labels in addition to D/N/GO/BO/PD/SD (for example J, S or P1).
+     * Inside a proven day-grid cell we preserve those short labels instead of
+     * silently dropping them. Meanings are not guessed; unknown labels stay
+     * user-visible custom schedule codes.
+     */
+    internal fun canonicalGridCode(raw: String): String? {
+        canonicalShift(raw)?.let { return it }
+        val value = raw
+            .trim()
+            .trim('.', ',', ';', ':', '|', '[', ']', '(', ')', '{', '}', '_', '-')
+            .uppercase(Locale("hr", "HR"))
+        if (!Regex("""^[\p{L}\p{N}]{1,3}$""").matches(value)) return null
+        if (value.all(Char::isDigit) && value !in setOf("1", "2", "3")) return null
+        if (value in setOf("RB", "OD", "DO")) return null
+        return value
+    }
+
+    private fun gridCodeForToken(
+        token: Token,
+        minDayX: Int,
+        spacing: Double
+    ): String? {
+        canonicalShift(token.text)?.let { return it }
+        // Recovery bands can contain only late-month header numbers. Their
+        // missing early-day centers are extrapolated left of the photographed
+        // grid; do not allow row numbers or short names to become custom codes
+        // in those synthetic columns.
+        if (token.centerX < minDayX - max(4.0, spacing * 0.55)) return null
+        return canonicalGridCode(token.text)
     }
 
     private data class HeaderGeometry(
@@ -511,7 +545,7 @@ object ScheduleOcrParser {
         val anchoredRows = anchors.mapNotNull { anchor ->
             val rowTokens = tokensForAnchor(anchor, anchors, tokens, rowTolerance)
             val shiftTokens = rowTokens.mapNotNull { token ->
-                canonicalShift(token.text)?.let { token to it }
+                gridCodeForToken(token, minDayX, spacing)?.let { token to it }
             }
             val dayShifts = mapShiftTokensToDays(shiftTokens, dayCenters, maxDistance)
             // Ako je redak numeriran, zadržavamo osobu i kada OCR nije
@@ -687,8 +721,9 @@ object ScheduleOcrParser {
         dayCenters: Map<Int, Int>,
         maxDistance: Double
     ): RecognizedScheduleRow? {
+        val spacing = medianDaySpacing(dayCenters)
         val shiftTokens = tokens.mapNotNull { token ->
-            canonicalShift(token.text)?.let { token to it }
+            gridCodeForToken(token, minDayX, spacing)?.let { token to it }
         }
         if (shiftTokens.isEmpty()) return null
 
@@ -774,12 +809,28 @@ object ScheduleOcrParser {
     }
 
     private fun validName(name: String): Boolean {
-        if (name.length < 3 || name.count(Char::isLetter) < 3) return false
+        if (name.length !in 3..64 || name.count(Char::isLetter) < 3) return false
         val normalized = normalizeAscii(name)
-        if (normalized in setOf("IME PREZIME", "IME I PREZIME", "DJELATNIK", "ZAPOSLENIK")) {
+        if (normalized in setOf(
+                "IME PREZIME",
+                "IME I PREZIME",
+                "DJELATNIK",
+                "ZAPOSLENIK",
+                "RADNIK",
+                "RB",
+                "NOSAC BOLESNIKA",
+                "NOSAC BOLESNIKA PREZIME IME"
+            )
+        ) {
             return false
         }
-        return true
+        val letters = name.count(Char::isLetter)
+        val digits = name.count(Char::isDigit)
+        if (digits > 2 || letters.toDouble() / name.length.coerceAtLeast(1) < 0.52) return false
+        val words = normalizeAscii(name)
+            .split(Regex("""[^A-Z]+"""))
+            .filter { it.length >= 2 }
+        return words.isNotEmpty()
     }
 
     private fun nameFingerprint(value: String): String =
@@ -789,34 +840,182 @@ object ScheduleOcrParser {
             .sorted()
             .joinToString("")
 
+    private fun nameWords(value: String): Set<String> =
+        normalizeAscii(value)
+            .split(Regex("""[^A-Z]+"""))
+            .filter { it.length >= 2 }
+            .toSet()
+
+    private fun editSimilarity(left: String, right: String): Double {
+        val a = normalizeAscii(left).filter(Char::isLetterOrDigit)
+        val b = normalizeAscii(right).filter(Char::isLetterOrDigit)
+        if (a.isEmpty() || b.isEmpty()) return 0.0
+        if (a == b) return 1.0
+        val previous = IntArray(b.length + 1) { it }
+        val current = IntArray(b.length + 1)
+        for (i in a.indices) {
+            current[0] = i + 1
+            for (j in b.indices) {
+                val cost = if (a[i] == b[j]) 0 else 1
+                current[j + 1] = minOf(
+                    current[j] + 1,
+                    previous[j + 1] + 1,
+                    previous[j] + cost
+                )
+            }
+            for (j in previous.indices) previous[j] = current[j]
+        }
+        val distance = previous[b.length]
+        return 1.0 - distance.toDouble() / maxOf(a.length, b.length).toDouble()
+    }
+
+    private fun namesProbablySame(left: String, right: String): Boolean {
+        if (!validName(left) || !validName(right)) return false
+        if (nameFingerprint(left) == nameFingerprint(right)) return true
+
+        val leftWords = nameWords(left)
+        val rightWords = nameWords(right)
+        if (leftWords.size != rightWords.size || leftWords.isEmpty()) return false
+
+        val overlap = leftWords.intersect(rightWords).size
+        val edit = editSimilarity(left, right)
+
+        // Without a trusted row number, identity matching must be conservative.
+        // Similar real names such as IVAN HORVAT / IVANA HORVAT must never be
+        // collapsed into one employee merely because their edit distance is low.
+        return edit >= 0.94 && overlap >= maxOf(1, leftWords.size - 1)
+    }
+
+    private fun nameQuality(value: String): Int {
+        if (!validName(value)) return Int.MIN_VALUE / 4
+        val words = nameWords(value)
+        val letters = value.count(Char::isLetter)
+        val punctuation = value.count { !it.isLetter() && !it.isWhitespace() && it != '-' && it != '\'' }
+        return letters +
+            when (words.size) {
+                2 -> 28
+                3 -> 24
+                4 -> 16
+                1 -> 2
+                else -> -8
+            } -
+            punctuation * 8 -
+            value.count(Char::isDigit) * 10 -
+            maxOf(0, value.length - 42)
+    }
+
+    private fun betterName(left: String, right: String): String = when {
+        !validName(left) -> right
+        !validName(right) -> left
+        nameQuality(right) > nameQuality(left) -> right
+        nameQuality(right) < nameQuality(left) -> left
+        right.length < left.length -> right
+        else -> left
+    }
+
     internal fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
         val merged = mutableListOf<RecognizedScheduleRow>()
         rows.forEach { row ->
-            val normalizedName = nameFingerprint(row.name)
+            val valid = validName(row.name)
+            val numbered = row.rowNumber?.let { it in 1..100 } == true
+            if (!valid && !numbered) return@forEach
+
             val index = merged.indexOfFirst { existing ->
                 val sameRow = row.rowNumber != null &&
                     existing.rowNumber != null &&
                     row.rowNumber == existing.rowNumber
-                val sameName = nameFingerprint(existing.name) == normalizedName
                 val conflictingRows = row.rowNumber != null &&
                     existing.rowNumber != null &&
                     row.rowNumber != existing.rowNumber
-                sameRow || (sameName && !conflictingRows)
+                val sameName = !conflictingRows && namesProbablySame(existing.name, row.name)
+                sameRow || sameName
             }
             if (index < 0) {
-                merged += row
+                merged += row.copy(
+                    name = if (valid) row.name.trim() else "",
+                    supportCount = row.supportCount.coerceAtLeast(1)
+                )
             } else {
                 val existing = merged[index]
                 merged[index] = existing.copy(
                     rowNumber = existing.rowNumber ?: row.rowNumber,
-                    name = if (existing.name.length >= row.name.length) existing.name else row.name,
+                    name = betterName(existing.name, row.name),
                     // Ranije geometrijski rezultat ima prednost kod konflikta istog dana.
-                    dayShifts = (row.dayShifts + existing.dayShifts).toSortedMap()
+                    dayShifts = (row.dayShifts + existing.dayShifts).toSortedMap(),
+                    supportCount = existing.supportCount + row.supportCount.coerceAtLeast(1)
                 )
             }
         }
         val filtered = filterRowNumberOutliers(merged)
         return filtered.sortedWith(
+            compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
+                .thenBy { normalizeAscii(it.name) }
+        )
+    }
+
+    internal fun finalizeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
+        val merged = mergeRows(rows)
+        val numbered = merged.filter { it.rowNumber != null }
+        if (numbered.size < 5) {
+            return merged.filter { row ->
+                row.rowNumber != null || row.supportCount >= 2 || merged.size < 12
+            }
+        }
+
+        val numbers = numbered.mapNotNull { it.rowNumber }.distinct().sorted()
+        val first = numbers.firstOrNull() ?: return merged
+        val last = numbers.lastOrNull() ?: return merged
+        val span = (last - first + 1).coerceAtLeast(1)
+        val denseRoster = first <= 3 && numbers.size.toDouble() / span.toDouble() >= 0.72
+        val missingSlots = (span - numbers.size).coerceAtLeast(0)
+
+        val authoritative = numbered.toMutableList()
+        val unmatched = mutableListOf<RecognizedScheduleRow>()
+
+        merged.filter { it.rowNumber == null }.forEach { row ->
+            val targetIndex = authoritative.indices
+                .filter { index -> namesProbablySame(authoritative[index].name, row.name) }
+                .maxByOrNull { index -> editSimilarity(authoritative[index].name, row.name) }
+
+            if (targetIndex != null) {
+                val target = authoritative[targetIndex]
+                authoritative[targetIndex] = target.copy(
+                    name = betterName(target.name, row.name),
+                    dayShifts = (row.dayShifts + target.dayShifts).toSortedMap(),
+                    supportCount = target.supportCount + row.supportCount
+                )
+            } else if (
+                row.supportCount >= 3 &&
+                validName(row.name) &&
+                row.dayShifts.size >= 2
+            ) {
+                // Footer notes below hospital rosters often repeat a real
+                // employee name followed by a single "GO" date range. Those
+                // notes can be recognized in several recovery passes and must
+                // never be promoted into a missing roster slot. A genuine
+                // unnumbered employee row needs at least two mapped day cells.
+                unmatched += row
+            }
+        }
+
+        val retainedUnnumbered = if (denseRoster) {
+            // A dense numbered roster gives us an expected employee count. Keep
+            // only repeated unnumbered names that can fill actually missing row
+            // numbers; this preserves a real employee whose number cell failed
+            // OCR without reintroducing dozens of one-off ghost names.
+            unmatched
+                .sortedWith(
+                    compareByDescending<RecognizedScheduleRow> { it.supportCount }
+                        .thenByDescending { nameQuality(it.name) }
+                        .thenByDescending { it.dayShifts.size }
+                )
+                .take(missingSlots)
+        } else {
+            unmatched
+        }
+        authoritative += retainedUnnumbered
+
+        return authoritative.sortedWith(
             compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
                 .thenBy { normalizeAscii(it.name) }
         )
@@ -931,9 +1130,10 @@ object ScheduleOcrEngine {
                     recycleTemporary(recoverySource, bitmap)
                     onSuccess(
                         schedule.copy(
-                            rows = schedule.rows.filter { row ->
-                                row.name.count(Char::isLetter) >= 3
-                            }
+                            rows = ScheduleOcrParser.finalizeRows(schedule.rows)
+                                .filter { row ->
+                                    row.name.count(Char::isLetter) >= 3
+                                }
                         )
                     )
                 }
@@ -1008,9 +1208,13 @@ object ScheduleOcrEngine {
     ): Boolean {
         if (schedule.rows.any { row -> row.name.count(Char::isLetter) < 3 }) return true
         if (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule)) return true
-        return source.width >= 1600 &&
-            source.height >= 1000 &&
-            schedule.rows.size in 1..15
+        // Dense monthly rosters photographed from a monitor are often
+        // 4:3 images around 1440×1080. Treat a suspiciously short 1–20 row
+        // result as incomplete even when the first pass happened to read many
+        // cells; otherwise a real 27–31 person roster can stop after row 13.
+        return source.width >= 1200 &&
+            source.height >= 750 &&
+            schedule.rows.size in 1..20
     }
 
     private fun needsStripeRecovery(
@@ -1215,7 +1419,13 @@ object ScheduleOcrEngine {
     private fun needsFocusedRecovery(schedule: RecognizedSchedule): Boolean {
         if (schedule.rows.size < 4) return false
         val mapped = schedule.rows.sumOf { it.dayShifts.size }
-        return mapped < maxOf(12, schedule.rows.size * 2)
+        val numbered = schedule.rows.mapNotNull { it.rowNumber }.distinct().sorted()
+        val denseRoster = schedule.rows.size >= 12 ||
+            (numbered.size >= 8 &&
+                (numbered.lastOrNull() ?: 0) - (numbered.firstOrNull() ?: 0) >= 10)
+        val targetPerRow = if (denseRoster) 12 else 8
+        return mapped < maxOf(24, schedule.rows.size * targetPerRow) ||
+            hasMissingNumberedRows(schedule)
     }
 
     private data class FocusedTile(
@@ -1230,15 +1440,46 @@ object ScheduleOcrEngine {
         baseline: RecognizedSchedule,
         onSuccess: (RecognizedSchedule) -> Unit
     ) {
-        val rowBands = listOf(
-            0.12f to 0.44f,
-            0.36f to 0.70f,
-            0.62f to 1.00f
-        )
-        val dayBands = listOf(
-            0.18f to 0.62f,
-            0.56f to 1.00f
-        )
+        val mapped = baseline.rows.sumOf { it.dayShifts.size }
+        val severeDenseFailure =
+            baseline.rows.size >= 12 &&
+                (mapped < baseline.rows.size * 6 || hasMissingNumberedRows(baseline))
+
+        val rowBands = if (severeDenseFailure) {
+            listOf(
+                0.08f to 0.29f,
+                0.24f to 0.45f,
+                0.40f to 0.61f,
+                0.56f to 0.77f,
+                0.72f to 0.93f,
+                0.86f to 1.00f
+            )
+        } else {
+            listOf(
+                0.10f to 0.36f,
+                0.30f to 0.58f,
+                0.52f to 0.80f,
+                0.74f to 1.00f
+            )
+        }
+        val dayBands = if (severeDenseFailure) {
+            // Dense 27–31 row tables photographed from a monitor can shrink a
+            // one-letter cell below reliable OCR size. Five narrow overlapping
+            // day windows magnify roughly 5–7 day columns at a time.
+            listOf(
+                0.14f to 0.34f,
+                0.30f to 0.50f,
+                0.46f to 0.66f,
+                0.62f to 0.82f,
+                0.78f to 1.00f
+            )
+        } else {
+            listOf(
+                0.16f to 0.48f,
+                0.42f to 0.74f,
+                0.68f to 1.00f
+            )
+        }
         val tiles = rowBands.flatMap { row ->
             dayBands.map { day ->
                 FocusedTile(row.first, row.second, day.first, day.second)
@@ -1446,7 +1687,7 @@ object ScheduleOcrEngine {
         startRatio: Float,
         endRatio: Float
     ): Bitmap {
-        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val cropWidth = (source.width * 0.34f).roundToInt().coerceIn(1, source.width)
         val top = (source.height * startRatio).roundToInt().coerceIn(0, source.height - 1)
         val bottom = (source.height * endRatio).roundToInt().coerceIn(top + 1, source.height)
         val cropHeight = bottom - top
@@ -1486,7 +1727,7 @@ object ScheduleOcrEngine {
     }
 
     private fun createEnhancedRosterColumn(source: Bitmap): Bitmap {
-        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val cropWidth = (source.width * 0.34f).roundToInt().coerceIn(1, source.width)
         val targetPixels = 5_000_000.0
         val pixelScale = kotlin.math.sqrt(
             targetPixels / (cropWidth.toDouble() * source.height.toDouble())

@@ -122,6 +122,18 @@ function clean_text(mixed $value, int $max): string
     return text_slice($value, $max);
 }
 
+function clean_schedule_code(mixed $raw): string
+{
+    if (!is_string($raw)) {
+        return '';
+    }
+    $value = trim($raw);
+    $value = function_exists('mb_strtoupper')
+        ? mb_strtoupper($value, 'UTF-8')
+        : strtoupper($value);
+    return preg_match('/^[\p{L}\p{N}]{1,8}$/u', $value) === 1 ? $value : '';
+}
+
 function clean_schedule(mixed $raw): array
 {
     if (!is_array($raw)) {
@@ -129,12 +141,12 @@ function clean_schedule(mixed $raw): array
     }
     $clean = [];
     foreach ($raw as $date => $code) {
+        $normalizedCode = clean_schedule_code($code);
         if (is_string($date)
             && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
-            && is_string($code)
-            && in_array($code, ['D', 'N', 'GO', 'BO', 'PD', 'SD'], true)
+            && $normalizedCode !== ''
         ) {
-            $clean[$date] = $code;
+            $clean[$date] = $normalizedCode;
         }
         if (count($clean) >= 3660) {
             break;
@@ -247,8 +259,9 @@ function clean_scan_people(mixed $raw): array
         $rawShifts = is_array($item['dayShifts'] ?? null) ? $item['dayShifts'] : [];
         foreach ($rawShifts as $day => $code) {
             $dayNumber = (int) $day;
-            if ($dayNumber >= 1 && $dayNumber <= 31 && is_string($code) && in_array($code, ['D', 'N', 'GO', 'BO', 'PD', 'SD'], true)) {
-                $shifts[(string) $dayNumber] = $code;
+            $normalizedCode = clean_schedule_code($code);
+            if ($dayNumber >= 1 && $dayNumber <= 31 && $normalizedCode !== '') {
+                $shifts[(string) $dayNumber] = $normalizedCode;
             }
         }
         $row = isset($item['row']) && is_numeric($item['row']) ? (int) $item['row'] : null;

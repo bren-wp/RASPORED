@@ -264,10 +264,8 @@ test("Web account registration stays optional and manager import keeps employees
   await page.locator("#registerPhone").fill("+385 91 555 0101");
   await page.locator("#registerPassword").fill("RasporedTest2026");
   await page.locator("#registerAccountType").selectOption("manager");
-  await Promise.all([
-    page.waitForLoadState("domcontentloaded"),
-    page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click()
-  ]);
+  await page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click();
+  await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator("#accountStatusBadge")).toHaveText("Prijavljen");
   await expect(page.locator("#accountDetails")).toContainText("Voditelj tima");
@@ -389,10 +387,8 @@ test("individual Web account can import only its own recognized row", async ({pa
   await page.locator("#registerEmail").fill("ana-"+suffix+"@example.test");
   await page.locator("#registerPhone").fill("+385 91 555 0102");
   await page.locator("#registerPassword").fill("RasporedTest2026");
-  await Promise.all([
-    page.waitForLoadState("domcontentloaded"),
-    page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click()
-  ]);
+  await page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click();
+  await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
   await page.locator('[data-route="scan"]:visible').first().click();
   await page.locator("#galleryInput").setInputFiles({
     name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
@@ -931,4 +927,55 @@ test("dynamic assets honor a subdirectory deployment base", async ({page}) => {
   });
   await expect(page.locator("#searchDialog")).toBeVisible();
   await expect(page.locator("#searchResults use").first()).toHaveAttribute("href",/^\/raspored\/assets\/brand\/icons\.svg#icon-/);
+});
+
+
+test("calendar keeps a schedule entry from ten years earlier when editing a current month", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  await page.evaluate(async() => {
+    const store=(window as any).RasporedDataStore;
+    store.set("raspored.schedule",JSON.stringify({
+      "2016-10-01":"J",
+      "2026-09-01":"D"
+    }));
+    await store.flush();
+  });
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const input=page.locator("#calendarCustomCode");
+  await input.fill("P1");
+  await page.locator("[data-save-custom-shift]").click();
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+
+  const stored=await page.evaluate(() => {
+    return JSON.parse((window as any).RasporedDataStore.get("raspored.schedule")||"{}");
+  });
+  expect(stored["2016-10-01"]).toBe("J");
+  expect(Object.values(stored)).toContain("P1");
+});
+
+test("calendar saves and reloads a custom per-date schedule label", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const input=page.locator("#calendarCustomCode");
+  await expect(input).toBeVisible();
+  await input.fill("EDU");
+  await page.locator("[data-save-custom-shift]").click();
+
+  await expect(page.locator("#selectedDayCard")).toContainText("EDU");
+  const stored=await page.evaluate(() => {
+    return JSON.parse((window as any).RasporedDataStore.get("raspored.schedule")||"{}");
+  });
+  expect(Object.values(stored)).toContain("EDU");
+
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const afterReload=await page.evaluate(() => {
+    return JSON.parse((window as any).RasporedDataStore.get("raspored.schedule")||"{}");
+  });
+  expect(Object.values(afterReload)).toContain("EDU");
 });

@@ -118,15 +118,58 @@ internal object ScheduleTableDetector {
             }
             bridgeSmallGaps(
                 supportedXs,
-                maxGap = max(6, (spacing * 0.55).roundToInt())
+                maxGap = max(8, (spacing * 1.65).roundToInt())
             )
             val runs = trueRuns(supportedXs)
             val widest = runs.maxByOrNull { it.last - it.first } ?: return null
             if (widest.last - widest.first < sampleWidth * 0.45) return null
 
             val sideMargin = (spacing * 1.4).roundToInt()
-            val tableLeft = (widest.first - sideMargin).coerceAtLeast(0)
-            val tableRight = (widest.last + sideMargin + 1).coerceAtMost(sampleWidth)
+
+            // Fragmented horizontal rules commonly leave the employee-name
+            // columns disconnected from the dense 31-day grid. Recover the
+            // outer table edges from long vertical rules before final cropping;
+            // otherwise the roster/name columns can be cut off even though all
+            // day columns were found correctly.
+            val verticalCandidates = mutableListOf<Int>()
+            val verticalHeight = (tableBottom - tableTop).coerceAtLeast(1)
+            for (x in 0 until sampleWidth) {
+                var hits = 0
+                for (y in tableTop until tableBottom) {
+                    if (dark[y * sampleWidth + x]) hits++
+                }
+                if (hits.toDouble() / verticalHeight.toDouble() >= 0.32) {
+                    verticalCandidates += x
+                }
+            }
+            val verticalCenters = groupCenters(verticalCandidates)
+                .filter { it in 2 until sampleWidth - 2 }
+
+            var tableLeft = (widest.first - sideMargin).coerceAtLeast(0)
+            var tableRight = (widest.last + sideMargin + 1).coerceAtMost(sampleWidth)
+
+            if (verticalCenters.size >= 8) {
+                val maxExtension = (sampleWidth * 0.24).roundToInt()
+                val leftEdge = verticalCenters
+                    .filter { it <= widest.first && widest.first - it <= maxExtension }
+                    .minOrNull()
+                val rightEdge = verticalCenters
+                    .filter { it >= widest.last && it - widest.last <= maxExtension }
+                    .maxOrNull()
+
+                if (leftEdge != null) {
+                    tableLeft = minOf(
+                        tableLeft,
+                        (leftEdge - sideMargin).coerceAtLeast(0)
+                    )
+                }
+                if (rightEdge != null) {
+                    tableRight = maxOf(
+                        tableRight,
+                        (rightEdge + sideMargin + 1).coerceAtMost(sampleWidth)
+                    )
+                }
+            }
 
             if (tableRight - tableLeft < sampleWidth * 0.45) return null
             if (tableBottom - tableTop < sampleHeight * 0.25) return null

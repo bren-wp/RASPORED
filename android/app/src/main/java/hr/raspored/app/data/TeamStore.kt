@@ -28,8 +28,8 @@ class TeamStore(context: Context) {
                     val keys = scheduleObject.keys()
                     while (keys.hasNext()) {
                         val date = keys.next()
-                        val code = scheduleObject.optString(date)
-                        if (DATE.matches(date) && code in VALID_CODES) {
+                        val code = ScheduleStore.normalizeCode(scheduleObject.optString(date))
+                        if (DATE.matches(date) && code != null) {
                             put(date, code)
                         }
                     }
@@ -51,8 +51,9 @@ class TeamStore(context: Context) {
             val name = sanitizeName(member.name)
             if (name.length < 2) return@forEach
             val schedule = JSONObject()
-            member.schedule.toSortedMap().forEach { (date, code) ->
-                if (DATE.matches(date) && code in VALID_CODES) {
+            member.schedule.toSortedMap().forEach { (date, rawCode) ->
+                val code = ScheduleStore.normalizeCode(rawCode)
+                if (DATE.matches(date) && code != null) {
                     schedule.put(date, code)
                 }
             }
@@ -80,8 +81,9 @@ class TeamStore(context: Context) {
             (1..month.lengthOfMonth()).forEach { day ->
                 merged.remove(month.atDay(day).toString())
             }
-            dayShifts.forEach { (day, code) ->
-                if (day in 1..month.lengthOfMonth() && code in VALID_CODES) {
+            dayShifts.forEach { (day, rawCode) ->
+                val code = ScheduleStore.normalizeCode(rawCode)
+                if (day in 1..month.lengthOfMonth() && code != null) {
                     merged[month.atDay(day).toString()] = code
                 }
             }
@@ -105,6 +107,5 @@ class TeamStore(context: Context) {
     private companion object {
         const val KEY_MEMBERS = "members"
         val DATE = Regex("""\d{4}-\d{2}-\d{2}""")
-        val VALID_CODES = setOf("D", "N", "GO", "BO", "PD", "SD")
     }
 }

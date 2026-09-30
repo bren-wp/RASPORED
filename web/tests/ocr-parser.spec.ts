@@ -1,5 +1,44 @@
 import {test,expect} from "@playwright/test";
 
+test("OCR table detector keeps full width with fragmented photographed grid lines", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const bounds=await page.evaluate(() => {
+    const canvas=document.createElement("canvas");
+    canvas.width=1600;canvas.height=1200;
+    const ctx=canvas.getContext("2d")!;
+    ctx.fillStyle="rgb(242,242,242)";
+    ctx.fillRect(0,0,1600,1200);
+    ctx.strokeStyle="rgb(38,38,38)";
+    ctx.lineWidth=2;
+
+    const left=145,top=185,right=1515,bottom=835,nameWidth=235;
+    const verticals=[left,left+38,left+nameWidth];
+    for(let day=0;day<=31;day++){
+      verticals.push(left+nameWidth+(right-left-nameWidth)*day/31);
+    }
+
+    for(let row=0;row<=27;row++){
+      const y=top+(bottom-top)*row/27;
+      for(const x of verticals){
+        ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.stroke();
+      }
+    }
+    for(const x of verticals){
+      ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();
+    }
+    return (window as any).RasporedOcrTableCrop.detectGridBounds(canvas);
+  });
+
+  expect(bounds).not.toBeNull();
+  expect(bounds.left).toBeLessThanOrEqual(190);
+  expect(bounds.right).toBeGreaterThanOrEqual(1460);
+  expect(bounds.top).toBeLessThanOrEqual(220);
+  expect(bounds.bottom).toBeGreaterThanOrEqual(800);
+  expect((bounds.right-bounds.left)/1600).toBeGreaterThanOrEqual(.78);
+});
+
 test("OCR text fallback never compresses missing calendar days", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
@@ -24,6 +63,50 @@ test("OCR text fallback accepts table-border separators without shifting days", 
   expect(parsed).toHaveLength(1);
   expect(parsed[0].dayShifts).toEqual({
     "1":"D","2":"N","4":"GO","7":"PD","9":"SD"
+  });
+});
+
+test("OCR geometry preserves workplace-specific short cell labels", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const parsed=await page.evaluate(() => {
+    function word(text:string,x:number,y:number,w=18,h=12){
+      return {text,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}};
+    }
+    function line(words:any[],y:number){
+      return {
+        text:words.map(w=>w.text).join(" "),
+        bbox:{
+          x0:Math.min(...words.map(w=>w.bbox.x0)),
+          y0:y,
+          x1:Math.max(...words.map(w=>w.bbox.x1)),
+          y1:y+14
+        },
+        words
+      };
+    }
+    const header=[] as any[];
+    for(let day=1;day<=31;day++)header.push(word(String(day),320+(day-1)*24,80,14));
+    const employee=line([
+      word("1",20,145,12),
+      word("ANA",55,145,42),
+      word("HORVAT",104,145,62),
+      word("J",320,147,12),
+      word("S",320+5*24,147,12),
+      word("P1",320+12*24,147,18),
+      word("3",320+20*24,147,12),
+      word("GO",320+30*24,147,20)
+    ],145);
+    return (window as any).RasporedWebOcr.parseGeometry(
+      [{paragraphs:[{lines:[line(header,80),employee]}]}],
+      31
+    );
+  });
+
+  expect(parsed).toHaveLength(1);
+  expect(parsed[0].dayShifts).toEqual({
+    "1":"J","6":"S","13":"P1","21":"3","31":"GO"
   });
 });
 
@@ -146,4 +229,130 @@ test("OCR geometry retains a dense 30-person roster and sparse exact days", asyn
     expect(row.dayShifts["24"]).toBe("BO");
     expect(row.dayShifts["31"]).toMatch(/^(N|SD)$/);
   }
+});
+
+
+test("OCR geometry keeps all 27 employees and all 31 day columns in a dense monthly table", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const parsed=await page.evaluate(() => {
+    function word(text:string,x:number,y:number,w=14,h=10){
+      return {text,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}};
+    }
+    function line(words:any[],y:number){
+      return {
+        text:words.map(w=>w.text).join(" "),
+        bbox:{
+          x0:Math.min(...words.map(w=>w.bbox.x0)),
+          y0:y,
+          x1:Math.max(...words.map(w=>w.bbox.x1)),
+          y1:y+12
+        },
+        words
+      };
+    }
+    const lines:any[]=[];
+    const header=[] as any[];
+    for(let day=1;day<=31;day++)header.push(word(String(day),310+(day-1)*22,70,13));
+    lines.push(line(header,70));
+
+    const labels=["D","N","GO","BO","PD","SD","J","S","P1","1","2","3"];
+    for(let row=1;row<=27;row++){
+      const y=105+(row-1)*18;
+      lines.push(line([
+        word(String(row),12,y,14),
+        word("TEST",44,y,42),
+        word("OSOBA",92,y,54)
+      ],y));
+      const cells=[] as any[];
+      for(let day=1;day<=31;day++){
+        const code=labels[(row+day)%labels.length];
+        cells.push(word(code,310+(day-1)*22,y+2,code.length===1?11:18));
+      }
+      lines.push(line(cells,y+2));
+    }
+    return (window as any).RasporedWebOcr.parseGeometry(
+      [{paragraphs:[{lines}]}],
+      31
+    );
+  });
+
+  expect(parsed).toHaveLength(27);
+  expect(parsed.map((row:any)=>row.row)).toEqual(Array.from({length:27},(_,i)=>i+1));
+  for(const row of parsed){
+    expect(Object.keys(row.dayShifts)).toHaveLength(31);
+    expect(row.dayShifts["1"]).toBeTruthy();
+    expect(row.dayShifts["31"]).toBeTruthy();
+  }
+  expect(parsed.some((row:any)=>Object.values(row.dayShifts).includes("J"))).toBe(true);
+  expect(parsed.some((row:any)=>Object.values(row.dayShifts).includes("S"))).toBe(true);
+});
+
+test("OCR finalization suppresses one-off ghost people in a dense numbered roster", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const real=Array.from({length:30},(_,index) => ({
+      row:index+1,
+      name:"Test Osoba",
+      dayShifts:{"1":index%2?"N":"D","16":"GO","31":"D"},
+      supportCount:3
+    }));
+    const ghosts=Array.from({length:25},(_,index) => ({
+      row:null,
+      name:"Slucajni Tekst "+String.fromCharCode(65+(index%20)),
+      dayShifts:{"2":"D"},
+      supportCount:1
+    }));
+    return api.finalizeRows(real.concat(ghosts));
+  });
+
+  expect(rows).toHaveLength(30);
+  expect(rows.map((row:any)=>row.row)).toEqual(Array.from({length:30},(_,i)=>i+1));
+});
+
+
+test("OCR finalization keeps very similar real names as separate people", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    return api.finalizeRows([
+      {row:null,name:"IVAN HORVAT",dayShifts:{"1":"D"},supportCount:3},
+      {row:null,name:"IVANA HORVAT",dayShifts:{"2":"N"},supportCount:3}
+    ]);
+  });
+
+  expect(rows).toHaveLength(2);
+  expect(rows.map((row:any)=>row.name).sort()).toEqual(["IVAN HORVAT","IVANA HORVAT"]);
+});
+
+test("OCR finalization fills one missing dense-roster slot with repeated unnumbered employee", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const numbered=Array.from({length:30},(_,index)=>index+1)
+      .filter(number=>number!==15)
+      .map(number=>({
+        row:number,
+        name:"OSOBA BROJ",
+        dayShifts:{"1":"D","31":"N"},
+        supportCount:3
+      }));
+    return api.finalizeRows(numbered.concat([
+      {row:null,name:"MAJA PERIĆ",dayShifts:{"1":"N","16":"GO","31":"D"},supportCount:4},
+      {row:null,name:"NAPOMENA GODISNJI",dayShifts:{"12":"GO"},supportCount:8}
+    ]));
+  });
+
+  expect(rows).toHaveLength(30);
+  const unnumbered=rows.filter((row:any)=>row.row==null);
+  expect(unnumbered).toHaveLength(1);
+  expect(unnumbered[0].name).toBe("MAJA PERIĆ");
 });

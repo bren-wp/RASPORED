@@ -24,6 +24,9 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
         composeRule.onNodeWithContentDescription("Sljedeći mjesec").performClick()
         composeRule.onNodeWithContentDescription("Prethodni mjesec").performClick()
+        composeRule.onNodeWithTag("calendar-month-picker").performClick()
+        composeRule.onNodeWithText("Odaberi mjesec").fetchSemanticsNode()
+        composeRule.onNodeWithText("Zatvori").performClick()
 
         composeRule.onNodeWithTag("nav-scan").performClick()
         composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()

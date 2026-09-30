@@ -58,6 +58,19 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun gridCodePreservesWorkplaceSpecificShortLabelsWithoutGuessingMeaning() {
+        assertEquals("J", ScheduleOcrParser.canonicalGridCode("J"))
+        assertEquals("S", ScheduleOcrParser.canonicalGridCode("s"))
+        assertEquals("P1", ScheduleOcrParser.canonicalGridCode("P1"))
+        assertEquals("1", ScheduleOcrParser.canonicalGridCode("1"))
+        assertEquals("GO", ScheduleOcrParser.canonicalGridCode("G0"))
+        assertNull(ScheduleOcrParser.canonicalGridCode("27"))
+        assertNull(ScheduleOcrParser.canonicalGridCode("RB"))
+        assertNull(ScheduleOcrParser.canonicalGridCode("PREVISE"))
+    }
+
+
+    @Test
     fun mergesShiftOnlyNumberedRowWithRecoveredRosterName() {
         val merged = ScheduleOcrParser.mergeRows(
             listOf(
@@ -292,6 +305,119 @@ class ScheduleOcrParserTest {
             assertEquals("GO", row.dayShifts[5])
             assertEquals("BO", row.dayShifts[24])
         }
+    }
+
+    @Test
+    fun finalizeRowsRejectsOneOffGhostNamesFromDenseThirtyPersonRoster() {
+        val realRows = (1..30).map { number ->
+            RecognizedScheduleRow(
+                rowNumber = number,
+                name = "TEST OSOBA $number".replace(number.toString(), ""),
+                dayShifts = mapOf(1 to if (number % 2 == 0) "N" else "D", 16 to "GO", 31 to "D"),
+                supportCount = 3
+            )
+        }
+        val ghosts = (1..25).map { index ->
+            RecognizedScheduleRow(
+                rowNumber = null,
+                name = "SLUCAJNI TEKST $index".replace(index.toString(), ""),
+                dayShifts = mapOf(2 to "D"),
+                supportCount = 1
+            )
+        }
+
+        val finalized = ScheduleOcrParser.finalizeRows(realRows + ghosts)
+
+        assertEquals(30, finalized.size)
+        assertEquals((1..30).toList(), finalized.mapNotNull { it.rowNumber })
+    }
+
+    @Test
+    fun mergeRowsUsesRowNumberToConsolidateOcrNameVariants() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = 4,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(1 to "D"),
+                    supportCount = 1
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 4,
+                    name = "ANA HORV4T",
+                    dayShifts = mapOf(18 to "N"),
+                    supportCount = 1
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 4,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(31 to "GO"),
+                    supportCount = 1
+                )
+            )
+        )
+
+        assertEquals(1, merged.size)
+        assertEquals("ANA HORVAT", merged.single().name)
+        assertEquals(mapOf(1 to "D", 18 to "N", 31 to "GO"), merged.single().dayShifts)
+        assertEquals(3, merged.single().supportCount)
+    }
+
+    @Test
+    fun doesNotMergeDifferentEmployeesWithVerySimilarNames() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "IVAN HORVAT",
+                    dayShifts = mapOf(1 to "D"),
+                    supportCount = 3
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "IVANA HORVAT",
+                    dayShifts = mapOf(2 to "N"),
+                    supportCount = 3
+                )
+            )
+        )
+
+        assertEquals(2, merged.size)
+        assertEquals(setOf("IVAN HORVAT", "IVANA HORVAT"), merged.map { it.name }.toSet())
+    }
+
+    @Test
+    fun denseRosterKeepsRepeatedUnnumberedEmployeeOnlyForMissingSlot() {
+        val numbered = (1..30)
+            .filter { it != 15 }
+            .map { number ->
+                RecognizedScheduleRow(
+                    rowNumber = number,
+                    name = "OSOBA BROJ $number",
+                    dayShifts = mapOf(1 to "D", 31 to "N"),
+                    supportCount = 3
+                )
+            }
+        val missingEmployee = RecognizedScheduleRow(
+            rowNumber = null,
+            name = "MAJA PERIĆ",
+            dayShifts = mapOf(1 to "N", 16 to "GO", 31 to "D"),
+            supportCount = 4
+        )
+        val repeatedGhost = RecognizedScheduleRow(
+            rowNumber = null,
+            name = "NAPOMENA GODISNJI",
+            dayShifts = mapOf(12 to "GO"),
+            supportCount = 8
+        )
+
+        val finalized = ScheduleOcrParser.finalizeRows(
+            numbered + missingEmployee + repeatedGhost
+        )
+
+        assertEquals(30, finalized.size)
+        assertEquals(1, finalized.count { it.rowNumber == null })
+        assertEquals("MAJA PERIĆ", finalized.single { it.rowNumber == null }.name)
     }
 
     @Test

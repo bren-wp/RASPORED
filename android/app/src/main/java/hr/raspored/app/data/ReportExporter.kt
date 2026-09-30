@@ -136,7 +136,7 @@ object ReportExporter {
                 "BO" -> "BO · bolovanje"
                 "PD" -> "PD · plaćeni dopust"
                 "SD" -> "SD · slobodan dan"
-                else -> "—"
+                else -> code.takeIf { it.isNotBlank() }?.let { "$it · vlastita oznaka" } ?: "—"
             }
             val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
             val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
