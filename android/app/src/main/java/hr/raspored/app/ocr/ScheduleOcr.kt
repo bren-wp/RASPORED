@@ -554,10 +554,11 @@ object ScheduleOcrParser {
                     ?.groupValues?.getOrNull(1)
                     ?.toIntOrNull()
                 val name = cleanName(leftText)
-                if (!validName(name)) return@mapNotNull null
+                val valid = validName(name)
+                if (!valid && rowNumber == null) return@mapNotNull null
                 RowAnchor(
                     rowNumber = rowNumber,
-                    name = name,
+                    name = if (valid) name else "",
                     centerY = cluster.map { it.centerY }.average()
                 )
             }
@@ -705,7 +706,8 @@ object ScheduleOcrParser {
             ?.groupValues?.getOrNull(1)
             ?.toIntOrNull()
         val name = cleanName(leftText)
-        if (!validName(name)) return null
+        val valid = validName(name)
+        if (!valid && rowNumber == null) return null
 
         val dayShifts = buildMap<Int, String> {
             shiftTokens.forEach { (token, code) ->
@@ -718,7 +720,7 @@ object ScheduleOcrParser {
             }
         }
         return if (dayShifts.isEmpty()) null
-        else RecognizedScheduleRow(rowNumber, name, dayShifts)
+        else RecognizedScheduleRow(rowNumber, if (valid) name else "", dayShifts)
     }
 
     private fun medianDaySpacing(dayCenters: Map<Int, Int>): Double {
@@ -927,7 +929,13 @@ object ScheduleOcrEngine {
                 val forceDenseRecovery = detectedTable != null
                 fun finish(schedule: RecognizedSchedule) {
                     recycleTemporary(recoverySource, bitmap)
-                    onSuccess(schedule)
+                    onSuccess(
+                        schedule.copy(
+                            rows = schedule.rows.filter { row ->
+                                row.name.count(Char::isLetter) >= 3
+                            }
+                        )
+                    )
                 }
 
                 val enhanced = enhanceForOcr(recoverySource)
@@ -998,6 +1006,7 @@ object ScheduleOcrEngine {
         schedule: RecognizedSchedule,
         source: Bitmap
     ): Boolean {
+        if (schedule.rows.any { row -> row.name.count(Char::isLetter) < 3 }) return true
         if (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule)) return true
         return source.width >= 1600 &&
             source.height >= 1000 &&
