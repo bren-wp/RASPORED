@@ -11,8 +11,8 @@ import java.io.File
 import kotlin.math.min
 import kotlin.math.sqrt
 
-private const val MAX_OCR_LONG_EDGE = 4096
-private const val MAX_OCR_PIXELS = 10_000_000L
+private const val MAX_OCR_LONG_EDGE = 5000
+private const val MAX_OCR_PIXELS = 14_000_000L
 
 fun createOcrCaptureUri(context: Context): Uri {
     val directory = File(context.cacheDir, "ocr").apply { mkdirs() }
