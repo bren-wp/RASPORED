@@ -757,7 +757,10 @@ async function recognizeScheduleNow(file,onProgress){
       return sum+Object.keys(row.dayShifts||{}).length;
     },0);
     var dayBandTarget=Math.max(24,(merged.people||[]).length*Math.min(daysInMonth(merged.month),18));
-    if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)){
+    var sparseNumberedRow=(merged.people||[]).some(function(row){
+      return Number.isInteger(Number(row.row))&&Object.keys(row.dayShifts||{}).length<3;
+    });
+    if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)||sparseNumberedRow){
       var dayBands=[[.29,.50],[.47,.68],[.65,.86],[.83,1]];
       for(var b=0;b<dayBands.length;b++){
         if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
