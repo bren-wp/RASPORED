@@ -331,8 +331,10 @@ function render(){
   var overtime=Math.max(0,evidence.total-fund*60);
   var secondEnabled=!!qs("payrollSecondShift").checked&&rates.secondShift!=null;
   var turnusEnabled=!!qs("payrollTurnus").checked&&rates.turnus!=null;
-  var secondShiftMinutes=secondEnabled?(evidence.shift2>0?evidence.shift2:evidence.secondShift):0;
   var turnusMinutes=turnusEnabled?evidence.turnus:0;
+  var secondShiftMinutes=secondEnabled
+    ?(evidence.shift2>0?evidence.shift2:(turnusMinutes>0?0:evidence.secondShift))
+    :0;
   var components=[];
   function addComponent(label,minutes,rate){
     if(rate==null)return;
