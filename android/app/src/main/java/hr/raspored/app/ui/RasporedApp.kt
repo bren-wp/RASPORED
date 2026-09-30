@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
-import hr.raspored.app.data.PayrollSettingsStore
 import hr.raspored.app.data.TeamStore
 import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
@@ -81,7 +80,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val uiSettings = remember(context) { UiSettingsStore(context) }
     val evidenceStore = remember(context) { TimeEvidenceStore(context) }
     val profileStore = remember(context) { ProfileStore(context) }
-    val payrollSettingsStore = remember(context) { PayrollSettingsStore(context) }
     val teamStore = remember(context) { TeamStore(context) }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
