@@ -19,6 +19,116 @@ internal object ScheduleTableDetector {
     private const val DETECTION_LONG_EDGE = 1200
     private const val MIN_GRID_LINES = 10
 
+    internal data class EmployeeRowBand(
+        val left: Int,
+        val right: Int,
+        val headerTop: Int,
+        val headerBottom: Int,
+        val bodyTop: Int,
+        val bodyBottom: Int
+    )
+
+    /**
+     * Builds exact employee-row OCR bands from the detected horizontal table
+     * rules. Unlike ratio-only tiling this keeps the true header and employee
+     * rows aligned even when the photographed page contains large margins.
+     */
+    fun detectEmployeeRowBands(source: Bitmap, rowsPerBand: Int = 4): List<EmployeeRowBand> {
+        val bounds = detectBounds(source) ?: return emptyList()
+        if (bounds.width() < 400 || bounds.height() < 220) return emptyList()
+
+        val scale = min(
+            1.0,
+            DETECTION_LONG_EDGE.toDouble() / max(bounds.width(), bounds.height()).toDouble()
+        )
+        val sampleWidth = max(1, (bounds.width() * scale).roundToInt())
+        val sampleHeight = max(1, (bounds.height() * scale).roundToInt())
+        val sample = Bitmap.createBitmap(source, bounds.left, bounds.top, bounds.width(), bounds.height())
+            .let { cropped ->
+                if (sampleWidth == cropped.width && sampleHeight == cropped.height) {
+                    cropped
+                } else {
+                    Bitmap.createScaledBitmap(cropped, sampleWidth, sampleHeight, true).also {
+                        if (it !== cropped && !cropped.isRecycled) cropped.recycle()
+                    }
+                }
+            }
+
+        try {
+            val pixels = IntArray(sampleWidth * sampleHeight)
+            sample.getPixels(pixels, 0, sampleWidth, 0, 0, sampleWidth, sampleHeight)
+            val threshold = adaptiveDarkThreshold(pixels, sampleWidth, sampleHeight)
+            val xStart = (sampleWidth * 0.015).roundToInt().coerceIn(0, sampleWidth - 1)
+            val xEnd = (sampleWidth * 0.985).roundToInt().coerceIn(xStart + 1, sampleWidth)
+
+            val candidateRows = mutableListOf<Int>()
+            for (y in 0 until sampleHeight) {
+                var darkCount = 0
+                val offset = y * sampleWidth
+                for (x in xStart until xEnd) {
+                    if (luminance(pixels[offset + x]) <= threshold) darkCount++
+                }
+                if (darkCount.toDouble() / (xEnd - xStart).toDouble() >= 0.15) {
+                    candidateRows += y
+                }
+            }
+
+            val centers = groupCenters(candidateRows)
+                .filter { it in 1 until sampleHeight - 1 }
+            val grid = fitHorizontalGrid(centers) ?: return emptyList()
+            if (grid.matches.size < MIN_GRID_LINES) return emptyList()
+
+            val orderedMatches = grid.matches
+                .sortedBy { it.first }
+            val firstIndex = orderedMatches.first().first
+            val lastIndex = orderedMatches.last().first
+            if (lastIndex - firstIndex < 8) return emptyList()
+
+            val origin = orderedMatches
+                .map { (gridIndex, actual) -> actual - gridIndex * grid.spacing }
+                .average()
+            val predicted = (firstIndex..lastIndex).map { gridIndex ->
+                (origin + gridIndex * grid.spacing).roundToInt()
+                    .coerceIn(0, sampleHeight)
+            }.distinct().sorted()
+            if (predicted.size < 9) return emptyList()
+
+            val scaleX = bounds.width().toDouble() / sampleWidth.toDouble()
+            val scaleY = bounds.height().toDouble() / sampleHeight.toDouble()
+            val lines = predicted.map { localY ->
+                (bounds.top + localY * scaleY).roundToInt()
+                    .coerceIn(bounds.top, bounds.bottom)
+            }.distinct().sorted()
+            if (lines.size < 9) return emptyList()
+
+            val headerTop = lines[0]
+            val headerBottom = lines[1].coerceAtLeast(headerTop + 1)
+            val safeRowsPerBand = rowsPerBand.coerceIn(1, 6)
+            val padding = max(2, ((headerBottom - headerTop) * 0.18).roundToInt())
+            val bands = mutableListOf<EmployeeRowBand>()
+            var startLineIndex = 1
+            while (startLineIndex < lines.lastIndex) {
+                val endLineIndex = min(lines.lastIndex, startLineIndex + safeRowsPerBand)
+                val bodyTop = (lines[startLineIndex] - padding).coerceAtLeast(headerBottom)
+                val bodyBottom = (lines[endLineIndex] + padding).coerceAtMost(bounds.bottom)
+                if (bodyBottom > bodyTop + 2) {
+                    bands += EmployeeRowBand(
+                        left = bounds.left,
+                        right = bounds.right,
+                        headerTop = headerTop,
+                        headerBottom = headerBottom,
+                        bodyTop = bodyTop,
+                        bodyBottom = bodyBottom
+                    )
+                }
+                startLineIndex = endLineIndex
+            }
+            return bands
+        } finally {
+            if (!sample.isRecycled) sample.recycle()
+        }
+    }
+
     fun cropForRecovery(source: Bitmap): Bitmap? {
         val bounds = detectBounds(source) ?: return null
         val widthRatio = bounds.width().toDouble() / source.width.toDouble()

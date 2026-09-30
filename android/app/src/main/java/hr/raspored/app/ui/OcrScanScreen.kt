@@ -73,7 +73,7 @@ internal fun OcrScanScreen(
             .filter { it in 1..100 }
             .distinct()
             .sorted()
-        val expectedRows = if (
+        val numberedExpectedRows = if (
             numberedRows.size >= 5 &&
             numberedRows.firstOrNull()?.let { it <= 3 } == true
         ) {
@@ -83,10 +83,17 @@ internal fun OcrScanScreen(
         } else {
             null
         }
+        val expectedRows = listOfNotNull(
+            recognized.expectedRowCount,
+            numberedExpectedRows
+        ).maxOrNull()
+        val foundRows = recognized.rows.size
+        val severeIncomplete = expectedRows?.let { expected ->
+            foundRows * 100 < expected * 65
+        } == true
         val rosterWarning = expectedRows?.let { expected ->
-            val found = numberedRows.size
-            if (found * 100 < expected * 88) {
-                " Upozorenje: prepoznato je $found od najmanje $expected numeriranih redaka; za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra."
+            if (foundRows * 100 < expected * 88) {
+                " Upozorenje: tablica izgleda kao raspored s približno $expected redaka, a pouzdano je očitano $foundRows. Za potpuni uvoz ponovi fotografiju tako da cijela tablica i svi stupci ostanu oštri."
             } else {
                 ""
             }
@@ -101,6 +108,12 @@ internal fun OcrScanScreen(
                 selectedRow = -1
                 phase = OcrPhase.Error
                 message = "Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."
+            }
+            severeIncomplete -> {
+                selectedRow = -1
+                phase = OcrPhase.Error
+                message = "Skeniranje nije dovoljno potpuno." + rosterWarning +
+                    " Rezultat nije označen kao dovršen kako se ne bi tiho izgubile osobe ili smjene."
             }
             recognized.rows.size == 1 -> {
                 selectedRow = 0

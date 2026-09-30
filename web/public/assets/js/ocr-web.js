@@ -672,6 +672,56 @@ async function prepareImage(file,strong){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
+async function prepareExactRowBand(tableSource,band){
+  if(typeof createImageBitmap!=="function")return tableSource;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
+    var left=Math.max(0,Math.min(bitmap.width-1,Math.round(band.left)));
+    var right=Math.max(left+1,Math.min(bitmap.width,Math.round(band.right)));
+    var headerTop=Math.max(0,Math.min(bitmap.height-1,Math.round(band.headerTop)));
+    var headerBottom=Math.max(headerTop+1,Math.min(bitmap.height,Math.round(band.headerBottom)));
+    var bodyTop=Math.max(headerBottom,Math.min(bitmap.height-1,Math.round(band.bodyTop)));
+    var bodyBottom=Math.max(bodyTop+1,Math.min(bitmap.height,Math.round(band.bodyBottom)));
+    var cropWidth=right-left;
+    var headerHeight=headerBottom-headerTop;
+    var bodyHeight=bodyBottom-bodyTop;
+    var rawHeight=headerHeight+bodyHeight;
+    if(cropWidth<8||rawHeight<8)return tableSource;
+
+    var pixelScale=Math.sqrt(8500000/(cropWidth*rawHeight));
+    var edgeScale=6200/cropWidth;
+    var scale=Math.max(1,Math.min(3.60,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(cropWidth*scale));
+    var headerOut=Math.max(1,Math.round(headerHeight*scale));
+    canvas.height=Math.max(headerOut+1,Math.round(rawHeight*scale));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return tableSource;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.58)";
+    context.drawImage(
+      bitmap,
+      left,headerTop,cropWidth,headerHeight,
+      0,0,canvas.width,headerOut
+    );
+    context.drawImage(
+      bitmap,
+      left,bodyTop,cropWidth,bodyHeight,
+      0,headerOut,canvas.width,canvas.height-headerOut
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.98);
+    });
+  }catch(error){
+    return tableSource;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
+
 async function prepareStripe(tableSource,startRatio,endRatio){
   if(typeof createImageBitmap!=="function")return tableSource;
   var bitmap;
@@ -957,6 +1007,31 @@ async function recognizeScheduleNow(file,onProgress){
     var merged=mergeRecognized(first,second);
     if(!forceDenseRecovery&&!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
 
+    // Prefer real horizontal grid rules over fixed screen ratios. A full
+    // hospital roster can contain 25–35 people and 31 very narrow day cells;
+    // magnifying four real employee rows together with the original day header
+    // gives Tesseract enough pixels per name/cell without changing the day map.
+    if(window.RasporedOcrTableCrop&&typeof window.RasporedOcrTableCrop.detectEmployeeRowBands==="function"){
+      var exactBands=await window.RasporedOcrTableCrop.detectEmployeeRowBands(tableSource,4);
+      for(var eb=0;eb<exactBands.length;eb++){
+        if(onProgress)onProgress(.79+(eb/Math.max(1,exactBands.length))*.035,"exact-row-band-"+(eb+1));
+        var exactSource=await prepareExactRowBand(tableSource,exactBands[eb]);
+        var exactParsed=parsedResult(
+          await worker.recognize(exactSource,{}, {text:true,blocks:true}),
+          merged.month
+        );
+        merged=mergeRecognized(merged,exactParsed);
+      }
+    }
+
+    if(!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16){
+      var finalizedEarly=finalizeRows(merged.people||[]).filter(function(row){return validName(row.name||"")});
+      if(finalizedEarly.length>=16){
+        merged.people=finalizedEarly;
+        return merged;
+      }
+    }
+
     var stripes=[[0,.30],[.18,.48],[.36,.66],[.54,.84],[.72,1]];
     for(var i=0;i<stripes.length;i++){
       if(onProgress)onProgress(.80+i*.012,"table-stripe-"+(i+1));
@@ -1042,6 +1117,25 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
     }
+
+    var finalMapped=(merged.people||[]).reduce(function(sum,row){
+      return sum+Object.keys(row.dayShifts||{}).length;
+    },0);
+    var finalRows=(merged.people||[]).length;
+    var needsLastMile=finalRows<8||missingNumberedRows(merged)||finalMapped<finalRows*10;
+    if(needsLastMile&&window.RasporedOcrTableCrop&&typeof window.RasporedOcrTableCrop.detectEmployeeRowBands==="function"){
+      var singleBands=await window.RasporedOcrTableCrop.detectEmployeeRowBands(tableSource,1);
+      for(var sb=0;sb<singleBands.length;sb++){
+        if(onProgress)onProgress(.985+(sb/Math.max(1,singleBands.length))*.014,"single-row-"+(sb+1));
+        var singleSource=await prepareExactRowBand(tableSource,singleBands[sb]);
+        var singleParsed=parsedResult(
+          await worker.recognize(singleSource,{}, {text:true,blocks:true}),
+          merged.month
+        );
+        merged=mergeRecognized(merged,singleParsed);
+      }
+    }
+
     merged.people=finalizeRows(merged.people||[]).filter(function(row){return validName(row.name||"")});
     return merged;
   }finally{

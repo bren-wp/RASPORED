@@ -65,6 +65,47 @@ class ScheduleTableDetectorInstrumentedTest {
         bitmap.recycle()
     }
 
+
+    @Test
+    fun createsEmployeeBandsForFullTwentySevenRowRoster() {
+        val bitmap = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(247, 247, 247))
+
+        val left = 135f
+        val top = 180f
+        val right = 1510f
+        val bottom = 820f
+        val nameWidth = 245f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(36, 36, 36)
+            strokeWidth = 2f
+        }
+
+        // Header + 27 employee rows = 29 horizontal rules.
+        for (line in 0..28) {
+            val y = top + (bottom - top) * line / 28f
+            canvas.drawLine(left, y, right, y, paint)
+        }
+        canvas.drawLine(left, top, left, bottom, paint)
+        canvas.drawLine(left + 38f, top, left + 38f, bottom, paint)
+        canvas.drawLine(left + nameWidth, top, left + nameWidth, bottom, paint)
+        for (day in 0..31) {
+            val x = left + nameWidth + (right - left - nameWidth) * day / 31f
+            canvas.drawLine(x, top, x, bottom, paint)
+        }
+
+        val bands = ScheduleTableDetector.detectEmployeeRowBands(bitmap, rowsPerBand = 4)
+        assertTrue("Expected several exact employee bands", bands.size >= 6)
+        assertTrue(bands.first().headerTop <= top + 35f)
+        assertTrue(bands.first().headerBottom > bands.first().headerTop)
+        assertTrue(bands.first().bodyTop >= bands.first().headerBottom)
+        assertTrue(bands.last().bodyBottom >= bottom - 35f)
+        assertTrue(bands.all { it.left <= 190 && it.right >= 1450 })
+
+        bitmap.recycle()
+    }
+
     @Test
     fun detectsDenseScheduleTableInsideWholePhoto() {
         val bitmap = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888)

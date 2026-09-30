@@ -198,6 +198,117 @@ function detectGridBounds(bitmap){
     bottom:Math.min(bitmap.height,Math.round(bottom*scaleY))
   };
 }
+
+function detectEmployeeRowBandsFromBitmap(bitmap,rowsPerBand){
+  var bounds=detectGridBounds(bitmap);
+  if(!bounds)return [];
+  var boundWidth=Math.max(1,bounds.right-bounds.left);
+  var boundHeight=Math.max(1,bounds.bottom-bounds.top);
+  if(boundWidth<400||boundHeight<220)return [];
+
+  var scale=Math.min(1,1200/Math.max(boundWidth,boundHeight));
+  var width=Math.max(1,Math.round(boundWidth*scale));
+  var height=Math.max(1,Math.round(boundHeight*scale));
+  var canvas=document.createElement("canvas");
+  canvas.width=width;canvas.height=height;
+  var context=canvas.getContext("2d",{alpha:false,willReadFrequently:true});
+  if(!context)return [];
+  context.fillStyle="#fff";
+  context.fillRect(0,0,width,height);
+  context.drawImage(
+    bitmap,
+    bounds.left,bounds.top,boundWidth,boundHeight,
+    0,0,width,height
+  );
+  var data=context.getImageData(0,0,width,height).data;
+  var histogram=new Uint32Array(256),samples=0;
+  var step=width*height>700000?4:2;
+  for(var sy=0;sy<height;sy+=step){
+    for(var sx=0;sx<width;sx+=step){
+      histogram[luminance(data,(sy*width+sx)*4)]++;
+      samples++;
+    }
+  }
+  var target=Math.max(1,Math.round(samples*.15));
+  var cumulative=0,percentile=80;
+  for(var value=0;value<256;value++){
+    cumulative+=histogram[value];
+    if(cumulative>=target){percentile=value;break}
+  }
+  var threshold=Math.max(65,Math.min(125,percentile+20));
+  function dark(x,y){return luminance(data,(y*width+x)*4)<=threshold}
+
+  var xStart=Math.max(0,Math.min(width-1,Math.round(width*.015)));
+  var xEnd=Math.max(xStart+1,Math.min(width,Math.round(width*.985)));
+  var candidateRows=[];
+  for(var y=0;y<height;y++){
+    var count=0;
+    for(var x=xStart;x<xEnd;x++)if(dark(x,y))count++;
+    if(count/(xEnd-xStart)>=.15)candidateRows.push(y);
+  }
+  var centers=groupCenters(candidateRows).filter(function(y){
+    return y>=1&&y<height-1;
+  });
+  var grid=fitHorizontalGrid(centers);
+  if(!grid||grid.matches.length<10)return [];
+
+  var matches=grid.matches.slice().sort(function(a,b){return a[0]-b[0]});
+  var firstIndex=matches[0][0],lastIndex=matches[matches.length-1][0];
+  if(lastIndex-firstIndex<8)return [];
+  var origin=matches.reduce(function(sum,pair){
+    return sum+(pair[1]-pair[0]*grid.spacing);
+  },0)/matches.length;
+
+  var predicted=[];
+  for(var index=firstIndex;index<=lastIndex;index++){
+    var y=Math.max(0,Math.min(height,Math.round(origin+index*grid.spacing)));
+    if(predicted.indexOf(y)<0)predicted.push(y);
+  }
+  predicted.sort(function(a,b){return a-b});
+  if(predicted.length<9)return [];
+
+  var scaleY=boundHeight/height;
+  var lines=predicted.map(function(localY){
+    return Math.max(
+      bounds.top,
+      Math.min(bounds.bottom,Math.round(bounds.top+localY*scaleY))
+    );
+  }).filter(function(y,index,array){return index===0||y!==array[index-1]});
+  if(lines.length<9)return [];
+
+  var headerTop=lines[0];
+  var headerBottom=Math.max(headerTop+1,lines[1]);
+  var safeRows=Math.max(1,Math.min(6,Number(rowsPerBand)||4));
+  var padding=Math.max(2,Math.round((headerBottom-headerTop)*.18));
+  var bands=[],startLine=1;
+  while(startLine<lines.length-1){
+    var endLine=Math.min(lines.length-1,startLine+safeRows);
+    var bodyTop=Math.max(headerBottom,lines[startLine]-padding);
+    var bodyBottom=Math.min(bounds.bottom,lines[endLine]+padding);
+    if(bodyBottom>bodyTop+2){
+      bands.push({
+        left:bounds.left,right:bounds.right,
+        headerTop:headerTop,headerBottom:headerBottom,
+        bodyTop:bodyTop,bodyBottom:bodyBottom
+      });
+    }
+    startLine=endLine;
+  }
+  return bands;
+}
+async function detectEmployeeRowBands(file,rowsPerBand){
+  if(typeof createImageBitmap!=="function")return [];
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    return detectEmployeeRowBandsFromBitmap(bitmap,rowsPerBand);
+  }catch(error){
+    return [];
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
+
 async function cropScheduleTable(file){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
@@ -239,6 +350,8 @@ async function cropScheduleTable(file){
 
 window.RasporedOcrTableCrop={
   cropScheduleTable:cropScheduleTable,
-  detectGridBounds:detectGridBounds
+  detectGridBounds:detectGridBounds,
+  detectEmployeeRowBands:detectEmployeeRowBands,
+  detectEmployeeRowBandsFromBitmap:detectEmployeeRowBandsFromBitmap
 };
 })();

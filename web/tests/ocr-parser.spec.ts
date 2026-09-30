@@ -39,6 +39,44 @@ test("OCR table detector keeps full width with fragmented photographed grid line
   expect((bounds.right-bounds.left)/1600).toBeGreaterThanOrEqual(.78);
 });
 
+test("OCR table detector derives exact row bands for a full 27-person roster", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const bands=await page.evaluate(() => {
+    const canvas=document.createElement("canvas");
+    canvas.width=1600;canvas.height=1200;
+    const ctx=canvas.getContext("2d")!;
+    ctx.fillStyle="rgb(247,247,247)";
+    ctx.fillRect(0,0,1600,1200);
+    ctx.strokeStyle="rgb(36,36,36)";
+    ctx.lineWidth=2;
+    const left=135,top=180,right=1510,bottom=820,nameWidth=245;
+
+    for(let line=0;line<=28;line++){
+      const y=top+(bottom-top)*line/28;
+      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+    }
+    const verticals=[left,left+38,left+nameWidth];
+    for(let day=0;day<=31;day++){
+      verticals.push(left+nameWidth+(right-left-nameWidth)*day/31);
+    }
+    for(const x of verticals){
+      ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();
+    }
+    return (window as any).RasporedOcrTableCrop.detectEmployeeRowBandsFromBitmap(canvas,4);
+  });
+
+  expect(bands.length).toBeGreaterThanOrEqual(6);
+  expect(bands[0].headerBottom).toBeGreaterThan(bands[0].headerTop);
+  expect(bands[0].bodyTop).toBeGreaterThanOrEqual(bands[0].headerBottom);
+  expect(bands[bands.length-1].bodyBottom).toBeGreaterThanOrEqual(785);
+  for(const band of bands){
+    expect(band.left).toBeLessThanOrEqual(190);
+    expect(band.right).toBeGreaterThanOrEqual(1450);
+  }
+});
+
 test("OCR text fallback never compresses missing calendar days", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");

@@ -43,7 +43,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.11.1
+          gradle-version: 8.13
 
       - uses: actions/setup-node@v5
         with:
@@ -52,9 +52,10 @@ jobs:
       - name: Android QA and APK
         run: |
           set -euo pipefail
-          gradle -p android :app:assembleDebug :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug
+          gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease
           mkdir -p dist
           cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
 
       - name: Enable KVM
         run: |
@@ -65,7 +66,7 @@ jobs:
       - name: Android launch smoke test
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 36
           target: google_apis
           arch: x86_64
           disable-animations: true
@@ -91,7 +92,8 @@ jobs:
           mkdir -p dist/web-package/storage/data
           cp -R web/public/. dist/web-package/
           cp web/storage/.htaccess dist/web-package/storage/.htaccess
-          printf '%s\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
+          printf '%s
+' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
           (
             cd dist/web-package
             zip -r "../RASPORED-web-v${VERSION}.zip" . \
@@ -100,7 +102,7 @@ jobs:
               -x "storage/data/client-*.json" \
               -x "storage/data/.write.lock"
           )
-          sha256sum dist/RASPORED.apk "dist/RASPORED-web-v${VERSION}.zip" > "dist/SHA256SUMS-v${VERSION}.txt"
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab "dist/RASPORED-web-v${VERSION}.zip" > "dist/SHA256SUMS-v${VERSION}.txt"
 
       - name: Create GitHub release
         env:
@@ -112,11 +114,12 @@ jobs:
           RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           gh release create "v${VERSION}" \
             dist/RASPORED.apk \
+            dist/RASPORED.aab \
             "dist/RASPORED-web-v${VERSION}.zip" \
             "dist/SHA256SUMS-v${VERSION}.txt" \
             --target "$RELEASE_SHA" \
             --title "RASPORED v${VERSION}" \
-            --notes "Produkcijsko izdanje RASPORED-a. Sadrži instalabilni Android APK i Web/PWA paket. Android APK je automatski potpisan standardnim Android build potpisom i ne zahtijeva ručni unos ključeva u ovom procesu."
+            --notes "Produkcijsko izdanje RASPORED-a. Sadrži instalabilni Android APK, release AAB za završnu Play Console obradu i Web/PWA paket. APK je automatski potpisan standardnim Android debug potpisom. AAB se gradi kao release bundle bez trajnog upload ključa; za stvarno slanje u Google Play potreban je stabilan upload potpis izvan repozitorija."
 
       - uses: actions/upload-artifact@v4
         with:
