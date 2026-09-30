@@ -46,11 +46,16 @@ export async function seedApp(page: Page, options:{withScan?:boolean}={}) {
   },{schedule,scanPeople,withScan:!!options.withScan});
 }
 
-export async function mockOcr(page: Page) {
+export async function mockOcr(
+  page: Page,
+  options:{people?:typeof scanPeople;expectedRows?:number}={}
+) {
+  const people=options.people||scanPeople;
+  const expectedRows=options.expectedRows||0;
   await page.route("**/assets/js/ocr-web.js", async route => {
     await route.fulfill({
       contentType:"application/javascript",
-      body:`window.RasporedWebOcr={recognizeSchedule:async function(file,onProgress){if(onProgress)onProgress(.65,"recognizing");return {month:{year:2026,month:10},people:${JSON.stringify(scanPeople)},rawText:"LISTOPAD 2026."};}};`
+      body:`window.RasporedWebOcr={recognizeSchedule:async function(file,onProgress){if(onProgress)onProgress(.65,"recognizing");return {month:{year:2026,month:10},people:${JSON.stringify(people)},expectedRows:${expectedRows},rawText:"LISTOPAD 2026."};}};`
     });
   });
 }
