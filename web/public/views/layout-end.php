@@ -49,7 +49,7 @@
 <dialog class="app-dialog" id="colleagueDialog">
   <form class="dialog-card" id="colleagueForm">
     <div class="dialog-head">
-      <div><h2>Dodaj kolegu</h2><p>Spremi ime i kratku napomenu lokalno u ovoj instalaciji.</p></div>
+      <div><h2>Dodaj kolegu</h2><p>Spremi ime i kratku napomenu u ovu instalaciju RASPORED-a.</p></div>
       <button class="icon-btn" type="button" id="closeColleagueDialog" aria-label="Zatvori">×</button>
     </div>
     <label class="dialog-field"><span>Ime i prezime</span><input id="colleagueNameInput" maxlength="80" autocomplete="name" required></label>
