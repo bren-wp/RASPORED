@@ -11,6 +11,9 @@ function icon(name,extra){
   return '<svg class="ui-icon '+(extra||"")+'" aria-hidden="true"><use href="'+base+'"></use></svg>';
 }
 
+function storageGet(key){
+  try{return localStorage.getItem(key)}catch(e){return null}
+}
 function storageSet(key,value){
   try{localStorage.setItem(key,value);return true}catch(e){return false}
 }
@@ -583,7 +586,7 @@ function bind(){
   document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";if(!storageSet("raspored.theme",document.documentElement.dataset.theme))toast("Postavku izgleda nije moguće spremiti.")});
   var motion=document.getElementById("motionToggle");
   if(motion){
-    motion.checked=localStorage.getItem("raspored.reducedMotion")==="1";
+    motion.checked=storageGet("raspored.reducedMotion")==="1";
     document.body.dataset.reducedMotion=motion.checked?"true":"false";
     motion.addEventListener("change",function(){if(!storageSet("raspored.reducedMotion",this.checked?"1":"0"))toast("Postavku animacija nije moguće spremiti.");document.body.dataset.reducedMotion=this.checked?"true":"false"});
   }
@@ -677,7 +680,7 @@ function bind(){
   });
   function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
-  var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
+  var th=storageGet("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
 }
 loadSchedule();loadScanSession();configureProfile();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
 })();
