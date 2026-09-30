@@ -151,9 +151,13 @@ if (!$mobile) {
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 if ($method === 'GET') {
+    $bearer = $mobile ? raspored_bearer_token() : '';
     $account = $mobile
-        ? raspored_mobile_account_from_token(raspored_bearer_token())
+        ? raspored_mobile_account_from_token($bearer)
         : raspored_current_account();
+    if ($mobile && $bearer !== '' && $account === null) {
+        auth_fail(401, 'Prijava za Android sinkronizaciju nije valjana ili je istekla.');
+    }
     echo json_encode([
         'ok' => true,
         'authenticated' => $account !== null,
