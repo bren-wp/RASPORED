@@ -41,7 +41,7 @@ if ($base === '.') { $base = ''; }
       <div class="top-actions">
         <button class="icon-btn" id="searchBtn" aria-label="Pretraži"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-search"></use></svg></button>
         <button class="icon-btn notification" aria-label="Obavijesti"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span></span></button>
-        <button class="profile-btn"><b>MM</b><span>Marko Marković</span><i>⌄</i></button>
+        <button class="profile-btn" id="profileButton" aria-label="Korisnički profil"><b id="profileInitials">K</b><span id="profileName">Korisnik</span><i>⌄</i></button>
       </div>
     </header>
 
@@ -124,6 +124,11 @@ if ($base === '.') { $base = ''; }
       <section class="scan-preview" id="scanPreview">
         <div class="scan-corners" aria-hidden="true"></div>
         <img id="scanPreviewImage" class="scan-preview-image" alt="Odabrana fotografija rasporeda">
+        <div class="scan-empty-state" id="scanEmptyState">
+          <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>
+          <b>Raspored nije učitan</b>
+          <span>Skeniraj papirnati raspored ili odaberi fotografiju iz galerije.</span>
+        </div>
         <div class="fake-sheet" id="fakeSheet" aria-label="Primjer pregleda skeniranog rasporeda">
           <b>LISTOPAD 2026.</b>
           <div class="fake-row is-selected">6&nbsp;&nbsp;&nbsp; MARIO EGIMOVIĆ&nbsp;&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; GO&nbsp;&nbsp; D</div>

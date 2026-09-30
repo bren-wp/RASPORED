@@ -30,7 +30,8 @@ import java.util.Locale
 internal fun TimeEvidenceScreen(
     plannedShiftCode: String?,
     plannedShiftLabel: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onEvidenceChanged: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext
     val store = remember(context) { TimeEvidenceStore(context) }
@@ -153,6 +154,7 @@ internal fun TimeEvidenceScreen(
                             onClick = {
                                 store.clockIn(evidenceNow())
                                 refresh()
+                                onEvidenceChanged()
                             },
                             enabled = active == null,
                             modifier = Modifier.weight(1f).height(50.dp)
@@ -165,6 +167,7 @@ internal fun TimeEvidenceScreen(
                             onClick = {
                                 store.clockOut(evidenceNow(), note.trim())
                                 refresh()
+                                onEvidenceChanged()
                             },
                             enabled = active != null,
                             modifier = Modifier.weight(1f).height(50.dp)
