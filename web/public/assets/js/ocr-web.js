@@ -126,7 +126,7 @@ function mergeRows(rows){
 function parseText(text){
   var rows=String(text||"").split(/\r?\n/).map(normalize).filter(Boolean).map(function(line){
     var explicit={};
-    Array.from(line.matchAll(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu))
+    Array.from(line.matchAll(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)|\-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu))
       .forEach(function(match){
         var code=canonicalShift(match[2]);
         if(code)explicit[Number(match[1])]=code;
