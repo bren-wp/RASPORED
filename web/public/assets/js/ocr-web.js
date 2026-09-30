@@ -94,6 +94,27 @@ function mergeRows(rows){
       dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},existing.dayShifts||{}))
     };
   });
+  var numbered=Array.from(new Set(merged.filter(function(row){return row.row!=null}).map(function(row){return Number(row.row)})))
+    .filter(Number.isFinite).sort(function(a,b){return a-b});
+  if(numbered.length>=6){
+    var gaps=[];
+    for(var gi=1;gi<numbered.length;gi++)if(numbered[gi]>numbered[gi-1])gaps.push(numbered[gi]-numbered[gi-1]);
+    gaps.sort(function(a,b){return a-b});
+    var medianGap=gaps.length?gaps[Math.floor(gaps.length/2)]:1;
+    var splitGap=Math.max(12,medianGap*6);
+    var clusters=[];
+    numbered.forEach(function(number){
+      var current=clusters[clusters.length-1];
+      if(current&&number-current[current.length-1]<=splitGap)current.push(number);
+      else clusters.push([number]);
+    });
+    clusters.sort(function(a,b){return b.length-a.length});
+    var best=clusters[0]||[];
+    if(best.length*10>=numbered.length*6){
+      var accepted=new Set(best);
+      merged=merged.filter(function(row){return row.row==null||accepted.has(Number(row.row))});
+    }
+  }
   return merged.sort(function(a,b){
     var ar=a.row==null?9999:a.row,br=b.row==null?9999:b.row;
     return ar-br||a.name.localeCompare(b.name,"hr");
@@ -506,8 +527,8 @@ async function prepareStripe(file,startRatio,endRatio){
     var top=Math.max(0,Math.floor(bitmap.height*startRatio));
     var bottom=Math.min(bitmap.height,Math.ceil(bitmap.height*endRatio));
     var cropHeight=Math.max(1,bottom-top);
-    var pixelScale=Math.sqrt(6500000/(bitmap.width*cropHeight));
-    var edgeScale=5600/bitmap.width;
+    var pixelScale=Math.sqrt(7000000/(bitmap.width*cropHeight));
+    var edgeScale=6000/bitmap.width;
     var scale=Math.max(.18,Math.min(1.65,pixelScale,edgeScale));
     var canvas=document.createElement("canvas");
     canvas.width=Math.max(1,Math.round(bitmap.width*scale));
@@ -516,7 +537,7 @@ async function prepareStripe(file,startRatio,endRatio){
     if(!context)return file;
     context.fillStyle="#fff";
     context.fillRect(0,0,canvas.width,canvas.height);
-    context.filter="grayscale(1) contrast(1.34)";
+    context.filter="grayscale(1) contrast(1.40)";
     context.drawImage(
       bitmap,
       0,top,bitmap.width,cropHeight,
@@ -583,9 +604,9 @@ async function recognizeScheduleNow(file,onProgress){
     var merged=mergeRecognized(first,second);
     if(!sparseResult(merged)&&(merged.people||[]).length>=16)return merged;
 
-    var stripes=[[0,.58],[.42,1]];
+    var stripes=[[0,.46],[.27,.74],[.55,1]];
     for(var i=0;i<stripes.length;i++){
-      if(onProgress)onProgress(.88+i*.05,"table-stripe-"+(i+1));
+      if(onProgress)onProgress(.86+i*.04,"table-stripe-"+(i+1));
       var stripeSource=await prepareStripe(file,stripes[i][0],stripes[i][1]);
       var stripe=parsedResult(
         await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
