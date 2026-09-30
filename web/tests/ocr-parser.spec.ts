@@ -193,6 +193,63 @@ test("OCR geometry retains a dense 30-person roster and sparse exact days", asyn
 });
 
 
+test("OCR geometry keeps all 27 employees and all 31 day columns in a dense monthly table", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const parsed=await page.evaluate(() => {
+    function word(text:string,x:number,y:number,w=14,h=10){
+      return {text,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}};
+    }
+    function line(words:any[],y:number){
+      return {
+        text:words.map(w=>w.text).join(" "),
+        bbox:{
+          x0:Math.min(...words.map(w=>w.bbox.x0)),
+          y0:y,
+          x1:Math.max(...words.map(w=>w.bbox.x1)),
+          y1:y+12
+        },
+        words
+      };
+    }
+    const lines:any[]=[];
+    const header=[] as any[];
+    for(let day=1;day<=31;day++)header.push(word(String(day),310+(day-1)*22,70,13));
+    lines.push(line(header,70));
+
+    const labels=["D","N","GO","BO","PD","SD","J","S","P1","1","2","3"];
+    for(let row=1;row<=27;row++){
+      const y=105+(row-1)*18;
+      lines.push(line([
+        word(String(row),12,y,14),
+        word("TEST",44,y,42),
+        word("OSOBA",92,y,54)
+      ],y));
+      const cells=[] as any[];
+      for(let day=1;day<=31;day++){
+        const code=labels[(row+day)%labels.length];
+        cells.push(word(code,310+(day-1)*22,y+2,code.length===1?11:18));
+      }
+      lines.push(line(cells,y+2));
+    }
+    return (window as any).RasporedWebOcr.parseGeometry(
+      [{paragraphs:[{lines}]}],
+      31
+    );
+  });
+
+  expect(parsed).toHaveLength(27);
+  expect(parsed.map((row:any)=>row.row)).toEqual(Array.from({length:27},(_,i)=>i+1));
+  for(const row of parsed){
+    expect(Object.keys(row.dayShifts)).toHaveLength(31);
+    expect(row.dayShifts["1"]).toBeTruthy();
+    expect(row.dayShifts["31"]).toBeTruthy();
+  }
+  expect(parsed.some((row:any)=>Object.values(row.dayShifts).includes("J"))).toBe(true);
+  expect(parsed.some((row:any)=>Object.values(row.dayShifts).includes("S"))).toBe(true);
+});
+
 test("OCR finalization suppresses one-off ghost people in a dense numbered roster", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
