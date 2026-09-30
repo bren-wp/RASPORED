@@ -2,10 +2,17 @@
 "use strict";
 
 var MONTHS={
-  "SIJEČANJ":1,"VELJAČA":2,"OŽUJAK":3,"TRAVANJ":4,"SVIBANJ":5,"LIPANJ":6,
-  "SRPANJ":7,"KOLOVOZ":8,"RUJAN":9,"LISTOPAD":10,"STUDENI":11,"PROSINAC":12
+  "SIJEČANJ":1,"SIJECANJ":1,"VELJAČA":2,"VELJACA":2,"OŽUJAK":3,"OZUJAK":3,
+  "TRAVANJ":4,"SVIBANJ":5,"LIPANJ":6,"SRPANJ":7,"KOLOVOZ":8,"RUJAN":9,
+  "LISTOPAD":10,"STUDENI":11,"PROSINAC":12
 };
 var VALID=new Set(["D","N","GO","BO"]);
+function canonicalShift(raw){
+  var value=normalize(raw).toUpperCase().replace(/[.,;:]+$/,"");
+  if(value==="G0")return "GO";
+  if(value==="B0")return "BO";
+  return VALID.has(value)?value:null;
+}
 var workerPromise=null;
 
 function normalize(value){return String(value||"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim()}
@@ -36,7 +43,7 @@ function dedupe(rows){
 }
 function parseText(text){
   var rows=String(text||"").split(/\r?\n/).map(normalize).filter(Boolean).map(function(line){
-    var codes=[].concat(line.match(/(?<!\p{L})(GO|BO|D|N)(?!\p{L})/giu)||[]).map(function(code){return code.toUpperCase()}).filter(function(code){return VALID.has(code)});
+    var codes=[].concat(line.match(/(?<!\p{L})(GO|G0|BO|B0|D|N)[.,;:]?(?!\p{L})/giu)||[]).map(canonicalShift).filter(Boolean);
     if(!codes.length)return null;
     var rowMatch=line.match(/^\s*(\d{1,3})[.)]?\s*/);
     var name=cleanName(line);
@@ -73,14 +80,14 @@ function parseGeometry(blocks){
   var rows=lines.map(function(line){
     if(!line.bbox||Number(line.bbox.y0)<=headerBottom)return null;
     var shiftWords=(line.words||[]).map(function(word){
-      var code=normalize(word.text).toUpperCase();
-      return VALID.has(code)&&word.bbox?{code:code,x:centerX(word.bbox)}:null;
+      var code=canonicalShift(word.text);
+      return code&&word.bbox?{code:code,x:centerX(word.bbox)}:null;
     }).filter(Boolean);
     if(!shiftWords.length)return null;
     var firstShiftX=Math.min.apply(null,shiftWords.map(function(item){return item.x}));
     var leftText=(line.words||[]).filter(function(word){
       var x=centerX(word.bbox);
-      return Number.isFinite(x)&&x<Math.min(firstShiftX,minDayX)&&!VALID.has(normalize(word.text).toUpperCase());
+      return Number.isFinite(x)&&x<Math.min(firstShiftX,minDayX)&&!canonicalShift(word.text);
     }).map(function(word){return word.text}).join(" ");
     var rowMatch=leftText.match(/^\s*(\d{1,3})[.)]?\s*/);
     var name=cleanName(leftText);
