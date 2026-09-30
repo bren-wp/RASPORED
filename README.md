@@ -20,7 +20,8 @@
 
 Svako produkcijsko izdanje objavljuje gotove artefakte:
 
-- **RASPORED.apk** — instalabilna Android aplikacija.
+- **RASPORED.apk** — instalabilna Android aplikacija za izravno testiranje i distribuciju izvan Play Storea.
+- **RASPORED.aab** — release Android App Bundle koji CI gradi i provjerava za završnu Play Console obradu; za stvarnu predaju Google Playu koristi se trajni privatni upload ključ izvan repozitorija.
 - **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
 - **SHA256SUMS-vX.Y.Z.txt** — kontrolne vrijednosti za provjeru preuzetih datoteka.
 
@@ -32,7 +33,7 @@ RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju sm
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
-- **Kalendar smjena** — glavni početni ekran; D, N, GO, BO, PD i SD mogu se uvesti skeniranjem ili ručno postaviti za bilo koji datum. Android ne briše stare mjesece pri novom uvozu i ima brzi odabir mjeseca kroz najmanje 10 godina lokalne povijesti.
+- **Kalendar smjena** — glavni početni ekran; kompaktni mjesečni pregled u stilu shift-plannera, ali u RASPORED brandingu. D, N, GO, BO, PD i SD mogu se uvesti skeniranjem ili ručno postaviti za bilo koji datum. Android ima **Brzi unos** (odaberi oznaku pa dodiruj datume) i **Višestruki odabir** za primjenu/brisanje više dana odjednom. Android ne briše stare ni buduće mjesece pri novom uvozu i ima brzi odabir mjeseca kroz najmanje 10 godina lokalne povijesti.
 - **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
 - **Evidencija sati** — ulaz, izlaz, bilješka, trajanje rada i mjesečna povijest.
 - **Statistika** — dnevni/noćni sati, saldo, vikendi, blagdani i raspodjela po tjednima.
@@ -67,9 +68,9 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
-| **Mjesečni kalendar** | Početni ekran aplikacije s pregledom smjena, hrvatskih blagdana i ručnim uređivanjem D / N / GO / BO / PD / SD oznaka po danu te vlastitih kratkih oznaka do 8 slova/brojeva. |
+| **Mjesečni kalendar** | Početni ekran aplikacije s kompaktnom 7-stupčanom mrežom, smjenama unutar ćelija, hrvatskim blagdanima, brzim „paint” unosom, višestrukim odabirom dana i vlastitim kratkim oznakama do 8 slova/brojeva. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
-| **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, preklapajući pojasevi, zasebni roster prolazi i fokusirani 2D recovery tileovi za vrlo guste rasporede; osobe i stupci dana spajaju se po broju retka/geometriji bez komprimiranja praznih dana. Kod izrazito gustih 27–31 rednih tablica aktivira se finiji recovery s užim preklapajućim pojasevima. |
+| **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, stvarne horizontalne linije mreže, točni pojasevi redaka zaposlenika, preklapajući pojasevi, zasebni roster prolazi i fokusirani recovery tileovi. Za guste 27–31 redne tablice sustav može raditi i završni OCR **redak po redak** uz izvorno zaglavlje dana te blokira očito nepotpun uvoz kada geometrija tablice pokazuje više djelatnika nego što je OCR pouzdano pročitao. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
 | **Saldo sati** | Razlika između planiranih i stvarno evidentiranih minuta. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
@@ -171,13 +172,15 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - Kotlin
 - Jetpack Compose
 - Material 3
+- Android 16 / targetSdk 36 za aktualni Google Play zahtjev
 - ML Kit Text Recognition
 - lokalna pohrana rasporeda i evidencije
 - okvirna bruto/neto procjena uz službene javne presete i ručni način za ostale sektore
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
 - lokalni profil i stvarni mjesečni PDF izvoz rasporeda/evidencije
-- Compose unit/lint provjere i stvarni emulator launch/navigation smoke test u CI-ju
+- debug APK + release AAB build provjera
+- Compose unit/lint provjere i stvarni API 36 emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
 
@@ -229,9 +232,11 @@ Svaki ozbiljniji razvojni pass provjerava:
 - JSON storage API, migraciju i zaštitu zapisa,
 - okvirnu plaću i perzistenciju odabranog radnog mjesta,
 - Android debug APK,
+- Android release AAB,
 - Android unit testove,
 - Compose androidTest compile,
-- Android lint.
+- Android debug + release lint,
+- API 36 emulator launch/navigation smoke test.
 
 ### Viewporti
 
@@ -261,7 +266,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED je pripremljen kao **v1.0.10** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
+RASPORED je pripremljen kao **v1.0.11** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 
