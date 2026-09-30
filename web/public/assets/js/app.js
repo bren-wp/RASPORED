@@ -787,7 +787,10 @@ function route(name){
   if(name==="hours")renderHours();
   if(name==="colleagues")renderColleagues();
   if(name==="payroll"&&window.RasporedPayroll)window.RasporedPayroll.render();
-  window.scrollTo({top:0,behavior:document.body.dataset.reducedMotion==="true"?"auto":"smooth"});
+  // Main-screen navigation must land at the top immediately. Smooth scrolling
+  // here can leave mobile users briefly between screens and can place the sticky
+  // header over content while the new route is already interactive.
+  window.scrollTo({top:0,behavior:"auto"});
 }
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
