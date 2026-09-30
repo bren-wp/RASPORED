@@ -104,7 +104,9 @@ object ScheduleOcrParser {
         val rawText = result.text.replace('\u00A0', ' ')
         val month = detectMonth(rawText)
         val lines = result.textBlocks.flatMap { it.lines }
-        val header = findDayHeader(lines, month?.lengthOfMonth() ?: 31)
+        val maxDay = month?.lengthOfMonth() ?: 31
+        val header = findDayHeader(lines, maxDay)
+            ?: inferDayHeaderFromShiftColumns(lines, maxDay)
         val geometryRows = header?.let { parseGeometryRows(lines, it) }.orEmpty()
         val textFallback = parse(rawText)
 
@@ -200,6 +202,111 @@ object ScheduleOcrParser {
             dayCenters = centers,
             observedDays = observed.keys
         )
+    }
+
+    private fun inferDayHeaderFromShiftColumns(
+        lines: List<Text.Line>,
+        maxDay: Int
+    ): HeaderGeometry? {
+        val tokens = allTokens(lines)
+        val shiftTokens = tokens.filter { canonicalShift(it.text) != null }
+        if (shiftTokens.size < 12) return null
+
+        val centers = inferDayCentersFromShiftXs(
+            shiftTokens.map { it.centerX },
+            maxDay
+        ) ?: return null
+
+        return HeaderGeometry(
+            // Nema stvarnog zaglavlja, pa zadržavamo cijelu tablicu i
+            // kasnije redove određujemo prema imenima i Y geometriji.
+            bottom = Int.MIN_VALUE,
+            dayCenters = centers,
+            observedDays = emptySet()
+        )
+    }
+
+    internal fun inferDayCentersFromShiftXs(
+        rawXs: List<Int>,
+        maxDay: Int
+    ): Map<Int, Int>? {
+        if (maxDay !in 28..31 || rawXs.size < 12) return null
+        val sorted = rawXs.sorted()
+        val span = (sorted.last() - sorted.first()).toDouble()
+        if (span <= 0.0) return null
+
+        val clusterTolerance = max(3.0, span / (maxDay * 5.5))
+        val clusters = mutableListOf<MutableList<Int>>()
+        sorted.forEach { x ->
+            val current = clusters.lastOrNull()
+            val mean = current?.average()
+            if (current != null && mean != null && abs(x - mean) <= clusterTolerance) {
+                current += x
+            } else {
+                clusters += mutableListOf(x)
+            }
+        }
+
+        val observedCenters = clusters
+            .map { cluster -> cluster.average() }
+            .sorted()
+        if (observedCenters.size < maxOf(12, maxDay / 2)) return null
+
+        data class Candidate(
+            val firstDay: Int,
+            val lastDay: Int,
+            val slope: Double,
+            val intercept: Double,
+            val residual: Double,
+            val assigned: List<Int>
+        )
+
+        val candidates = mutableListOf<Candidate>()
+        for (leadingMissing in 0..3) {
+            for (trailingMissing in 0..3) {
+                val firstDay = 1 + leadingMissing
+                val lastDay = maxDay - trailingMissing
+                val daySpan = lastDay - firstDay
+                if (daySpan <= 0) continue
+                val slope = (observedCenters.last() - observedCenters.first()) / daySpan
+                if (slope < 3.0) continue
+                val intercept = observedCenters.first() - (firstDay - 1) * slope
+                val assigned = observedCenters.map { x ->
+                    (((x - intercept) / slope).roundToInt() + 1)
+                        .coerceIn(1, maxDay)
+                }
+                if (assigned.zipWithNext().any { (a, b) -> b <= a }) continue
+                val residual = observedCenters.indices
+                    .map { index ->
+                        abs(
+                            observedCenters[index] -
+                                (intercept + (assigned[index] - 1) * slope)
+                        )
+                    }
+                    .average() / slope
+                val edgePenalty = (leadingMissing + trailingMissing) * 0.025
+                candidates += Candidate(
+                    firstDay = firstDay,
+                    lastDay = lastDay,
+                    slope = slope,
+                    intercept = intercept,
+                    residual = residual + edgePenalty,
+                    assigned = assigned
+                )
+            }
+        }
+
+        val best = candidates.minByOrNull { it.residual } ?: return null
+        if (best.residual > 0.24) return null
+        val coveredDays = best.assigned.toSet()
+        if (coveredDays.size < maxOf(12, maxDay / 2)) return null
+        if ((coveredDays.maxOrNull() ?: 0) - (coveredDays.minOrNull() ?: maxDay) < maxDay - 7) {
+            return null
+        }
+
+        return (1..maxDay).associateWith { day ->
+            (best.intercept + (day - 1) * best.slope).roundToInt()
+        }
     }
 
     private fun longestIncreasingDayChain(items: List<DayToken>): List<DayToken> {
