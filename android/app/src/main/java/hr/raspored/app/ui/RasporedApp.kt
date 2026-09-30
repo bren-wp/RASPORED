@@ -110,6 +110,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
         }
         validation.onSuccess { account ->
             remoteAccount = account
+            remoteAccountStore.updateAccount(account)
         }.onFailure { error ->
             if (error is RemoteSessionInvalidException) {
                 remoteAccountStore.clear()
@@ -238,11 +239,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         onRemoteSessionChange={account,token->
                             remoteAccount=account
                             remoteToken=token
-                            if(account==null||token==null) remoteAccountStore.clear()
-                            else {
-                                remoteAccountStore.account=account
-                                remoteAccountStore.token=token
-                            }
                         },
                         onProfileNameChange={
                             profileName=it
