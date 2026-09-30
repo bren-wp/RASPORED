@@ -23,12 +23,17 @@ function clone(value){return JSON.parse(JSON.stringify(value))}
 function base(){return document.body&&document.body.dataset?document.body.dataset.base||"":""}
 function endpoint(){return base()+"/api/state.php"}
 
+function normalizeScheduleCode(raw){
+  if(typeof raw!=="string")return "";
+  var value=raw.trim().toLocaleUpperCase("hr-HR").replace(/\s+/g,"");
+  return /^[\p{L}\p{N}]{1,8}$/u.test(value)?value:"";
+}
 function sanitizeSchedule(raw){
   var out={};
   if(!raw||typeof raw!=="object"||Array.isArray(raw))return out;
   Object.keys(raw).forEach(function(key){
-    var code=raw[key];
-    if(/^\d{4}-\d{2}-\d{2}$/.test(key)&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)out[key]=code;
+    var code=normalizeScheduleCode(raw[key]);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(key)&&code)out[key]=code;
   });
   return out;
 }
