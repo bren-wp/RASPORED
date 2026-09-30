@@ -1346,7 +1346,7 @@ object ScheduleOcrEngine {
     private fun needsFocusedRecovery(schedule: RecognizedSchedule): Boolean {
         if (schedule.rows.size < 4) return false
         val mapped = schedule.rows.sumOf { it.dayShifts.size }
-        return mapped < maxOf(12, schedule.rows.size * 2)
+        return mapped < maxOf(24, schedule.rows.size * 8)
     }
 
     private data class FocusedTile(
@@ -1362,13 +1362,15 @@ object ScheduleOcrEngine {
         onSuccess: (RecognizedSchedule) -> Unit
     ) {
         val rowBands = listOf(
-            0.12f to 0.44f,
-            0.36f to 0.70f,
-            0.62f to 1.00f
+            0.10f to 0.36f,
+            0.30f to 0.58f,
+            0.52f to 0.80f,
+            0.74f to 1.00f
         )
         val dayBands = listOf(
-            0.18f to 0.62f,
-            0.56f to 1.00f
+            0.16f to 0.48f,
+            0.42f to 0.74f,
+            0.68f to 1.00f
         )
         val tiles = rowBands.flatMap { row ->
             dayBands.map { day ->
