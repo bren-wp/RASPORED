@@ -113,6 +113,29 @@ jobs:
             dist/RASPORED.aab
           if-no-files-found: error
 
+  artifact-verify:
+    needs: [web, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: RASPORED-*
+          path: dist
+          merge-multiple: true
+      - name: Verify packaged artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/RASPORED.apk
+          test -s dist/RASPORED.aab
+          WEB_ZIP="$(find dist -maxdepth 1 -type f -name 'RASPORED-web-v*.zip' -print -quit)"
+          test -n "$WEB_ZIP"
+          test -s "$WEB_ZIP"
+          unzip -tq dist/RASPORED.apk
+          unzip -tq dist/RASPORED.aab
+          unzip -tq "$WEB_ZIP"
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab "$WEB_ZIP"
+
   android-ui:
     needs: [version, android]
     runs-on: ubuntu-latest
