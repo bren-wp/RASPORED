@@ -24,9 +24,9 @@
       <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
     </div>
     <div class="scan-help-list">
-      <p><b>1.</b> Obuhvati cijelu tablicu i zaglavlje s brojevima dana.</p>
-      <p><b>2.</b> Izbjegni sjene, odsjaj i zamućenje.</p>
-      <p><b>3.</b> Ako je na rasporedu više osoba, nakon prepoznavanja odaberi samo jedno ime i prezime.</p>
+      <p><b>1.</b> Obuhvati cijelu tablicu: prvi i zadnji redak osobe te sve stupce dana.</p>
+      <p><b>2.</b> Za široku mjesečnu tablicu fotografiraj vodoravno; izbjegni sjene, odsjaj i zamućenje.</p>
+      <p><b>3.</b> U pregledu se fotografija prikazuje cijela, bez rezanja rubova. Ako ima više osoba, odaberi samo jedno ime i prezime.</p>
       <p><b>4.</b> Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.</p>
     </div>
   </form>
