@@ -340,7 +340,7 @@ async function prepareImage(file,strong){
     context.drawImage(bitmap,0,0,canvas.width,canvas.height);
     context.filter="none";
     return await new Promise(function(resolve){
-      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",strong?.96:.95);
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",strong ? .96 : .95);
     });
   }catch(error){
     return file;
