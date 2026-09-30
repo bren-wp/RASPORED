@@ -7,7 +7,7 @@ test("responsive home uses platform-appropriate composition", async ({page}) => 
     await expect(page.getByText("Današnja smjena")).toBeVisible();
     await expect(page.getByRole("button",{name:/Skeniraj raspored/i}).last()).toBeVisible();
   }else{
-    await expect(page.getByText("Dobro došao!")).toBeVisible();
+    await expect(page.getByRole("heading",{name:/Dobro došao/})).toBeVisible();
     await expect(page.locator("#calendarGrid")).toBeVisible();
   }
 });
