@@ -579,6 +579,16 @@ function sparseResult(parsed){
   var expected=Math.min(daysInMonth(parsed.month),12);
   return mapped<Math.max(18,rows.length*expected);
 }
+function missingNumberedRows(parsed){
+  var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
+  var numbers=Array.from(new Set(rows.map(function(row){return Number(row.row)}).filter(function(value){
+    return Number.isInteger(value)&&value>=1&&value<=100;
+  }))).sort(function(a,b){return a-b});
+  if(numbers.length<5)return false;
+  var first=numbers[0],last=numbers[numbers.length-1],expected=last-first+1;
+  if(first>3||expected<8)return false;
+  return numbers.length*100<expected*88;
+}
 function mergeRecognized(first,second){
   return {
     month:first.month||second.month,
@@ -592,7 +602,7 @@ async function recognizeScheduleNow(file,onProgress){
     var worker=await getWorker();
     var source=await prepareImage(file,false);
     var first=parsedResult(await worker.recognize(source,{}, {text:true,blocks:true}));
-    var needsDeep=sparseResult(first)||(first.people||[]).length<16;
+    var needsDeep=sparseResult(first)||missingNumberedRows(first)||(first.people||[]).length<16;
     if(!needsDeep)return first;
 
     if(onProgress)onProgress(.78,"recovery");
@@ -602,7 +612,7 @@ async function recognizeScheduleNow(file,onProgress){
       first.month
     );
     var merged=mergeRecognized(first,second);
-    if(!sparseResult(merged)&&(merged.people||[]).length>=16)return merged;
+    if(!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
 
     var stripes=[[0,.46],[.27,.74],[.55,1]];
     for(var i=0;i<stripes.length;i++){
