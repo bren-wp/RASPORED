@@ -614,6 +614,7 @@ internal fun OcrScanScreen(
                     Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Osobni račun može uvesti samo registrirano ime; voditeljski račun može spremiti sve djelatnike odvojeno.")
+                    Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.")
                 }
             },
