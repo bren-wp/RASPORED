@@ -1,6 +1,10 @@
 package hr.raspored.app.ocr
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
 import android.graphics.Rect
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
@@ -524,7 +528,7 @@ object ScheduleOcrParser {
         return true
     }
 
-    private fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
+    internal fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
         val merged = mutableListOf<RecognizedScheduleRow>()
         rows.forEach { row ->
             val normalizedName = normalizeAscii(row.name).replace(spaces, " ").trim()
@@ -610,9 +614,83 @@ object ScheduleOcrEngine {
         onError: (Throwable) -> Unit
     ) {
         recognizer.process(InputImage.fromBitmap(bitmap, 0))
-            .addOnSuccessListener { result ->
-                onSuccess(ScheduleOcrParser.parse(result))
+            .addOnSuccessListener { firstResult ->
+                val first = ScheduleOcrParser.parse(firstResult)
+                if (!needsRecoveryPass(first)) {
+                    onSuccess(first)
+                    return@addOnSuccessListener
+                }
+
+                val enhanced = enhanceForOcr(bitmap)
+                recognizer.process(InputImage.fromBitmap(enhanced, 0))
+                    .addOnSuccessListener { secondResult ->
+                        val second = ScheduleOcrParser.parse(secondResult)
+                        onSuccess(mergeSchedules(first, second))
+                    }
+                    .addOnFailureListener {
+                        onSuccess(first)
+                    }
+                    .addOnCompleteListener {
+                        if (enhanced !== bitmap && !enhanced.isRecycled) {
+                            enhanced.recycle()
+                        }
+                    }
             }
             .addOnFailureListener(onError)
+    }
+
+    private fun needsRecoveryPass(schedule: RecognizedSchedule): Boolean {
+        val rows = schedule.rows
+        if (rows.isEmpty()) return true
+        val mapped = rows.sumOf { it.dayShifts.size }
+        val expectedPerRow = minOf(schedule.month?.lengthOfMonth() ?: 31, 8)
+        return mapped < maxOf(12, rows.size * expectedPerRow)
+    }
+
+    private fun mergeSchedules(
+        first: RecognizedSchedule,
+        second: RecognizedSchedule
+    ): RecognizedSchedule {
+        val rows = ScheduleOcrParser.mergeRows(first.rows + second.rows)
+        val rawText = if (second.rawText.length > first.rawText.length) {
+            second.rawText
+        } else {
+            first.rawText
+        }
+        return RecognizedSchedule(
+            month = first.month ?: second.month,
+            rows = rows,
+            rawText = rawText
+        )
+    }
+
+    private fun enhanceForOcr(source: Bitmap): Bitmap {
+        val output = Bitmap.createBitmap(
+            source.width,
+            source.height,
+            Bitmap.Config.ARGB_8888
+        )
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.28f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        val contrastMatrix = ColorMatrix(
+            floatArrayOf(
+                contrast, 0f, 0f, 0f, translate,
+                0f, contrast, 0f, 0f, translate,
+                0f, 0f, contrast, 0f, translate,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+        grayscale.postConcat(contrastMatrix)
+        Canvas(output).drawBitmap(
+            source,
+            0f,
+            0f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(grayscale)
+                isFilterBitmap = true
+            }
+        )
+        return output
     }
 }
