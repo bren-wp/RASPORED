@@ -76,7 +76,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Tjedna statistika** | Vizualna raspodjela rada po tjednima u mjesecu. |
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
-| **Okvirna plaća** | Android i Web/PWA procjenjuju bruto i okvirni neto za javni sektor RH iz provjerljivih osnovica/koeficijenata, mjesta prebivališta i stvarne Evidencije sati; lokalno uređeni slučajevi koriste ručni unos umjesto pretpostavki. |
+| **Okvirna plaća** | Android i Web/PWA koriste provjerljive 2026 parametre gdje postoje; lokalno uređeni i privatni sektor imaju ručni način bez izmišljanja osnovice, koeficijenta ili dodataka. |
 | **Web korisnički račun** | Gostujući način ostaje dostupan; registrirani račun sprema stanje po računu u `storage/data`, a voditeljski profil može uvesti više djelatnika iz jednog skeniranja bez spajanja rasporeda. |
 | **Izvoz** | Android generira stvarni mjesečni PDF; Web/PWA podržava JSON sigurnosnu kopiju i pregled za ispis / spremanje kao PDF. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
@@ -115,13 +115,13 @@ RASPORED razlikuje planirani raspored od stvarne Evidencije sati. Podržane ozna
 
 Evidencija sati dodatno razlikuje **redovni rad, 1./2./3. smjenu, turnus, dežurstvo, pripravnost, rad po pozivu i drugi oblik rada**. Trajanje uvijek dolazi iz stvarnog ulaza/izlaza; posebna naknada ne pretpostavlja se ako za nju nema provjerljivog pravila.
 
-## Okvirna plaća za javni sektor RH
+## Okvirna plaća — javni sektor i ručni način za ostale poslodavce
 
 Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija RASPORED-a. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
 
 Za 2026. ugrađene su službene osnovice javnih i državnih službi po razdobljima te provjerljivi koeficijenti za odabrana radna mjesta u zdravstvu, školstvu, policiji i profesionalnom vatrogastvu. Web katalog sadrži aktualni popis bolničkih zdravstvenih ustanova Ministarstva zdravstva, a posebna pravila pojedine ustanove ne primjenjuju se na druge ustanove bez provjerljivog izvora.
 
-Vrtići, lokalna i regionalna uprava te drugi slučajevi gdje osnovicu, koeficijent ili dodatke određuje lokalni/ustanovni akt koriste **ručni unos**. Aplikacija u tim slučajevima ne izmišlja nacionalnu vrijednost. Ako radno mjesto nije u katalogu, postoji **Drugo / ručni unos**.
+Vrtići, lokalna i regionalna uprava, privatni poslodavci te drugi slučajevi gdje ne postoji jedna službena državna osnovica/koeficijent koriste **ručni unos**. Privatni sektor je zato dostupan kao zaseban ručni režim: korisnik unosi poznate ugovorene parametre, a aplikacija ne izmišlja nacionalnu vrijednost. Ako radno mjesto nije u katalogu, postoji **Drugo / ručni unos**.
 
 Procjena koristi stvarnu Evidenciju sati za noćni, subotnji, nedjeljni, blagdanski i okvirni prekovremeni rad tamo gdje je stopa za odabrani režim provjerena. Okvirni neto koristi uneseni osobni odbitak i stope grada/općine prebivališta; porez se ne veže uz županiju poslodavca. Prikaz “po radnom danu” samo je prosjek plaće po evidentiranom radnom danu i **nije službena dnevnica za službeni put**.
 
@@ -171,7 +171,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - Material 3
 - ML Kit Text Recognition
 - lokalna pohrana rasporeda i evidencije
-- okvirna bruto/neto procjena za javni sektor iz stvarne evidencije sati
+- okvirna bruto/neto procjena uz službene javne presete i ručni način za ostale sektore
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
 - lokalni profil i stvarni mjesečni PDF izvoz rasporeda/evidencije
@@ -188,7 +188,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - voditeljski profil za odvojeni uvoz rasporeda više djelatnika
 - JSON sigurnosna kopija i mjesečni pregled za ispis / spremanje kao PDF
 - jednokratna migracija starog browser storagea u JSON spremište
-- okvirna bruto/neto procjena za javni sektor iz stvarne evidencije sati
+- okvirna bruto/neto procjena uz službene javne presete i ručni način za ostale sektore
 - Playwright funkcionalni i screenshot QA
 - stvarni camera/gallery image-upload tok
 
