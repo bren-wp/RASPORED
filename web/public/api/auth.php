@@ -141,14 +141,23 @@ function auth_migrate_guest_state(string $accountId): void
     }
 }
 
-raspored_start_session();
+$mobile = raspored_mobile_client_request();
+if ($mobile && !raspored_secure_api_transport_ok()) {
+    auth_fail(403, 'Android sinkronizacija zahtijeva HTTPS.');
+}
+if (!$mobile) {
+    raspored_start_session();
+}
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 if ($method === 'GET') {
+    $account = $mobile
+        ? raspored_mobile_account_from_token(raspored_bearer_token())
+        : raspored_current_account();
     echo json_encode([
         'ok' => true,
-        'authenticated' => raspored_current_account() !== null,
-        'account' => raspored_public_account(raspored_current_account()),
+        'authenticated' => $account !== null,
+        'account' => raspored_public_account($account),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -158,7 +167,11 @@ if ($method !== 'POST') {
     auth_fail(405, 'Metoda nije dopuštena.');
 }
 
-if ((string) ($_SERVER['HTTP_X_RASPORED_REQUEST'] ?? '') !== '1' || !raspored_same_origin_ok()) {
+if ($mobile) {
+    if ((string) ($_SERVER['HTTP_X_RASPORED_REQUEST'] ?? '') !== '1') {
+        auth_fail(403, 'Zahtjev nije dopušten.');
+    }
+} elseif ((string) ($_SERVER['HTTP_X_RASPORED_REQUEST'] ?? '') !== '1' || !raspored_same_origin_ok()) {
     auth_fail(403, 'Zahtjev nije dopušten.');
 }
 
@@ -177,6 +190,11 @@ if (!is_array($payload)) {
 $action = (string) ($payload['action'] ?? '');
 
 if ($action === 'logout') {
+    if ($mobile) {
+        raspored_revoke_mobile_token(raspored_bearer_token());
+        echo json_encode(['ok' => true, 'authenticated' => false], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         setcookie(session_name(), '', [
@@ -234,15 +252,24 @@ if ($action === 'register') {
         'updatedAt' => $now,
     ];
     auth_write_account($path, $account);
-    session_regenerate_id(true);
-    $_SESSION['account_id'] = $id;
-    $_SESSION['account_path'] = $path;
-    auth_migrate_guest_state($id);
-    echo json_encode([
+    $response = [
         'ok' => true,
         'authenticated' => true,
         'account' => raspored_public_account($account),
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    ];
+    if ($mobile) {
+        try {
+            $response += raspored_issue_mobile_token($path, $account);
+        } catch (Throwable $error) {
+            auth_fail(503, 'Android pristup trenutačno nije moguće aktivirati.');
+        }
+    } else {
+        session_regenerate_id(true);
+        $_SESSION['account_id'] = $id;
+        $_SESSION['account_path'] = $path;
+        auth_migrate_guest_state($id);
+    }
+    echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
@@ -287,15 +314,24 @@ if ($action === 'login') {
         }
     }
 
-    session_regenerate_id(true);
-    $_SESSION['account_id'] = (string) $account['id'];
-    $_SESSION['account_path'] = $path;
-    auth_migrate_guest_state((string) $account['id']);
-    echo json_encode([
+    $response = [
         'ok' => true,
         'authenticated' => true,
         'account' => raspored_public_account($account),
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    ];
+    if ($mobile) {
+        try {
+            $response += raspored_issue_mobile_token($path, $account);
+        } catch (Throwable $error) {
+            auth_fail(503, 'Android pristup trenutačno nije moguće aktivirati.');
+        }
+    } else {
+        session_regenerate_id(true);
+        $_SESSION['account_id'] = (string) $account['id'];
+        $_SESSION['account_path'] = $path;
+        auth_migrate_guest_state((string) $account['id']);
+    }
+    echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
