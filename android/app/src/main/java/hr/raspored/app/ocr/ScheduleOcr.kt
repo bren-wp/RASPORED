@@ -215,9 +215,32 @@ object ScheduleOcrParser {
         val shiftTokens = tokens.filter { canonicalShift(it.text) != null }
         if (shiftTokens.size < 12) return null
 
+        val minShiftY = shiftTokens.minOf { it.centerY }
+        val medianHeight = medianInt(
+            shiftTokens.map { it.box.height().coerceAtLeast(1) }
+        ).toDouble()
+        val shiftMinX = shiftTokens.minOf { it.centerX }
+        val shiftMaxX = shiftTokens.maxOf { it.centerX }
+        val roughSpacing = if (maxDay > 1) {
+            (shiftMaxX - shiftMinX).toDouble() / (maxDay - 1).toDouble()
+        } else {
+            0.0
+        }
+        val weakAnchors = tokens.mapNotNull { token ->
+            val day = dayNumber(token.text, maxDay) ?: return@mapNotNull null
+            val inHeaderBand = token.centerY <= minShiftY + max(10.0, medianHeight * 1.25)
+            val inGridBand = token.centerX >= shiftMinX - roughSpacing * 3.0 &&
+                token.centerX <= shiftMaxX + roughSpacing * 3.0
+            if (inHeaderBand && inGridBand) day to token.centerX else null
+        }.groupBy(
+            keySelector = { it.first },
+            valueTransform = { it.second }
+        )
+
         val centers = inferDayCentersFromShiftXs(
-            shiftTokens.map { it.centerX },
-            maxDay
+            rawXs = shiftTokens.map { it.centerX },
+            maxDay = maxDay,
+            absoluteAnchors = weakAnchors
         ) ?: return null
 
         return HeaderGeometry(
@@ -231,7 +254,8 @@ object ScheduleOcrParser {
 
     internal fun inferDayCentersFromShiftXs(
         rawXs: List<Int>,
-        maxDay: Int
+        maxDay: Int,
+        absoluteAnchors: Map<Int, List<Int>> = emptyMap()
     ): Map<Int, Int>? {
         if (maxDay !in 28..31 || rawXs.size < 12) return null
         val sorted = rawXs.sorted()
@@ -267,6 +291,7 @@ object ScheduleOcrParser {
             val slope: Double,
             val intercept: Double,
             val residual: Double,
+            val anchorResidual: Double,
             val assigned: List<Int>
         )
 
@@ -293,20 +318,40 @@ object ScheduleOcrParser {
                         )
                     }
                     .average() / slope
+                val anchorErrors = absoluteAnchors.flatMap { (day, xs) ->
+                    if (day !in 1..maxDay) emptyList()
+                    else xs.map { x ->
+                        abs(x - (intercept + (day - 1) * slope)) / slope
+                    }
+                }
+                val anchorResidual = if (anchorErrors.isEmpty()) {
+                    0.0
+                } else {
+                    anchorErrors.average()
+                }
                 val edgePenalty = (leadingMissing + trailingMissing) * 0.025
                 candidates += Candidate(
                     firstDay = firstDay,
                     lastDay = lastDay,
                     slope = slope,
                     intercept = intercept,
-                    residual = residual + edgePenalty,
+                    residual = residual + edgePenalty + anchorResidual * 2.5,
+                    anchorResidual = anchorResidual,
                     assigned = assigned
                 )
             }
         }
 
-        val best = candidates.minByOrNull { it.residual } ?: return null
-        if (best.residual > 0.24) return null
+        val orderedCandidates = candidates.sortedBy { it.residual }
+        val best = orderedCandidates.firstOrNull() ?: return null
+        if (best.residual > 0.30) return null
+        if (absoluteAnchors.isNotEmpty() && best.anchorResidual > 0.35) return null
+        val second = orderedCandidates.getOrNull(1)
+        val ambiguousWithoutAnchor = absoluteAnchors.isEmpty() &&
+            second != null &&
+            abs(second.residual - best.residual) < 0.012 &&
+            (second.firstDay != best.firstDay || second.lastDay != best.lastDay)
+        if (ambiguousWithoutAnchor) return null
         val coveredDays = best.assigned.toSet()
         if (coveredDays.size < maxOf(12, maxDay / 2)) return null
         if ((coveredDays.maxOrNull() ?: 0) - (coveredDays.minOrNull() ?: maxDay) < maxDay - 7) {
