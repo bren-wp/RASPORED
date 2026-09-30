@@ -268,3 +268,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   .mobile-metric-card b{font-size:20px;margin:2px 0}
   .mobile-scan-cta{height:50px;border-radius:14px;font-size:16px}
 }
+
+.mobile-header-action{display:none}
+.scan-copy--with-help{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.scan-copy--with-help>div{min-width:0}
+.scan-help-btn{flex:0 0 auto;border-radius:50%;font-weight:800;font-size:20px;color:#53637C}
+.scan-help-list{display:grid;gap:10px}
+.scan-help-list p{margin:0;padding:11px 12px;border-radius:12px;background:var(--surface-2);color:var(--text);line-height:1.4}
+.scan-help-list b{color:#078DE9}
+@media(max-width:820px){
+  body[data-route-current="calendar"] #mobileScanHeaderBtn{display:grid}
+  body[data-route-current="stats"] #statsRefreshBtn{display:grid}
+  body[data-route-current="stats"] #notificationBtn{display:none}
+  .scan-copy--with-help{margin-top:18px}
+  .scan-help-btn{width:42px;height:42px}
+}
