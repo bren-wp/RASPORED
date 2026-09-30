@@ -40,3 +40,23 @@ test("legacy evidence without millisecond timestamps keeps its worked duration",
   }
   await expect(page.locator("#hoursHistory")).toContainText("12h 00min");
 });
+
+
+test("statistics split overnight evidence at month and night boundaries", async ({page}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    const start=new Date(2026,8,30,22,0,0).getTime();
+    const end=new Date(2026,9,1,7,0,0).getTime();
+    store.set("raspored.timeEntries.v1",JSON.stringify([
+      {id:"cross-month",date:"2026-09-30",in:"22:00",out:"07:00",note:"",workType:"shift3",startedAt:start,endedAt:end}
+    ]));
+    await store.flush();
+  });
+  await page.locator('[data-route="stats"]:visible').first().click();
+  await expect(page.locator("#workedTotal")).toHaveText("7:00 h");
+  await expect(page.locator("#statsCategories")).toContainText("Noćni sati");
+  await expect(page.locator("#statsCategories")).toContainText("6h");
+  await expect(page.locator("#statsCategories")).toContainText("Dnevni sati");
+  await expect(page.locator("#statsCategories")).toContainText("1h");
+});
