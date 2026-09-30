@@ -1086,7 +1086,17 @@ object ScheduleOcrEngine {
         val bands = dayBands()
         fun processBand(index: Int, accumulated: RecognizedSchedule) {
             if (index >= bands.size) {
-                recognizeRosterColumn(source, accumulated, onSuccess)
+                if (needsFocusedRecovery(accumulated)) {
+                    recognizeFocusedTiles(
+                        source = source,
+                        baseline = accumulated,
+                        onSuccess = { focused ->
+                            recognizeRosterColumn(source, focused, onSuccess)
+                        }
+                    )
+                } else {
+                    recognizeRosterColumn(source, accumulated, onSuccess)
+                }
                 return
             }
 
@@ -1192,6 +1202,163 @@ object ScheduleOcrEngine {
         )
         return output
     }
+
+    private fun needsFocusedRecovery(schedule: RecognizedSchedule): Boolean {
+        if (schedule.rows.size < 4) return false
+        val mapped = schedule.rows.sumOf { it.dayShifts.size }
+        return mapped < maxOf(12, schedule.rows.size * 2)
+    }
+
+    private data class FocusedTile(
+        val rowStart: Float,
+        val rowEnd: Float,
+        val dayStart: Float,
+        val dayEnd: Float
+    )
+
+    private fun recognizeFocusedTiles(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val rowBands = listOf(
+            0.12f to 0.44f,
+            0.36f to 0.70f,
+            0.62f to 1.00f
+        )
+        val dayBands = listOf(
+            0.18f to 0.62f,
+            0.56f to 1.00f
+        )
+        val tiles = rowBands.flatMap { row ->
+            dayBands.map { day ->
+                FocusedTile(row.first, row.second, day.first, day.second)
+            }
+        }
+
+        fun process(index: Int, accumulated: RecognizedSchedule) {
+            if (index >= tiles.size) {
+                onSuccess(accumulated)
+                return
+            }
+            val tile = tiles[index]
+            val bitmap = createEnhancedFocusedTile(source, tile)
+            if (bitmap == null) {
+                process(index + 1, accumulated)
+                return
+            }
+
+            recognizer.process(InputImage.fromBitmap(bitmap, 0))
+                .addOnSuccessListener { result ->
+                    val parsed = ScheduleOcrParser.parse(
+                        result,
+                        monthHint = accumulated.month
+                    )
+                    process(index + 1, mergeSchedules(accumulated, parsed))
+                }
+                .addOnFailureListener {
+                    process(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!bitmap.isRecycled) bitmap.recycle()
+                }
+        }
+
+        process(0, baseline)
+    }
+
+    private fun createEnhancedFocusedTile(
+        source: Bitmap,
+        tile: FocusedTile
+    ): Bitmap? = runCatching {
+        val rosterWidth = (source.width * 0.34f).roundToInt()
+            .coerceIn(1, source.width)
+        val gridStart = (source.width * tile.dayStart).roundToInt()
+            .coerceIn(0, source.width - 1)
+        val gridEnd = (source.width * tile.dayEnd).roundToInt()
+            .coerceIn(gridStart + 1, source.width)
+        val gridWidth = gridEnd - gridStart
+
+        // Keep the real day-number header and append only a subset of employee
+        // rows. This increases the effective pixels per name and per one-letter
+        // shift cell without losing exact day-column geometry.
+        val headerHeight = (source.height * 0.16f).roundToInt()
+            .coerceIn(1, source.height)
+        val bodyTop = maxOf(
+            headerHeight,
+            (source.height * tile.rowStart).roundToInt()
+                .coerceIn(0, source.height - 1)
+        )
+        val bodyBottom = (source.height * tile.rowEnd).roundToInt()
+            .coerceIn(bodyTop + 1, source.height)
+        val bodyHeight = bodyBottom - bodyTop
+        val rawWidth = rosterWidth + gridWidth
+        val rawHeight = headerHeight + bodyHeight
+
+        val targetPixels = 6_500_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (rawWidth.toDouble() * rawHeight.toDouble())
+        )
+        val edgeScale = 4200.0 / rawWidth.toDouble()
+        val scale = minOf(3.25, pixelScale, edgeScale).coerceAtLeast(1.05)
+
+        val width = (rawWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (rawHeight * scale).roundToInt().coerceAtLeast(1)
+        val rosterOut = (rosterWidth * scale).roundToInt()
+            .coerceIn(1, width - 1)
+        val headerOut = (headerHeight * scale).roundToInt()
+            .coerceIn(1, height - 1)
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.62f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = ColorMatrixColorFilter(grayscale)
+            isFilterBitmap = true
+        }
+        val canvas = Canvas(output)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        // Header.
+        canvas.drawBitmap(
+            source,
+            Rect(0, 0, rosterWidth, headerHeight),
+            Rect(0, 0, rosterOut, headerOut),
+            paint
+        )
+        canvas.drawBitmap(
+            source,
+            Rect(gridStart, 0, gridEnd, headerHeight),
+            Rect(rosterOut, 0, width, headerOut),
+            paint
+        )
+
+        // Selected employee rows.
+        canvas.drawBitmap(
+            source,
+            Rect(0, bodyTop, rosterWidth, bodyBottom),
+            Rect(0, headerOut, rosterOut, height),
+            paint
+        )
+        canvas.drawBitmap(
+            source,
+            Rect(gridStart, bodyTop, gridEnd, bodyBottom),
+            Rect(rosterOut, headerOut, width, height),
+            paint
+        )
+        output
+    }.getOrNull()
 
     private fun recognizeRosterColumn(
         source: Bitmap,
