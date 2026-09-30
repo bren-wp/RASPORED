@@ -737,6 +737,7 @@ function route(name){
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
   var navRoute=name==="payroll"?"stats":name;
   document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===navRoute)});
+  if(name==="stats")renderStats();
   if(name==="hours")renderHours();
   if(name==="colleagues")renderColleagues();
   if(name==="payroll"&&window.RasporedPayroll)window.RasporedPayroll.render();
