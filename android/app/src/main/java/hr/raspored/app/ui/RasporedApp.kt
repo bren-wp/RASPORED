@@ -172,8 +172,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     )
                     Screen.Scan->OcrScanScreen(
                         defaultMonth=YearMonth.from(appDate()),
-                        accountName=null,
-                        managerMode=true,
+                        allowTeamImport=true,
                         onSaveTeamSchedules={month,rows->
                             teamStore.saveRecognizedMonth(
                                 month,
@@ -356,7 +355,16 @@ private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String 
         prefix+"\n"+start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))+" → "+end.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
     } else prefix
 }
-private fun shiftFromCode(code:String):Shift?=when(code){"D"->D;"N"->N;"GO"->GO;"BO"->BO;"PD"->PD;"SD"->SD;else->null}
+private fun shiftFromCode(code:String):Shift?=when(val normalized=ScheduleStore.normalizeCode(code)){
+    "D"->D
+    "N"->N
+    "GO"->GO
+    "BO"->BO
+    "PD"->PD
+    "SD"->SD
+    null->null
+    else->Shift(normalized,"Vlastita oznaka "+normalized,"—",0)
+}
 private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>{
     val persisted=(1..month.lengthOfMonth()).mapNotNull { day ->
         shiftFromCode(codes[month.atDay(day).toString()] ?: "")?.let { day to it }
@@ -518,6 +526,8 @@ private fun largeMinutesLabel(minutes:Long):String {
     val today=appDate()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     var selected by remember { mutableStateOf(today) }
+    var customCodeDialog by remember { mutableStateOf(false) }
+    var customCode by remember { mutableStateOf("") }
     val data=scheduleFor(month,scheduleCodes)
     val holidays=CroatianHolidays.forYear(month.year)
     val analytics=EvidenceAnalytics.summarize(
@@ -641,13 +651,37 @@ private fun largeMinutesLabel(minutes:Long):String {
                             )
                         }
                     }
-                    TextButton(
-                        onClick={onShiftChange(selected,null)},
-                        enabled=selectedShift!=null,
-                        modifier=Modifier.align(Alignment.End).padding(top=4.dp)
+                    Row(
+                        modifier=Modifier.fillMaxWidth().padding(top=8.dp),
+                        horizontalArrangement=Arrangement.spacedBy(8.dp),
+                        verticalAlignment=Alignment.CenterVertically
                     ){
-                        Text("Očisti oznaku")
+                        OutlinedButton(
+                            onClick={
+                                customCode=selectedShift?.code
+                                    ?.takeUnless { it in ScheduleStore.BUILT_IN_CODES }
+                                    .orEmpty()
+                                customCodeDialog=true
+                            },
+                            modifier=Modifier.weight(1f)
+                        ){
+                            Icon(Icons.Outlined.Edit,null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Vlastita oznaka")
+                        }
+                        TextButton(
+                            onClick={onShiftChange(selected,null)},
+                            enabled=selectedShift!=null
+                        ){
+                            Text("Očisti")
+                        }
                     }
+                    Text(
+                        "Možeš upisati i vlastitu oznaku do 8 slova/brojeva, npr. J, P1 ili EDU. D/N/GO/BO/PD/SD zadržavaju svoje posebno značenje u statistici.",
+                        fontSize=10.sp,
+                        color=Slate,
+                        modifier=Modifier.padding(top=4.dp)
+                    )
                 }
             }
         }
@@ -676,6 +710,49 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         }
     }
+}
+
+
+if(customCodeDialog){
+    AlertDialog(
+        onDismissRequest={customCodeDialog=false},
+        title={Text("Vlastita oznaka za "+selected.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy.")))},
+        text={
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+                Text(
+                    "Upiši kratku oznaku koja postoji na tvom rasporedu. Dozvoljena su slova i brojevi, najviše 8 znakova.",
+                    fontSize=12.sp,
+                    color=MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value=customCode,
+                    onValueChange={value->
+                        customCode=value
+                            .uppercase(Locale("hr","HR"))
+                            .filter{it.isLetterOrDigit()}
+                            .take(8)
+                    },
+                    label={Text("Oznaka")},
+                    singleLine=true,
+                    modifier=Modifier.fillMaxWidth().testTag("calendar-custom-code")
+                )
+            }
+        },
+        confirmButton={
+            Button(
+                onClick={
+                    ScheduleStore.normalizeCode(customCode)?.let{
+                        onShiftChange(selected,it)
+                        customCodeDialog=false
+                    }
+                },
+                enabled=ScheduleStore.normalizeCode(customCode)!=null
+            ){Text("Spremi")}
+        },
+        dismissButton={
+            TextButton(onClick={customCodeDialog=false}){Text("Odustani")}
+        }
+    )
 }
 
 @Composable private fun ManualShiftButton(
