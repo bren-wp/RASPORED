@@ -84,13 +84,27 @@ function storage_file(string $token): string
     return storage_directory() . '/client-' . hash('sha256', $token) . '.json';
 }
 
+function text_slice(string $value, int $max): string
+{
+    return function_exists('mb_substr')
+        ? mb_substr($value, 0, $max, 'UTF-8')
+        : substr($value, 0, $max);
+}
+
+function text_length(string $value): int
+{
+    return function_exists('mb_strlen')
+        ? mb_strlen($value, 'UTF-8')
+        : strlen($value);
+}
+
 function clean_text(mixed $value, int $max): string
 {
     if (!is_string($value)) {
         return '';
     }
     $value = preg_replace('/\s+/u', ' ', trim($value)) ?? '';
-    return mb_substr($value, 0, $max, 'UTF-8');
+    return text_slice($value, $max);
 }
 
 function clean_schedule(mixed $raw): array
@@ -160,7 +174,7 @@ function clean_colleagues(mixed $raw): array
             continue;
         }
         $name = clean_text($item['name'] ?? '', 80);
-        if (mb_strlen($name, 'UTF-8') < 2) {
+        if (text_length($name) < 2) {
             continue;
         }
         $clean[] = [
@@ -182,7 +196,7 @@ function clean_scan_people(mixed $raw): array
             continue;
         }
         $name = clean_text($item['name'] ?? '', 100);
-        if (mb_strlen($name, 'UTF-8') < 2) {
+        if (text_length($name) < 2) {
             continue;
         }
         $shifts = [];
@@ -328,6 +342,16 @@ if ($method !== 'PUT') {
 
 if ((string) ($_SERVER['HTTP_X_RASPORED_REQUEST'] ?? '') !== '1') {
     fail_json(403, 'Zahtjev nije dopušten.');
+}
+
+$origin = rtrim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
+if ($origin !== '') {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $expectedOrigin = ($secure ? 'https://' : 'http://') . (string) ($_SERVER['HTTP_HOST'] ?? '');
+    if (!hash_equals(strtolower($expectedOrigin), strtolower($origin))) {
+        fail_json(403, 'Izvor zahtjeva nije dopušten.');
+    }
 }
 
 $contentLength = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
