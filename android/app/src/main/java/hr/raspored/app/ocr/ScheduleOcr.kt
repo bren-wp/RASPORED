@@ -514,16 +514,63 @@ object ScheduleOcrParser {
         return clusters
     }
 
+    private data class RowAlignment(
+        val scale: Double,
+        val offset: Double,
+        val pivot: Double
+    ) {
+        fun adjust(x: Int): Double =
+            pivot + (x - pivot) * scale + offset
+    }
+
+    private fun bestRowAlignment(
+        xs: List<Int>,
+        dayCenters: Map<Int, Int>
+    ): RowAlignment {
+        val pivot = dayCenters.values.average()
+        if (xs.size < 4) return RowAlignment(1.0, 0.0, pivot)
+        val spacing = medianDaySpacing(dayCenters)
+        if (spacing <= 0.0) return RowAlignment(1.0, 0.0, pivot)
+
+        var best = RowAlignment(1.0, 0.0, pivot)
+        var bestScore = Double.POSITIVE_INFINITY
+        for (scaleStep in -6..6) {
+            val scale = 1.0 + scaleStep * 0.01
+            for (offsetStep in -6..6) {
+                val offset = spacing * offsetStep * 0.05
+                val candidate = RowAlignment(scale, offset, pivot)
+                val residual = xs.sumOf { x ->
+                    val adjusted = candidate.adjust(x)
+                    dayCenters.values.minOf { center -> abs(center - adjusted) }
+                } / xs.size.toDouble() / spacing
+                val penalty =
+                    abs(scale - 1.0) * 0.10 +
+                    abs(offset) / spacing * 0.015
+                val score = residual + penalty
+                if (score < bestScore) {
+                    bestScore = score
+                    best = candidate
+                }
+            }
+        }
+        return if (bestScore <= 0.30) best else RowAlignment(1.0, 0.0, pivot)
+    }
+
     private fun mapShiftTokensToDays(
         shiftTokens: List<Pair<Token, String>>,
         dayCenters: Map<Int, Int>,
         maxDistance: Double
     ): Map<Int, String> = buildMap {
+        val alignment = bestRowAlignment(
+            shiftTokens.map { it.first.centerX },
+            dayCenters
+        )
         shiftTokens.forEach { (token, code) ->
+            val adjustedX = alignment.adjust(token.centerX)
             val nearest = dayCenters.minByOrNull { (_, center) ->
-                abs(center - token.centerX)
+                abs(center - adjustedX)
             } ?: return@forEach
-            if (abs(nearest.value - token.centerX) <= maxDistance) {
+            if (abs(nearest.value - adjustedX) <= maxDistance) {
                 put(nearest.key, code)
             }
         }
