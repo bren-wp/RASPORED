@@ -6,6 +6,8 @@ const ASSETS=[
   "./assets/js/data-store.js",
   "./assets/js/app.js",
   "./assets/js/ocr-web.js",
+  "./assets/js/payroll.js",
+  "./assets/data/payroll-public-health-2026.json",
   "./assets/brand/logo.svg",
   "./assets/brand/icon-maskable.svg",
   "./assets/brand/icons.svg",
