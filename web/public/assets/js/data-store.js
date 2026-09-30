@@ -15,6 +15,8 @@ var current={
 };
 var writeChain=Promise.resolve();
 var initialized=false;
+var serverLoaded=false;
+var localGeneration=0;
 
 function clone(value){return JSON.parse(JSON.stringify(value))}
 function base(){return document.body&&document.body.dataset?document.body.dataset.base||"":""}
@@ -130,17 +132,26 @@ function notifyError(){
   window.dispatchEvent(new CustomEvent("raspored:storage-error"));
 }
 async function writeNow(){
+  if(!serverLoaded)throw new Error("Storage state was not loaded");
+  var generation=localGeneration;
+  var sent=clone(current);
   var response=await fetch(endpoint(),{
     method:"PUT",
     credentials:"same-origin",
     cache:"no-store",
     headers:{"Content-Type":"application/json","X-Raspored-Request":"1"},
-    body:JSON.stringify({state:current})
+    body:JSON.stringify({state:sent})
   });
   if(!response.ok)throw new Error("Storage write failed: "+response.status);
   var payload=await response.json();
   if(!payload||payload.ok!==true||!payload.state)throw new Error("Invalid storage response");
-  current=sanitize(payload.state);
+  var server=sanitize(payload.state);
+  if(generation===localGeneration){
+    current=server;
+  }else{
+    current.revision=server.revision;
+    current.updatedAt=server.updatedAt;
+  }
   window.dispatchEvent(new CustomEvent("raspored:storage-synced"));
   return current;
 }
@@ -161,6 +172,7 @@ function valueForKey(key){
   return null;
 }
 function setKey(key,value){
+  if(!serverLoaded){notifyError();return false}
   try{
     if(key==="raspored.schedule")current.schedule=sanitizeSchedule(JSON.parse(value||"{}"));
     else if(key==="raspored.timeEntries.v1")current.evidence=sanitizeEvidence(JSON.parse(value||"[]"));
@@ -181,6 +193,7 @@ function setKey(key,value){
   }catch(e){return false}
 }
 function removeKey(key){
+  if(!serverLoaded){notifyError();return false}
   if(key==="raspored.schedule")current.schedule={};
   else if(key==="raspored.timeEntries.v1")current.evidence=[];
   else if(key==="raspored.colleagues.v1")current.colleagues=[];
@@ -191,6 +204,7 @@ function removeKey(key){
   else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey="";
   else if(key==="raspored.payroll.v1")current.payroll={roleId:"kbc-transport-nss",coefficient:1.15,yearsService:0,extraPercent:0,secondShift:false,customBase:null};
   else return false;
+  localGeneration++;
   queueWrite();
   return true;
 }
@@ -203,15 +217,18 @@ async function init(){
     var payload=await response.json();
     if(!payload||payload.ok!==true||!payload.state)throw new Error("Invalid storage response");
     current=sanitize(payload.state);
+    serverLoaded=true;
     if(emptyState(current)){
       var legacy=readLegacy();
       if(legacy){
         current=legacy;
+        localGeneration++;
         await writeNow();
         clearLegacy();
       }
     }
   }catch(error){
+    serverLoaded=false;
     notifyError();
   }
   return current;
@@ -224,6 +241,7 @@ window.RasporedDataStore={
   remove:removeKey,
   snapshot:function(){return clone(current)},
   flush:function(){return writeChain},
-  reload:async function(){initialized=false;return init()}
+  reload:async function(){initialized=false;serverLoaded=false;return init()},
+  isAvailable:function(){return serverLoaded}
 };
 })();
