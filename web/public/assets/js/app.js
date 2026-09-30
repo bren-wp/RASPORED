@@ -131,7 +131,7 @@ function importScannedTeamSchedules(){
   if(!state.scanPeople.length){toast("Najprije skeniraj raspored.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   var members=loadTeamMembers(),byName={};
-  members.forEach(function(item,index){byName[item.name.toLocaleLowerCase("hr-HR")]=index});
+  members.forEach(function(item,index){byName[normalizePersonName(item.name)]=index});
   var imported=0,skipped=0;
   state.scanPeople.forEach(function(person){
     var recognized=Object.keys(person.dayShifts||{}).filter(function(day){
@@ -139,7 +139,7 @@ function importScannedTeamSchedules(){
       return n>=1&&n<=days&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0;
     });
     if(!recognized.length){skipped++;return}
-    var key=person.name.toLocaleLowerCase("hr-HR"),index=byName[key],member=index===undefined?{name:person.name,note:"",schedule:{}}:members[index];
+    var key=normalizePersonName(person.name),index=byName[key],member=index===undefined?{name:person.name,note:"",schedule:{}}:members[index];
     member.schedule=sanitizeSchedule(member.schedule);
     for(var day=1;day<=days;day++)delete member.schedule[iso(new Date(y,m,day))];
     recognized.forEach(function(day){
