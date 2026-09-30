@@ -100,9 +100,12 @@ object ScheduleOcrParser {
         val centerY: Double
     )
 
-    fun parse(result: Text): RecognizedSchedule {
+    fun parse(
+        result: Text,
+        monthHint: YearMonth? = null
+    ): RecognizedSchedule {
         val rawText = result.text.replace('\u00A0', ' ')
-        val month = detectMonth(rawText)
+        val month = detectMonth(rawText) ?: monthHint
         val lines = result.textBlocks.flatMap { it.lines }
         val maxDay = month?.lengthOfMonth() ?: 31
         val header = findDayHeader(lines, maxDay)
@@ -730,7 +733,7 @@ object ScheduleOcrEngine {
         recognizer.process(InputImage.fromBitmap(bitmap, 0))
             .addOnSuccessListener { firstResult ->
                 val first = ScheduleOcrParser.parse(firstResult)
-                if (!needsRecoveryPass(first)) {
+                if (!needsDeepRecovery(first, bitmap)) {
                     onSuccess(first)
                     return@addOnSuccessListener
                 }
@@ -738,11 +741,31 @@ object ScheduleOcrEngine {
                 val enhanced = enhanceForOcr(bitmap)
                 recognizer.process(InputImage.fromBitmap(enhanced, 0))
                     .addOnSuccessListener { secondResult ->
-                        val second = ScheduleOcrParser.parse(secondResult)
-                        onSuccess(mergeSchedules(first, second))
+                        val second = ScheduleOcrParser.parse(
+                            secondResult,
+                            monthHint = first.month
+                        )
+                        val merged = mergeSchedules(first, second)
+                        if (needsStripeRecovery(merged, bitmap)) {
+                            recognizeStripes(
+                                source = bitmap,
+                                baseline = merged,
+                                onSuccess = onSuccess
+                            )
+                        } else {
+                            onSuccess(merged)
+                        }
                     }
                     .addOnFailureListener {
-                        onSuccess(first)
+                        if (needsStripeRecovery(first, bitmap)) {
+                            recognizeStripes(
+                                source = bitmap,
+                                baseline = first,
+                                onSuccess = onSuccess
+                            )
+                        } else {
+                            onSuccess(first)
+                        }
                     }
                     .addOnCompleteListener {
                         if (enhanced !== bitmap && !enhanced.isRecycled) {
@@ -759,6 +782,122 @@ object ScheduleOcrEngine {
         val mapped = rows.sumOf { it.dayShifts.size }
         val expectedPerRow = minOf(schedule.month?.lengthOfMonth() ?: 31, 12)
         return mapped < maxOf(18, rows.size * expectedPerRow)
+    }
+
+    private fun needsDeepRecovery(
+        schedule: RecognizedSchedule,
+        source: Bitmap
+    ): Boolean {
+        if (needsRecoveryPass(schedule)) return true
+        return source.width >= 1600 &&
+            source.height >= 1000 &&
+            schedule.rows.size in 1..15
+    }
+
+    private fun needsStripeRecovery(
+        schedule: RecognizedSchedule,
+        source: Bitmap
+    ): Boolean = source.width >= 1600 &&
+        source.height >= 1000 &&
+        (needsRecoveryPass(schedule) || schedule.rows.size in 1..15)
+
+    private fun recognizeStripes(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val ranges = stripeRanges(source.height)
+        if (ranges.isEmpty()) {
+            onSuccess(baseline)
+            return
+        }
+
+        fun processStripe(
+            index: Int,
+            accumulated: RecognizedSchedule
+        ) {
+            if (index >= ranges.size) {
+                onSuccess(accumulated)
+                return
+            }
+
+            val range = ranges[index]
+            val stripe = createEnhancedStripe(source, range.first, range.last + 1)
+            recognizer.process(InputImage.fromBitmap(stripe, 0))
+                .addOnSuccessListener { stripeResult ->
+                    val parsed = ScheduleOcrParser.parse(
+                        stripeResult,
+                        monthHint = accumulated.month
+                    )
+                    processStripe(
+                        index + 1,
+                        mergeSchedules(accumulated, parsed)
+                    )
+                }
+                .addOnFailureListener {
+                    processStripe(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!stripe.isRecycled) stripe.recycle()
+                }
+        }
+
+        processStripe(0, baseline)
+    }
+
+    private fun stripeRanges(height: Int): List<IntRange> {
+        if (height < 1000) return emptyList()
+        val overlap = (height * 0.12f).roundToInt().coerceAtLeast(48)
+        val middle = height / 2
+        val firstEnd = (middle + overlap).coerceAtMost(height)
+        val secondStart = (middle - overlap).coerceAtLeast(0)
+        return listOf(
+            0 until firstEnd,
+            secondStart until height
+        )
+    }
+
+    private fun createEnhancedStripe(
+        source: Bitmap,
+        top: Int,
+        bottom: Int
+    ): Bitmap {
+        val safeTop = top.coerceIn(0, source.height - 1)
+        val safeBottom = bottom.coerceIn(safeTop + 1, source.height)
+        val cropHeight = safeBottom - safeTop
+        val targetPixels = 6_500_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (source.width.toDouble() * cropHeight.toDouble())
+        )
+        val edgeScale = 5600.0 / source.width.toDouble()
+        val scale = minOf(1.65, pixelScale, edgeScale).coerceAtLeast(1.0)
+        val width = (source.width * scale).roundToInt().coerceAtLeast(1)
+        val height = (cropHeight * scale).roundToInt().coerceAtLeast(1)
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.34f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        Canvas(output).drawBitmap(
+            source,
+            Rect(0, safeTop, source.width, safeBottom),
+            Rect(0, 0, width, height),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(grayscale)
+                isFilterBitmap = true
+            }
+        )
+        return output
     }
 
     private fun mergeSchedules(
