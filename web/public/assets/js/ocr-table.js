@@ -29,12 +29,23 @@ function fitHorizontalGrid(centers){
   }
   if(gaps.length<6)return null;
 
+  var frequencies={};
+  gaps.forEach(function(gap){frequencies[gap]=(frequencies[gap]||0)+1});
+  var dominant=Object.keys(frequencies).map(Number).filter(function(gap){return gap>=10})
+    .sort(function(a,b){
+      function localSupport(candidate){
+        return Object.keys(frequencies).reduce(function(sum,key){
+          var gap=Number(key);
+          return sum+(Math.abs(gap-candidate)<=2?frequencies[key]:0);
+        },0);
+      }
+      return localSupport(b)-localSupport(a)||(frequencies[b]||0)-(frequencies[a]||0);
+    })[0];
+  if(!dominant)return null;
   var seeds=[];
-  Array.from(new Set(gaps)).forEach(function(gap){
-    [gap-1,gap,gap+1].forEach(function(seed){
-      if(seed>=7&&seed<=80)seeds.push(seed);
-    });
-  });
+  for(var seed=dominant-2;seed<=dominant+2;seed++){
+    if(seed>=8&&seed<=80)seeds.push(seed);
+  }
 
   var best=null;
   seeds.forEach(function(spacing){
