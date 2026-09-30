@@ -33,6 +33,19 @@ function canonicalGridCode(raw){
   if(["RB","OD","DO"].includes(value))return null;
   return value;
 }
+function gridCodeForToken(token,geometry){
+  var known=canonicalShift(token&&token.text);
+  if(known)return known;
+  if(!token||!token.bbox||!geometry)return null;
+  var minX=Number(geometry.minX);
+  var spacing=Number(geometry.spacing)||0;
+  // Custom labels are valid only inside the physically observed grid.
+  // Late-month recovery bands extrapolate missing day centers to the left;
+  // without this guard row numbers and short names (e.g. "1", "ANA")
+  // can be misread as schedule codes for those extrapolated days.
+  if(Number.isFinite(minX)&&centerX(token.bbox)<minX-Math.max(4,spacing*.55))return null;
+  return canonicalGridCode(token.text);
+}
 function centerX(bbox){return bbox?(Number(bbox.x0)+Number(bbox.x1))/2:NaN}
 function centerY(bbox){return bbox?(Number(bbox.y0)+Number(bbox.y1))/2:NaN}
 function boxHeight(bbox){return bbox?Math.max(1,Number(bbox.y1)-Number(bbox.y0)):1}
@@ -514,14 +527,14 @@ function bestRowAlignment(xs,geometry){
 function mapShiftTokens(tokens,geometry){
   var dayShifts={},maxDistance=Math.max(12,geometry.spacing*.52);
   var shiftTokens=tokens.filter(function(token){
-    return token&&token.bbox&&canonicalGridCode(token.text);
+    return token&&token.bbox&&gridCodeForToken(token,geometry);
   });
   var alignment=bestRowAlignment(
     shiftTokens.map(function(token){return centerX(token.bbox)}),
     geometry
   );
   shiftTokens.forEach(function(token){
-    var code=canonicalGridCode(token.text);
+    var code=gridCodeForToken(token,geometry);
     var rawX=centerX(token.bbox);
     var x=alignment.pivot+(rawX-alignment.pivot)*alignment.scale+alignment.offset;
     var nearest=null,best=Infinity;
@@ -534,7 +547,7 @@ function mapShiftTokens(tokens,geometry){
   return dayShifts;
 }
 function parseTokenRow(tokens,geometry){
-  var shifts=tokens.filter(function(token){return token.bbox&&canonicalGridCode(token.text)});
+  var shifts=tokens.filter(function(token){return token.bbox&&gridCodeForToken(token,geometry)});
   if(!shifts.length)return null;
   var firstShiftX=Math.min.apply(null,shifts.map(function(item){return centerX(item.bbox)}));
   var boundary=Math.min(firstShiftX,geometry.minX);
