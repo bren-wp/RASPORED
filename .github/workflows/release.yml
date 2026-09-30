@@ -101,11 +101,12 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
+          RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           gh release create "v${VERSION}" \
             dist/RASPORED.apk \
             "dist/RASPORED-web-v${VERSION}.zip" \
             "dist/SHA256SUMS-v${VERSION}.txt" \
-            --target "$GITHUB_SHA" \
+            --target "$RELEASE_SHA" \
             --title "RASPORED v${VERSION}" \
             --notes "Produkcijsko izdanje RASPORED-a. Sadrži instalabilni Android APK i Web/PWA paket. Android APK je automatski potpisan standardnim Android build potpisom i ne zahtijeva ručni unos ključeva u ovom procesu."
 
