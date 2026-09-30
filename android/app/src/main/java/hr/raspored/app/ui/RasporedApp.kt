@@ -224,7 +224,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         TimeEvidenceScreen(
                             plannedShiftCode=shift?.code,
                             plannedShiftLabel=shift?.let{it.name+" · "+it.time} ?: "—",
-                            onBack={screen=Screen.Home},
+                            onBack={screen=Screen.Calendar},
                             onEvidenceChanged={evidenceRevision++}
                         )
                     }
@@ -323,16 +323,16 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
 
 @Composable private fun BottomNav(current:Screen,onSelect:(Screen)->Unit){
     val selected=when(current){
-        Screen.Hours->Screen.Home
-        Screen.Payroll->Screen.Stats
+        Screen.Home->Screen.Calendar
+        Screen.Payroll->Screen.Settings
         else->current
     }
     NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=6.dp){
-        NavItem(selected,Screen.Home,"Početna",Icons.Outlined.Home,onSelect)
         NavItem(selected,Screen.Calendar,"Kalendar",Icons.Outlined.CalendarMonth,onSelect)
+        NavItem(selected,Screen.Hours,"Evidencija",Icons.AutoMirrored.Outlined.Notes,onSelect)
         NavItem(selected,Screen.Scan,"Skeniraj",Icons.Outlined.PhotoCamera,onSelect,true)
         NavItem(selected,Screen.Stats,"Statistika",Icons.Outlined.BarChart,onSelect)
-        NavItem(selected,Screen.Settings,"Postavke",Icons.Outlined.Settings,onSelect)
+        NavItem(selected,Screen.Settings,"Više",Icons.Outlined.MoreHoriz,onSelect)
     }
 }
 @Composable private fun RowScope.NavItem(current:Screen,target:Screen,label:String,icon:ImageVector,onSelect:(Screen)->Unit,emphasis:Boolean=false){
