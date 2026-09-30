@@ -20,7 +20,7 @@ function default_state(): array
         'evidence' => [],
         'profile' => ['name' => ''],
         'colleagues' => [],
-        'settings' => ['theme' => 'light', 'reducedMotion' => false],
+        'settings' => ['theme' => 'light', 'reducedMotion' => false, 'notificationReadKey' => ''],
         'scanSession' => ['people' => [], 'selected' => -1, 'month' => null],
         'updatedAt' => null,
     ];
@@ -223,6 +223,7 @@ function clean_state(mixed $raw, int $revision): array
         'settings' => [
             'theme' => (($settings['theme'] ?? 'light') === 'dark') ? 'dark' : 'light',
             'reducedMotion' => (bool) ($settings['reducedMotion'] ?? false),
+            'notificationReadKey' => clean_text($settings['notificationReadKey'] ?? '', 120),
         ],
         'scanSession' => ['people' => $people, 'selected' => $selected, 'month' => $cleanMonth],
         'updatedAt' => gmdate('c'),
