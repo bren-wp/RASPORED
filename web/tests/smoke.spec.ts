@@ -224,3 +224,16 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await page.locator("#motionToggle").check();
   await expect(page.locator("body")).toHaveAttribute("data-reduced-motion","true");
 });
+
+
+test("security headers are enabled", async ({page}) => {
+  const response=await page.goto("/");
+  expect(response).not.toBeNull();
+  const headers=response!.headers();
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["referrer-policy"]).toContain("strict-origin");
+  expect(headers["permissions-policy"]).toContain("camera=(self)");
+  expect(headers["content-security-policy"]).toContain("default-src 'self'");
+  expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+});
