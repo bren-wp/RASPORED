@@ -182,12 +182,22 @@ function raspored_bearer_token(): string
         ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
         ?? ''
     ));
+    if ($header === '' && function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (is_array($headers)) {
+            foreach ($headers as $name => $value) {
+                if (strcasecmp((string) $name, 'Authorization') === 0) {
+                    $header = trim((string) $value);
+                    break;
+                }
+            }
+        }
+    }
     if (!preg_match('/^Bearer\\s+([a-f0-9]{64})$/i', $header, $match)) {
         return '';
     }
     return strtolower($match[1]);
 }
-
 function raspored_mobile_client_request(): bool
 {
     return strtolower(trim((string) ($_SERVER['HTTP_X_RASPORED_CLIENT'] ?? ''))) === 'android';
