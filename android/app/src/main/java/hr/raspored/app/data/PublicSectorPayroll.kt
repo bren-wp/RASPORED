@@ -304,6 +304,12 @@ object PublicSectorPayroll {
     fun regime(id: String): PayrollRegime =
         regimes.firstOrNull { it.id == id } ?: regimes.last()
 
+    fun defaultRegimeForSector(sector: String): PayrollRegime =
+        regimes.firstOrNull { it.sector == sector } ?: regimes.last()
+
+    fun institutionsFor(sector: String, county: String): List<PayrollInstitution> =
+        institutions.filter { it.sector == sector && it.county == county }
+
     fun rolesFor(regimeId: String): List<PayrollRole> =
         roles.filter { regimeId in it.regimes }
 
