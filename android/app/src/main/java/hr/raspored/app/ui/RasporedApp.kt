@@ -37,6 +37,8 @@ import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
+import hr.raspored.app.data.ProfileStore
+import hr.raspored.app.data.ReportExporter
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -75,10 +77,12 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
     val store = remember(context) { ScheduleStore(context) }
     val uiSettings = remember(context) { UiSettingsStore(context) }
     val evidenceStore = remember(context) { TimeEvidenceStore(context) }
+    val profileStore = remember(context) { ProfileStore(context) }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
+    var profileName by remember { mutableStateOf(profileStore.fullName) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -173,6 +177,13 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                     Screen.Settings->SettingsScreen(
                         darkMode=darkMode,
                         reducedMotion=reducedMotion,
+                        profileName=profileName,
+                        scheduleCodes=scheduleCodes,
+                        evidenceEntries=evidenceEntries,
+                        onProfileNameChange={
+                            profileName=it
+                            profileStore.fullName=it
+                        },
                         onDarkModeChange={
                             darkMode=it
                             uiSettings.darkMode=it
