@@ -86,6 +86,10 @@ function sanitizeScanReviewCells(items){
 function unresolvedScanReviewCells(){
   return state.scanReviewCells.filter(function(cell){return cell.conflict&&!cell.manuallyConfirmed});
 }
+function unresolvedScanReviewCellsForPerson(person){
+  if(!person)return [];
+  return unresolvedScanReviewCells().filter(function(cell){return scanCellMatchesPerson(cell,person)});
+}
 function configureProfile(){
   var saved="";
   saved=(storageGet("raspored.profile.name")||"").trim().slice(0,80);
@@ -492,7 +496,8 @@ function renderScanPersonPicker(){
     monthLabel.textContent=months[target.getMonth()]+" "+target.getFullYear()+".";
   }
   var unresolved=unresolvedScanReviewCells().length;
-  if(saveBtn)saveBtn.disabled=state.scanIncomplete||unresolved>0||!person||Object.keys(person.dayShifts||{}).length===0;
+  var unresolvedSelected=unresolvedScanReviewCellsForPerson(person).length;
+  if(saveBtn)saveBtn.disabled=state.scanIncomplete||unresolvedSelected>0||!person||Object.keys(person.dayShifts||{}).length===0;
   var teamBtn=document.getElementById("saveTeamSchedules"),teamNote=document.getElementById("teamImportNote");
   if(teamBtn){
     teamBtn.hidden=policy.restricted||state.scanPeople.length===0;
@@ -505,7 +510,7 @@ function selectedScanSchedule(){
 }
 function importSelectedScanSchedule(){
   var person=scanPerson(),policy=individualScanPolicy();
-  if(unresolvedScanReviewCells().length){toast("Prije uvoza riješi sve nejasne AI/OCR stavke.");renderScanReview();return}
+  if(unresolvedScanReviewCellsForPerson(person).length){toast("Prije uvoza riješi nejasne AI/OCR stavke odabrane osobe.");renderScanReview();return}
   if(policy.restricted&&(policy.index<0||!person||normalizePersonName(person.name)!==normalizePersonName(policy.name))){
     toast("Osobni korisnički račun može uvesti samo raspored prijavljene osobe.");
     return;
