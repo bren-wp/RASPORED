@@ -134,7 +134,7 @@ test("AI scan review requires consent and resolves conflicts before import", asy
   await expect(page.locator("#scanAiPanel")).toBeVisible();
   await page.locator("#scanAiVerifyBtn").click();
   await expect(page.locator("#scanAiConsentDialog")).toBeVisible();
-  await expect(page.locator("#scanAiConsentDialog")).toContainText("fotografija rasporeda napušta uređaj");
+  await expect(page.locator("#scanAiConsentDialog")).toContainText("Fotografija rasporeda napušta uređaj");
   await page.locator("#scanAiConsentConfirm").click();
 
   await expect(page.locator("#scanConflictPanel")).toBeVisible();
