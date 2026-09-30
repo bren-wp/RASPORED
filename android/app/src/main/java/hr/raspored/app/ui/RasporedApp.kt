@@ -75,7 +75,7 @@ private val GO=Shift("GO","Godišnji odmor","—",0)
 private val BO=Shift("BO","Bolovanje","—",0)
 private val PD=Shift("PD","Plaćeni dopust","—",0)
 private val SD=Shift("SD","Slobodan dan","—",0)
-private val NONE=Shift("","Nema planirane smjene","—",0)
+private val NONE=Shift("","Redovni slobodni dan","—",0)
 
 @Composable fun RasporedApp(){
     var screen by remember { mutableStateOf(Screen.Calendar) }
@@ -721,7 +721,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)){
                             Text(
-                                selectedShift?.name ?: if(selectedHoliday!=null)"Blagdan (neradni dan)" else "Nema planirane smjene",
+                                selectedShift?.name ?: if(selectedHoliday!=null)"Blagdan (neradni dan)" else "Redovni slobodni dan",
                                 fontWeight=FontWeight.Bold,
                                 fontSize=18.sp
                             )
