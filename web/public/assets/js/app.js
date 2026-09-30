@@ -77,7 +77,7 @@ function renderColleagues(){
   }
   el.innerHTML=items.map(function(item,index){
     var initials=item.name.split(/\s+/).filter(Boolean).slice(0,2).map(function(x){return x.charAt(0).toUpperCase()}).join("");
-    return '<article class="colleague-row"><span class="colleague-avatar">'+escapeHtml(initials||"K")+'</span><span><b>'+escapeHtml(item.name)+'</b><small>'+escapeHtml(item.note||"Raspored kolege")+'</small></span><button type="button" class="icon-btn" data-remove-colleague="'+index+'" aria-label="Ukloni '+escapeHtml(item.name)+'">×</button></article>';
+    return '<article class="colleague-row"><span class="colleague-avatar">'+escapeHtml(initials||"K")+'</span><span><b>'+escapeHtml(item.name)+'</b><small>'+escapeHtml(item.note||"Bez napomene")+'</small></span><button type="button" class="icon-btn" data-remove-colleague="'+index+'" aria-label="Ukloni '+escapeHtml(item.name)+'">×</button></article>';
   }).join("");
 }
 function addColleague(){
@@ -94,7 +94,7 @@ function submitColleague(){
   if(name.length<2){toast("Unesi valjano ime i prezime.");if(nameInput)nameInput.focus();return false}
   var items=loadColleagues();
   if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return false}
-  items.push({name:name,note:note||"Raspored kolege"});
+  items.push({name:name,note:note||"Bez napomene"});
   if(!saveColleagues(items)){toast("Podatke nije moguće spremiti u storage/data.");return false}
   renderColleagues();if(dialog)dialog.close();toast("Kolega je dodan.");return true;
 }
