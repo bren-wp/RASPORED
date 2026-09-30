@@ -75,3 +75,61 @@ test("OCR geometry reconstructs fragmented day header and all employee rows", as
   expect(parsed[2].dayShifts).toEqual({"3":"D","8":"N","12":"GO","18":"D","29":"BO"});
   expect(parsed[3].dayShifts).toEqual({"2":"N","7":"D","14":"PD","21":"GO","31":"D"});
 });
+
+
+test("OCR geometry retains a dense 30-person roster and sparse exact days", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const parsed=await page.evaluate(() => {
+    function word(text:string,x:number,y:number,w=18,h=11){
+      return {text,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}};
+    }
+    function line(words:any[],y:number){
+      return {
+        text:words.map(w=>w.text).join(" "),
+        bbox:{
+          x0:Math.min(...words.map(w=>w.bbox.x0)),
+          y0:y,
+          x1:Math.max(...words.map(w=>w.bbox.x1)),
+          y1:y+13
+        },
+        words
+      };
+    }
+
+    const header=[] as any[];
+    for(let day=1;day<=31;day++)header.push(word(String(day),300+(day-1)*21,60,13));
+
+    const lines:any[]=[line(header,60)];
+    for(let row=1;row<=30;row++){
+      const y=95+(row-1)*19;
+      lines.push(line([
+        word(String(row),14,y,14),
+        word("TESTOSOBA"+row,46,y,90)
+      ],y));
+      const codes:[[number,string],[number,string],[number,string],[number,string],[number,string]]=[
+        [1,row%2?"D":"N"],
+        [5,"GO"],
+        [16,row%3?"D":"PD"],
+        [24,"BO"],
+        [31,row%4?"N":"SD"]
+      ];
+      lines.push(line(codes.map(([day,code]) =>
+        word(code,300+(day-1)*21,y+2,code.length===1?12:19)
+      ),y+2));
+    }
+
+    const blocks=[{paragraphs:[{lines}]}];
+    return (window as any).RasporedWebOcr.parseGeometry(blocks,31);
+  });
+
+  expect(parsed).toHaveLength(30);
+  expect(parsed.map((row:any)=>row.row)).toEqual(Array.from({length:30},(_,i)=>i+1));
+  for(const row of parsed){
+    expect(row.dayShifts["2"]).toBeUndefined();
+    expect(row.dayShifts["5"]).toBe("GO");
+    expect(row.dayShifts["24"]).toBe("BO");
+    expect(row.dayShifts["31"]).toMatch(/^(N|SD)$/);
+  }
+});
