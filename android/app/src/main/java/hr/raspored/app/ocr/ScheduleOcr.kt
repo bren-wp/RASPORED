@@ -135,6 +135,37 @@ object ScheduleOcrParser {
         )
     }
 
+    internal fun parseRosterRows(result: Text): List<RecognizedScheduleRow> {
+        val lines = result.textBlocks.flatMap { it.lines }
+        val tokens = allTokens(lines)
+        if (tokens.isEmpty()) return emptyList()
+        val medianHeight = medianInt(tokens.map { it.box.height().coerceAtLeast(1) }).toDouble()
+        val tolerance = max(8.0, medianHeight * 0.90)
+
+        val rows = clusterTokensByY(tokens, tolerance).mapNotNull { cluster ->
+            val ordered = cluster.sortedBy { it.centerX }
+            val text = ordered.joinToString(" ") { it.text }
+                .replace(spaces, " ")
+                .trim()
+            val rowNumber = rowNumberRegex.find(text)
+                ?.groupValues?.getOrNull(1)
+                ?.toIntOrNull()
+                ?.takeIf { it in 1..100 }
+                ?: return@mapNotNull null
+            val name = cleanName(text)
+            val words = name.split(spaces).filter { word -> word.any(Char::isLetter) }
+            if (!validName(name) || (words.size < 2 && name.count(Char::isLetter) < 8)) {
+                return@mapNotNull null
+            }
+            RecognizedScheduleRow(
+                rowNumber = rowNumber,
+                name = name,
+                dayShifts = emptyMap()
+            )
+        }
+        return mergeRows(rows)
+    }
+
     private fun allTokens(lines: List<Text.Line>): List<Token> =
         lines.flatMap { line ->
             line.elements.mapNotNull { element ->
@@ -970,7 +1001,11 @@ object ScheduleOcrEngine {
             accumulated: RecognizedSchedule
         ) {
             if (index >= ranges.size) {
-                onSuccess(accumulated)
+                recognizeRosterColumn(
+                    source = source,
+                    baseline = accumulated,
+                    onSuccess = onSuccess
+                )
                 return
             }
 
@@ -996,6 +1031,71 @@ object ScheduleOcrEngine {
         }
 
         processStripe(0, baseline)
+    }
+
+    private fun recognizeRosterColumn(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val crop = createEnhancedRosterColumn(source)
+        recognizer.process(InputImage.fromBitmap(crop, 0))
+            .addOnSuccessListener { rosterResult ->
+                val rosterRows = ScheduleOcrParser.parseRosterRows(rosterResult)
+                onSuccess(
+                    baseline.copy(
+                        rows = ScheduleOcrParser.mergeRows(baseline.rows + rosterRows),
+                        rawText = if (rosterResult.text.length > baseline.rawText.length) {
+                            rosterResult.text
+                        } else {
+                            baseline.rawText
+                        }
+                    )
+                )
+            }
+            .addOnFailureListener {
+                onSuccess(baseline)
+            }
+            .addOnCompleteListener {
+                if (!crop.isRecycled) crop.recycle()
+            }
+    }
+
+    private fun createEnhancedRosterColumn(source: Bitmap): Bitmap {
+        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val targetPixels = 5_000_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (cropWidth.toDouble() * source.height.toDouble())
+        )
+        val edgeScale = 3000.0 / cropWidth.toDouble()
+        val scale = minOf(2.20, pixelScale, edgeScale).coerceAtLeast(1.0)
+        val width = (cropWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (source.height * scale).roundToInt().coerceAtLeast(1)
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.42f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        Canvas(output).drawBitmap(
+            source,
+            Rect(0, 0, cropWidth, source.height),
+            Rect(0, 0, width, height),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(grayscale)
+                isFilterBitmap = true
+            }
+        )
+        return output
     }
 
     private fun stripeRanges(height: Int): List<IntRange> {
