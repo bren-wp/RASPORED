@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.ocr.RecognizedSchedule
+import hr.raspored.app.ocr.RecognizedScheduleRow
+import hr.raspored.app.ocr.AiScheduleVerifier
 import hr.raspored.app.ocr.ScheduleOcrEngine
 import hr.raspored.app.ocr.createOcrCaptureUri
 import hr.raspored.app.ocr.loadBitmap
@@ -43,6 +45,7 @@ private enum class OcrPhase { Idle, Processing, Success, Error }
 internal fun OcrScanScreen(
     defaultMonth: YearMonth,
     allowTeamImport: Boolean = true,
+    remoteAccountToken: String? = null,
     onSaveTeamSchedules: (YearMonth, List<hr.raspored.app.ocr.RecognizedScheduleRow>) -> Unit = { _, _ -> },
     onSaveSchedule: (YearMonth, Map<Int, String>) -> Unit
 ) {
@@ -58,6 +61,7 @@ internal fun OcrScanScreen(
     var employeeMenu by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
+    var aiBusy by remember { mutableStateOf(false) }
     var ocrGeneration by remember { mutableIntStateOf(0) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
@@ -548,6 +552,57 @@ internal fun OcrScanScreen(
                             Text("Ponovno skeniraj")
                         }
                     }
+                    if (remoteAccountToken != null && bitmap != null) {
+                        OutlinedButton(
+                            onClick = {
+                                val source = bitmap ?: return@OutlinedButton
+                                if (source.isRecycled || aiBusy) return@OutlinedButton
+                                val local = result
+                                aiBusy = true
+                                message = "AI provjera cijele tablice..."
+                                phase = OcrPhase.Processing
+                                scope.launch {
+                                    val outcome = runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            AiScheduleVerifier.verify(
+                                                bitmap = source,
+                                                token = remoteAccountToken,
+                                                monthHint = local?.month ?: selectedMonth,
+                                                localOcrText = local?.rawText.orEmpty()
+                                            )
+                                        }
+                                    }
+                                    outcome.onSuccess { ai ->
+                                        val mergedResult = mergeForAiReview(local, ai)
+                                        applyResult(mergedResult.schedule)
+                                        val conflictText = if (mergedResult.conflicts > 0) {
+                                            " " + mergedResult.conflicts + " ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru."
+                                        } else {
+                                            " Nisu pronađeni sukobi s lokalnim OCR-om."
+                                        }
+                                        message += conflictText
+                                    }.onFailure { error ->
+                                        phase = if (local != null) OcrPhase.Success else OcrPhase.Error
+                                        message = error.message
+                                            ?: "AI provjera nije uspjela. Lokalni OCR i dalje je dostupan."
+                                    }
+                                    aiBusy = false
+                                }
+                            },
+                            enabled = !aiBusy,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Icon(Icons.Outlined.AutoAwesome, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (aiBusy) "AI provjera..." else "AI provjera cijelog rasporeda")
+                        }
+                        Text(
+                            "Opcionalno: slika se šalje RASPORED poslužitelju i OpenAI API-ju samo kad ovo pokreneš. API ključ nije spremljen u Android aplikaciji.",
+                            modifier = Modifier.padding(top = 5.dp),
+                            color = RasporedTokens.Slate,
+                            fontSize = 10.sp
+                        )
+                    }
                 }
             }
         }
@@ -603,7 +658,7 @@ internal fun OcrScanScreen(
                     Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
                     Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
-                    Text("• Android nema korisnički račun: možeš uvesti jednu osobu u glavni kalendar ili spremiti sve osobe kao odvojene lokalne rasporede tima.")
+                    Text("• Kalendar i lokalni OCR rade bez računa. Prijava u Postavkama otključava opcionalnu AI provjeru i sigurnu sinkronizaciju.")
                     Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
                 }
@@ -691,4 +746,61 @@ private fun nextShiftCode(current: String): String {
     val order = listOf("", "D", "N", "GO", "BO", "PD", "SD")
     val index = order.indexOf(current).takeIf { it >= 0 } ?: 0
     return order[(index + 1) % order.size]
+}
+
+
+private data class AiMergeResult(
+    val schedule: RecognizedSchedule,
+    val conflicts: Int
+)
+
+private fun mergeForAiReview(
+    local: RecognizedSchedule?,
+    ai: RecognizedSchedule
+): AiMergeResult {
+    if (local == null) return AiMergeResult(ai, 0)
+
+    fun key(row: RecognizedScheduleRow): String =
+        row.rowNumber?.let { "row:" + it }
+            ?: "name:" + row.name.trim().uppercase(java.util.Locale("hr", "HR"))
+
+    val mergedRows = linkedMapOf<String, RecognizedScheduleRow>()
+    local.rows.forEach { row -> mergedRows[key(row)] = row }
+    var conflicts = 0
+
+    ai.rows.forEach { aiRow ->
+        val rowKey = key(aiRow)
+        val existing = mergedRows[rowKey]
+        if (existing == null) {
+            mergedRows[rowKey] = aiRow
+        } else {
+            val shifts = existing.dayShifts.toMutableMap()
+            aiRow.dayShifts.forEach { (day, aiCode) ->
+                val localCode = shifts[day]
+                when {
+                    localCode == null -> shifts[day] = aiCode
+                    localCode != aiCode -> conflicts++
+                }
+            }
+            mergedRows[rowKey] = existing.copy(
+                name = if (aiRow.name.length > existing.name.length) aiRow.name else existing.name,
+                dayShifts = shifts.toSortedMap(),
+                supportCount = existing.supportCount + aiRow.supportCount
+            )
+        }
+    }
+
+    val rows = mergedRows.values.sortedWith(
+        compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
+            .thenBy { it.name }
+    )
+    return AiMergeResult(
+        schedule = RecognizedSchedule(
+            month = ai.month ?: local.month,
+            rows = rows,
+            rawText = local.rawText,
+            expectedRowCount = listOfNotNull(local.expectedRowCount, ai.expectedRowCount).maxOrNull()
+        ),
+        conflicts = conflicts
+    )
 }
