@@ -32,7 +32,7 @@ RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju sm
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
-- **Kalendar smjena** — D, N, GO i BO oznake kroz cijeli mjesec.
+- **Kalendar smjena** — D, N, GO, BO, PD i SD oznake kroz cijeli mjesec.
 - **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
 - **Evidencija sati** — ulaz, izlaz, bilješka, trajanje rada i mjesečna povijest.
 - **Statistika** — dnevni/noćni sati, saldo, vikendi, blagdani i raspodjela po tjednima.
@@ -68,7 +68,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
 | **Mjesečni kalendar** | Brz pregled smjena po danima, vikendima i hrvatskim blagdanima. |
-| **D / N / GO / BO model** | Jednostavna i konzistentna semantika smjena kroz cijelu aplikaciju. |
+| **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
 | **OCR na Androidu i Web/PWA** | Fotografija rasporeda → prepoznate osobe → izbor točno jedne osobe → provjera smjena → spremanje. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
 | **Saldo sati** | Razlika između planiranih i stvarno evidentiranih minuta. |
@@ -77,16 +77,18 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
 | **Okvirna plaća** | Android i Web/PWA procjenjuju bruto i okvirni neto za javni sektor RH iz provjerljivih osnovica/koeficijenata, mjesta prebivališta i stvarne Evidencije sati; lokalno uređeni slučajevi koriste ručni unos umjesto pretpostavki. |
+| **Web korisnički račun** | Gostujući način ostaje dostupan; registrirani račun sprema stanje po računu u `storage/data`, a voditeljski profil može uvesti više djelatnika iz jednog skeniranja bez spajanja rasporeda. |
+| **Izvoz** | Android generira stvarni mjesečni PDF; Web/PWA podržava JSON sigurnosnu kopiju i pregled za ispis / spremanje kao PDF. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
 
 ## Kako radi skeniranje
 
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
-3. Parser pronalazi imena i prezimena te oznake **D / N / GO / BO** po danima.
-4. Ako fotografija sadrži više djelatnika, korisnik mora odabrati **točno jednu osobu**.
-5. Prije spremanja moguće je ručno ispraviti prepoznate dane i smjene.
-6. U kalendar se uvozi samo raspored odabrane osobe; ostali prepoznati redovi se ne spremaju.
+3. Parser pronalazi imena i prezimena te oznake **D / N / GO / BO / PD / SD** po danima.
+4. Gost ili individualni korisnik u osobni kalendar uvozi **točno jednu osobu**. Registrirani individualni račun može spremiti samo raspored koji odgovara imenu računa.
+5. Voditeljski Web račun može iz istog skeniranja spremiti više djelatnika kao **odvojene rasporede tima**; rasporedi se nikada ne spajaju među osobama.
+6. Prije spremanja moguće je ručno ispraviti prepoznate dane i oznake.
 
 Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Fotografija se obrađuje u pregledniku, a potvrđeni raspored i evidencija spremaju se kroz isti-origin PHP API u per-instalacijski JSON pod `storage/data`.
 
@@ -172,6 +174,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - okvirna bruto/neto procjena za javni sektor iz stvarne evidencije sati
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
+- lokalni profil i stvarni mjesečni PDF izvoz rasporeda/evidencije
 - Compose unit/lint provjere i stvarni emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
@@ -180,7 +183,10 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - HTML + CSS + JavaScript
 - responzivni layout bez framework ovisnosti u runtimeu
 - PWA manifest + service worker
-- per-instalacijski JSON podaci u `storage/data` iza zaštićenog PHP API-ja
+- gostujući per-instalacijski JSON podaci u `storage/data` iza zaštićenog PHP API-ja
+- registracija/prijava s `password_hash`, HttpOnly session cookiejem i stanjem vezanim uz korisnički račun
+- voditeljski profil za odvojeni uvoz rasporeda više djelatnika
+- JSON sigurnosna kopija i mjesečni pregled za ispis / spremanje kao PDF
 - jednokratna migracija starog browser storagea u JSON spremište
 - okvirna bruto/neto procjena za javni sektor iz stvarne evidencije sati
 - Playwright funkcionalni i screenshot QA
@@ -195,13 +201,14 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 ## Privatnost i podaci
 
 - **Android:** raspored, evidencija i postavke ostaju u aplikacijskoj pohrani uređaja.
-- **Web/PWA:** raspored, evidencija, profil, kolege, postavke i privremeni Scan rezultat spremaju se u per-instalacijski JSON unutar `storage/data`. Naziv JSON datoteke temelji se na nasumičnom HttpOnly identifikatoru, ne na imenu korisnika.
+- **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
+- **Računi:** lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify`, HttpOnly/SameSite session cookie, same-origin provjeru i ograničenje pokušaja prijave.
 - **Zaštita Web spremišta:** `storage/.htaccess` zabranjuje izravno HTTP čitanje; zapis ide kroz isti-origin API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
 - **Android OCR:** obrada teksta preko ML Kit modela na uređaju.
 - **Web OCR:** fotografija se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
-RASPORED ne predstavlja cloud/team sustav niti centralni korisnički račun kao implementiranu funkciju. Gostujući način rada ostaje bez registracije; registrirani račun i timski/cloud način nisu navedeni kao dovršeni dok stvarno ne budu implementirani i testirani.
+Gostujući način rada i dalje ne traži registraciju. Web korisnički račun je implementiran za pristup vlastitim podacima na istoj instalaciji RASPORED-a; nije predstavljen kao vanjski cloud servis. Voditeljski profil sprema odvojene rasporede tima unutar iste instalacije.
 
 ## QA koji mora proći
 
