@@ -136,20 +136,32 @@ internal fun OcrScanScreen(
         ScheduleOcrEngine.recognize(
             bitmap = source,
             onSuccess = { recognized ->
-                if (ocrGeneration == generation) applyResult(recognized)
+                if (ocrGeneration == generation) {
+                    applyResult(recognized)
+                } else if (!source.isRecycled) {
+                    source.recycle()
+                }
             },
             onError = {
                 if (ocrGeneration == generation) {
                     phase = OcrPhase.Error
                     message = "Prepoznavanje nije uspjelo. Pokušaj ponovno ili odaberi drugu fotografiju."
+                } else if (!source.isRecycled) {
+                    source.recycle()
                 }
             }
         )
     }
 
     fun loadAndProcess(uri: android.net.Uri, errorMessage: String) {
+        val previousBitmap = bitmap
+        val previousWasProcessing = phase == OcrPhase.Processing
         val generation = ocrGeneration + 1
         ocrGeneration = generation
+        if (!previousWasProcessing && previousBitmap != null && !previousBitmap.isRecycled) {
+            previousBitmap.recycle()
+            if (bitmap === previousBitmap) bitmap = null
+        }
         result = null
         selectedRow = -1
         editedShifts.clear()
@@ -175,6 +187,9 @@ internal fun OcrScanScreen(
     DisposableEffect(Unit) {
         onDispose {
             ocrGeneration += 1
+            if (phase != OcrPhase.Processing) {
+                bitmap?.takeIf { !it.isRecycled }?.recycle()
+            }
         }
     }
 
