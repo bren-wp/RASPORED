@@ -572,6 +572,48 @@ async function prepareStripe(file,startRatio,endRatio){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
+async function prepareDayBandComposite(file,startRatio,endRatio){
+  if(typeof createImageBitmap!=="function")return file;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    var rosterWidth=Math.max(1,Math.round(bitmap.width*.30));
+    var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*startRatio)));
+    var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*endRatio)));
+    var gridWidth=gridEnd-gridStart;
+    var rawWidth=rosterWidth+gridWidth;
+    var pixelScale=Math.sqrt(7500000/(rawWidth*bitmap.height));
+    var edgeScale=4200/rawWidth;
+    var scale=Math.max(.70,Math.min(2.40,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(rawWidth*scale));
+    canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+    var rosterOutWidth=Math.max(1,Math.min(canvas.width,Math.round(rosterWidth*scale)));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return file;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.50)";
+    context.drawImage(
+      bitmap,
+      0,0,rosterWidth,bitmap.height,
+      0,0,rosterOutWidth,canvas.height
+    );
+    context.drawImage(
+      bitmap,
+      gridStart,0,gridWidth,bitmap.height,
+      rosterOutWidth,0,canvas.width-rosterOutWidth,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.97);
+    });
+  }catch(error){
+    return file;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
 async function prepareRosterColumn(file){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
@@ -667,7 +709,7 @@ async function recognizeScheduleNow(file,onProgress){
 
     var stripes=[[0,.46],[.27,.74],[.55,1]];
     for(var i=0;i<stripes.length;i++){
-      if(onProgress)onProgress(.84+i*.035,"table-stripe-"+(i+1));
+      if(onProgress)onProgress(.80+i*.025,"table-stripe-"+(i+1));
       var stripeSource=await prepareStripe(file,stripes[i][0],stripes[i][1]);
       var stripe=parsedResult(
         await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
@@ -675,7 +717,25 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged=mergeRecognized(merged,stripe);
     }
-    if(onProgress)onProgress(.96,"roster-column");
+
+    var mappedAfterStripes=(merged.people||[]).reduce(function(sum,row){
+      return sum+Object.keys(row.dayShifts||{}).length;
+    },0);
+    var dayBandTarget=Math.max(24,(merged.people||[]).length*Math.min(daysInMonth(merged.month),18));
+    if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)){
+      var dayBands=[[.29,.50],[.47,.68],[.65,.86],[.83,1]];
+      for(var b=0;b<dayBands.length;b++){
+        if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
+        var bandSource=await prepareDayBandComposite(file,dayBands[b][0],dayBands[b][1]);
+        var band=parsedResult(
+          await worker.recognize(bandSource,{}, {text:true,blocks:true}),
+          merged.month
+        );
+        merged=mergeRecognized(merged,band);
+      }
+    }
+
+    if(onProgress)onProgress(.98,"roster-column");
     var rosterSource=await prepareRosterColumn(file);
     var rosterResult=await worker.recognize(rosterSource,{}, {text:true,blocks:true});
     var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
