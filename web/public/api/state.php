@@ -8,7 +8,7 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('X-Frame-Options: DENY');
 
-const RASPORED_SCHEMA_VERSION = 2;
+const RASPORED_SCHEMA_VERSION = 3;
 const RASPORED_MAX_BODY_BYTES = 524288;
 
 function default_state(): array
@@ -23,12 +23,17 @@ function default_state(): array
         'settings' => ['theme' => 'light', 'reducedMotion' => false, 'notificationReadKey' => ''],
         'scanSession' => ['people' => [], 'selected' => -1, 'month' => null],
         'payroll' => [
+            'institutionId' => 'kbc-rijeka',
+            'rateProfileId' => 'kbc-rijeka-observed-2026',
             'roleId' => 'kbc-transport-nss',
             'coefficient' => 1.15,
             'yearsService' => 0,
             'extraPercent' => 0.0,
-            'secondShift' => false,
             'customBase' => null,
+            'overtimeHours' => null,
+            'turnusHours' => 0.0,
+            'secondShiftHours' => 0.0,
+            'grossAdjustment' => 0.0,
         ],
         'updatedAt' => null,
     ];
@@ -250,14 +255,21 @@ function clean_state(mixed $raw, int $revision): array
         ],
         'scanSession' => ['people' => $people, 'selected' => $selected, 'month' => $cleanMonth],
         'payroll' => [
+            'institutionId' => clean_text($payroll['institutionId'] ?? 'kbc-rijeka', 100) ?: 'kbc-rijeka',
+            'rateProfileId' => clean_text($payroll['rateProfileId'] ?? 'kbc-rijeka-observed-2026', 100) ?: 'kbc-rijeka-observed-2026',
             'roleId' => clean_text($payroll['roleId'] ?? 'kbc-transport-nss', 80) ?: 'kbc-transport-nss',
             'coefficient' => max(1.0, min(8.0, is_numeric($payroll['coefficient'] ?? null) ? (float) $payroll['coefficient'] : 1.15)),
             'yearsService' => max(0, min(60, is_numeric($payroll['yearsService'] ?? null) ? (int) $payroll['yearsService'] : 0)),
             'extraPercent' => max(0.0, min(100.0, is_numeric($payroll['extraPercent'] ?? null) ? (float) $payroll['extraPercent'] : 0.0)),
-            'secondShift' => (bool) ($payroll['secondShift'] ?? false),
             'customBase' => is_numeric($payroll['customBase'] ?? null)
                 ? max(0.0, min(10000.0, (float) $payroll['customBase']))
                 : null,
+            'overtimeHours' => is_numeric($payroll['overtimeHours'] ?? null)
+                ? max(0.0, min(250.0, (float) $payroll['overtimeHours']))
+                : null,
+            'turnusHours' => max(0.0, min(300.0, is_numeric($payroll['turnusHours'] ?? null) ? (float) $payroll['turnusHours'] : 0.0)),
+            'secondShiftHours' => max(0.0, min(300.0, is_numeric($payroll['secondShiftHours'] ?? null) ? (float) $payroll['secondShiftHours'] : 0.0)),
+            'grossAdjustment' => max(-10000.0, min(10000.0, is_numeric($payroll['grossAdjustment'] ?? null) ? (float) $payroll['grossAdjustment'] : 0.0)),
         ],
         'updatedAt' => gmdate('c'),
     ];
