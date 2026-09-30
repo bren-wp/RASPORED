@@ -283,7 +283,7 @@ function persist(){
     sector:text(qs("payrollSector").value,100),
     institution:institution&&!isPlaceholderInstitution(institution)
       ?institution.name
-      :text(custom&&custom.value||institution&&institution.name||"Druga javna ustanova",160),
+      :text(custom&&custom.value||institution&&institution.name||"Druga ustanova / poslodavac",160),
     regimeId:effectiveRegimeId(),
     roleId:text(qs("payrollRole").value,80),
     coefficient:numeric("payrollCoefficient",1,0.1,10),
@@ -384,7 +384,7 @@ function render(){
   var institution=currentInstitution();
   var institutionName=institution&&!isPlaceholderInstitution(institution)
     ?institution.name
-    :text(qs("payrollInstitutionCustom").value||institution&&institution.name||"Druga javna ustanova",160);
+    :text(qs("payrollInstitutionCustom").value||institution&&institution.name||"Druga ustanova / poslodavac",160);
 
   qs("payrollGross").textContent=base>0?money(gross):"Unesi osnovicu";
   qs("payrollNet").textContent=base>0?money(net.net):"—";
