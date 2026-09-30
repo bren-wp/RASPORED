@@ -344,10 +344,18 @@ internal fun OcrScanScreen(
                             )
                         }
                         if (editedShifts.isNotEmpty()) {
-                            AssistChip(
-                                onClick = {},
-                                label = { Text("✓ " + editedShifts.size + " prepoznato") }
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = Color(0xFFD9F9EC)
+                            ) {
+                                Text(
+                                    "✓ " + editedShifts.size + " prepoznato",
+                                    color = Color(0xFF07865F),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
                         }
                     }
 
