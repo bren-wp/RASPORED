@@ -65,6 +65,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/data-store.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
+<script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/payroll.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/app.js', ENT_QUOTES) ?>" defer></script>
 </body>
 </html>
