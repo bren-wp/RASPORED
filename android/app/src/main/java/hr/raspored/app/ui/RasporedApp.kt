@@ -695,9 +695,15 @@ private fun largeMinutesLabel(minutes:Long):String {
         fallbackToPlanned=false
     )
     val holidays=CroatianHolidays.forYear(month.year)
-    val saturdayCount=data.keys.count{month.atDay(it).dayOfWeek.value==6}
-    val sundayCount=data.keys.count{month.atDay(it).dayOfWeek.value==7}
-    val holidayShiftCount=data.keys.count{holidays.containsKey(month.atDay(it))}
+    val saturdayCount=data.count{(day,shift)->
+        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==6
+    }
+    val sundayCount=data.count{(day,shift)->
+        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==7
+    }
+    val holidayShiftCount=data.count{(day,shift)->
+        shift.code in setOf("D","N")&&holidays.containsKey(month.atDay(day))
+    }
     val trend=if(previousAnalytics.workedMinutes>0L){
         ((analytics.workedMinutes-previousAnalytics.workedMinutes)*100L/previousAnalytics.workedMinutes).toInt()
     }else null
