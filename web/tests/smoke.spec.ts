@@ -158,6 +158,40 @@ test("web OCR infers a dense full-month grid when header numbers are missed", as
   expect(Math.round(result.centers["31"])).toBe(1380);
 });
 
+test("web OCR table detector removes page margins while keeping the whole monthly grid", async ({page}) => {
+  await page.goto("/");
+  const bounds=await page.evaluate(() => {
+    const canvas=document.createElement("canvas");
+    canvas.width=1600;
+    canvas.height=1200;
+    const ctx=canvas.getContext("2d")!;
+    ctx.fillStyle="#f7f7f7";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    const left=180,top=210,right=1510,bottom=820;
+    ctx.strokeStyle="#202020";
+    ctx.lineWidth=2;
+    for(let row=0;row<=28;row++){
+      const y=top+(bottom-top)*row/28;
+      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+    }
+    const nameWidth=230;
+    ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,bottom);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(left+nameWidth,top);ctx.lineTo(left+nameWidth,bottom);ctx.stroke();
+    for(let day=0;day<=31;day++){
+      const x=left+nameWidth+(right-left-nameWidth)*day/31;
+      ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();
+    }
+    return (window as any).RasporedOcrTableCrop.detectGridBounds(canvas);
+  });
+  expect(bounds).not.toBeNull();
+  expect(bounds.left).toBeLessThanOrEqual(230);
+  expect(bounds.top).toBeLessThanOrEqual(230);
+  expect(bounds.right).toBeGreaterThanOrEqual(1450);
+  expect(bounds.bottom).toBeGreaterThanOrEqual(790);
+  expect(bounds.right-bounds.left).toBeLessThan(1500);
+  expect(bounds.bottom-bounds.top).toBeLessThan(900);
+});
+
 test("web OCR rejects an ambiguous leading blank day without a header anchor", async ({page}) => {
   await page.goto("/");
   const result=await page.evaluate(() => {
