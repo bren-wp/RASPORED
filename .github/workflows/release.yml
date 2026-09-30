@@ -54,7 +54,8 @@ jobs:
           set -euo pipefail
           gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk\n          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
 
       - name: Enable KVM
         run: |
@@ -91,7 +92,8 @@ jobs:
           mkdir -p dist/web-package/storage/data
           cp -R web/public/. dist/web-package/
           cp web/storage/.htaccess dist/web-package/storage/.htaccess
-          printf '%s\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
+          printf '%s
+' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
           (
             cd dist/web-package
             zip -r "../RASPORED-web-v${VERSION}.zip" . \
@@ -112,6 +114,7 @@ jobs:
           RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           gh release create "v${VERSION}" \
             dist/RASPORED.apk \
+            dist/RASPORED.aab \
             "dist/RASPORED-web-v${VERSION}.zip" \
             "dist/SHA256SUMS-v${VERSION}.txt" \
             --target "$RELEASE_SHA" \
