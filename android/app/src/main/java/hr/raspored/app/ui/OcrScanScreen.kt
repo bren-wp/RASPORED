@@ -47,6 +47,7 @@ internal fun OcrScanScreen(
     var selectedRow by remember { mutableIntStateOf(-1) }
     var employeeMenu by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }
+    var helpOpen by remember { mutableStateOf(false) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
@@ -136,11 +137,18 @@ internal fun OcrScanScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            Text(
-                "Slikaj raspored s papira ili učitaj fotografiju.\nMi ćemo automatski prepoznati podatke.",
-                color = RasporedTokens.Slate
-            )
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        "Slikaj raspored s papira ili učitaj fotografiju.\nMi ćemo automatski prepoznati podatke.",
+                        color = RasporedTokens.Slate
+                    )
+                }
+                IconButton(onClick = { helpOpen = true }) {
+                    Icon(Icons.Outlined.HelpOutline, "Pomoć za skeniranje", tint = RasporedTokens.Slate)
+                }
+            }
         }
 
         item {
@@ -396,6 +404,25 @@ internal fun OcrScanScreen(
                 Text("Spremi raspored", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+
+    if (helpOpen) {
+        AlertDialog(
+            onDismissRequest = { helpOpen = false },
+            icon = { Icon(Icons.Outlined.DocumentScanner, null, tint = RasporedTokens.Cyan) },
+            title = { Text("Kako dobiti dobar rezultat") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("• Obuhvati cijelu tablicu i zaglavlje s brojevima dana.")
+                    Text("• Izbjegni sjene, odsjaj i zamućenje.")
+                    Text("• Ako je na rasporedu više osoba, odaberi samo jedno ime i prezime.")
+                    Text("• Provjeri D, N, GO i BO oznake prije spremanja.")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { helpOpen = false }) { Text("U redu") }
+            }
+        )
     }
 }
 
