@@ -37,6 +37,8 @@ import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
+import hr.raspored.app.data.ProfileStore
+import hr.raspored.app.data.ReportExporter
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -75,10 +77,12 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
     val store = remember(context) { ScheduleStore(context) }
     val uiSettings = remember(context) { UiSettingsStore(context) }
     val evidenceStore = remember(context) { TimeEvidenceStore(context) }
+    val profileStore = remember(context) { ProfileStore(context) }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
+    var profileName by remember { mutableStateOf(profileStore.fullName) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -173,6 +177,13 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                     Screen.Settings->SettingsScreen(
                         darkMode=darkMode,
                         reducedMotion=reducedMotion,
+                        profileName=profileName,
+                        scheduleCodes=scheduleCodes,
+                        evidenceEntries=evidenceEntries,
+                        onProfileNameChange={
+                            profileName=it
+                            profileStore.fullName=it
+                        },
                         onDarkModeChange={
                             darkMode=it
                             uiSettings.darkMode=it
@@ -938,15 +949,43 @@ private fun largeMinutesLabel(minutes:Long):String {
 @Composable private fun SettingsScreen(
     darkMode:Boolean,
     reducedMotion:Boolean,
+    profileName:String,
+    scheduleCodes:Map<String,String>,
+    evidenceEntries:List<TimeEvidenceEntry>,
+    onProfileNameChange:(String)->Unit,
     onDarkModeChange:(Boolean)->Unit,
     onReducedMotionChange:(Boolean)->Unit
 ){
     val context=LocalContext.current
+    var exportStatus by remember { mutableStateOf("") }
     fun openExternal(uri:String){
         runCatching{
             context.startActivity(
                 Intent(Intent.ACTION_VIEW,Uri.parse(uri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
+        }
+    }
+    fun exportCurrentMonth(){
+        exportStatus=""
+        runCatching{
+            val month=YearMonth.from(appDate())
+            val uri=ReportExporter.createMonthlyPdf(
+                context=context,
+                month=month,
+                schedule=scheduleCodes,
+                evidence=evidenceEntries,
+                profileName=profileName
+            )
+            val share=Intent(Intent.ACTION_SEND).apply{
+                type="application/pdf"
+                putExtra(Intent.EXTRA_STREAM,uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(share,"Podijeli RASPORED PDF"))
+        }.onSuccess{
+            exportStatus="PDF je izrađen za "+YearMonth.from(appDate())+"."
+        }.onFailure{
+            exportStatus="PDF trenutačno nije moguće izraditi."
         }
     }
     LazyColumn(
@@ -956,6 +995,52 @@ private fun largeMinutesLabel(minutes:Long):String {
     ){
         item{
             Text("Postavke",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    Text("Lokalni profil",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text(
+                        "Kalendar i evidencija rade i bez dovršenog profila. Ime se koristi samo na ovom uređaju i u izvozu.",
+                        color=MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize=12.sp
+                    )
+                    OutlinedTextField(
+                        value=profileName,
+                        onValueChange={ onProfileNameChange(it.take(80)) },
+                        label={Text("Ime i prezime")},
+                        singleLine=true,
+                        modifier=Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    Text("Izvoz",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text(
+                        "Izradi stvarni PDF za tekući mjesec s rasporedom D/N/GO/BO/PD/SD i evidentiranim radom. Aktivna evidencija ostaje označena kao rad u tijeku.",
+                        color=MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize=12.sp
+                    )
+                    Button(
+                        onClick={exportCurrentMonth()},
+                        modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                    ){
+                        Icon(Icons.Outlined.PictureAsPdf,null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Izvezi mjesečni PDF")
+                    }
+                    if(exportStatus.isNotBlank()){
+                        Text(
+                            exportStatus,
+                            color=MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize=11.sp
+                        )
+                    }
+                }
+            }
         }
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){

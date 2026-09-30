@@ -69,6 +69,67 @@ function loadColleagues(){
   }catch(e){return []}
 }
 function saveColleagues(items){return storageSet("raspored.colleagues.v1",JSON.stringify(items.slice(0,30)))}
+function loadTeamMembers(){
+  try{
+    var raw=JSON.parse(storageGet("raspored.team.v1")||"[]");
+    return Array.isArray(raw)?raw.filter(function(x){return x&&typeof x.name==="string"&&x.schedule&&typeof x.schedule==="object"}).slice(0,100):[];
+  }catch(e){return []}
+}
+function saveTeamMembers(items){return storageSet("raspored.team.v1",JSON.stringify(items.slice(0,100)))}
+function isManagerAccount(){return !!(window.RasporedAuth&&window.RasporedAuth.isManager&&window.RasporedAuth.isManager())}
+function authSnapshot(){return window.RasporedAuth&&window.RasporedAuth.snapshot?window.RasporedAuth.snapshot():{authenticated:false,account:null}}
+function normalizePersonName(value){
+  return String(value||"").toLocaleUpperCase("hr-HR").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/Đ/g,"D").replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim()
+    .split(" ").filter(Boolean).sort().join(" ");
+}
+function individualAccountName(){
+  var auth=authSnapshot();
+  if(!auth.authenticated||!auth.account||auth.account.accountType==="manager")return "";
+  return ((auth.account.firstName||"")+" "+(auth.account.lastName||"")).trim();
+}
+function scanPersonAllowed(person){
+  var expected=individualAccountName();
+  return !expected||normalizePersonName(expected)===normalizePersonName(person&&person.name);
+}
+function renderTeamMembers(){
+  var card=document.getElementById("teamSchedulesCard"),list=document.getElementById("teamMembersList");
+  if(!card||!list)return;
+  var manager=isManagerAccount(),items=loadTeamMembers();
+  card.hidden=!manager;
+  if(!manager)return;
+  if(!items.length){
+    list.innerHTML='<div class="colleagues-empty">'+icon("users")+'<h3>Nema uvezenih rasporeda tima</h3><p>Skeniraj tablicu s više djelatnika i odaberi “Uvezi sve djelatnike u tim”.</p></div>';
+    return;
+  }
+  list.innerHTML=items.map(function(item){
+    var dates=Object.keys(sanitizeSchedule(item.schedule)),monthsSeen={};
+    dates.forEach(function(date){monthsSeen[date.slice(0,7)]=true});
+    var initials=item.name.split(/\s+/).filter(Boolean).slice(0,2).map(function(x){return x.charAt(0).toUpperCase()}).join("");
+    return '<article class="team-member-row"><span class="colleague-avatar">'+escapeHtml(initials||"T")+'</span><span><b>'+escapeHtml(item.name)+'</b><small>'+dates.length+' spremljenih oznaka · '+Object.keys(monthsSeen).length+' mj.</small></span><span class="team-member-state">Odvojeni raspored</span></article>';
+  }).join("");
+}
+function importScannedTeamSchedules(){
+  if(!isManagerAccount()){toast("Uvoz cijelog tima dostupan je prijavljenom voditelju.");return}
+  if(!state.scanPeople.length){toast("Najprije skeniraj raspored.");return}
+  var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
+  var members=loadTeamMembers(),byName={};
+  members.forEach(function(item,index){byName[item.name.toLocaleLowerCase("hr-HR")]=index});
+  state.scanPeople.forEach(function(person){
+    var key=person.name.toLocaleLowerCase("hr-HR"),index=byName[key],member=index===undefined?{name:person.name,note:"",schedule:{}}:members[index];
+    member.schedule=sanitizeSchedule(member.schedule);
+    for(var day=1;day<=days;day++)delete member.schedule[iso(new Date(y,m,day))];
+    Object.keys(person.dayShifts||{}).forEach(function(day){
+      var n=Number(day),code=person.dayShifts[day];
+      if(n>=1&&n<=days&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)member.schedule[iso(new Date(y,m,n))]=code;
+    });
+    if(index===undefined){byName[key]=members.length;members.push(member)}
+  });
+  if(!saveTeamMembers(members)){toast("Rasporede tima nije moguće spremiti u storage/data.");return}
+  renderTeamMembers();
+  toast("Uvezeni su odvojeni rasporedi za "+state.scanPeople.length+" djelatnika.");
+  route("colleagues");
+}
 function renderColleagues(){
   var el=document.getElementById("colleaguesList");if(!el)return;
   var items=loadColleagues();
@@ -180,18 +241,32 @@ function scanPerson(){
 function renderScanPersonPicker(){
   var button=document.getElementById("scanPersonButton"),label=document.getElementById("scanPersonLabel"),menu=document.getElementById("scanPersonMenu"),status=document.getElementById("recognitionStatus"),saveBtn=document.getElementById("saveSchedule"),monthLabel=document.getElementById("scanMonthLabel");
   if(!button||!label||!menu)return;
+  var expectedName=individualAccountName();
+  if(expectedName){
+    var matched=state.scanPeople.findIndex(function(item){return scanPersonAllowed(item)});
+    if(matched>=0&&(!scanPerson()||!scanPersonAllowed(scanPerson())))state.scanSelected=matched;
+    if(matched<0)state.scanSelected=-1;
+  }
   var person=scanPerson();
   label.textContent=person?((person.row?person.row+". ":"")+person.name):"Odaberi ime i prezime";
   button.disabled=state.scanPeople.length===0;
   menu.innerHTML=state.scanPeople.map(function(item,index){
-    return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'"><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>Samo ovaj raspored bit će uvezen</small></button>';
+    var allowed=scanPersonAllowed(item);
+    return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'" '+(allowed?'':'disabled')+'><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>'+(allowed?'Samo ovaj raspored bit će uvezen':'Račun dopušta uvoz samo vlastitog rasporeda')+'</small></button>';
   }).join("");
-  if(status)status.textContent=person?"✓ Odabrana 1 osoba":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
+  if(status){
+    if(expectedName&&!person&&state.scanPeople.length)status.textContent="Ime s računa nije pouzdano pronađeno u skeniranom rasporedu.";
+    else status.textContent=person?"✓ Odabrana 1 osoba":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
+  }
   if(monthLabel){
     var target=scanTargetMonth();
     monthLabel.textContent=months[target.getMonth()]+" "+target.getFullYear()+".";
   }
-  if(saveBtn)saveBtn.disabled=!person;
+  if(saveBtn)saveBtn.disabled=!person||!scanPersonAllowed(person);
+  var teamBtn=document.getElementById("saveTeamSchedules"),teamNote=document.getElementById("teamImportNote");
+  var manager=isManagerAccount();
+  if(teamBtn){teamBtn.hidden=!(manager&&state.scanPeople.length>0);teamBtn.disabled=state.scanPeople.length===0}
+  if(teamNote)teamNote.hidden=!(manager&&state.scanPeople.length>1);
 }
 function selectedScanSchedule(){
   var person=scanPerson();return person&&person.dayShifts?person.dayShifts:null;
@@ -199,6 +274,7 @@ function selectedScanSchedule(){
 function importSelectedScanSchedule(){
   var person=scanPerson();
   if(!person){toast("Odaberi ime i prezime jedne osobe čiji raspored želiš uvesti.");return}
+  if(!scanPersonAllowed(person)){toast("Ovaj račun može uvesti samo vlastiti raspored.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   for(var day=1;day<=days;day++)delete state.schedule[iso(new Date(y,m,day))];
   Object.keys(person.dayShifts||{}).forEach(function(day){
@@ -617,7 +693,7 @@ function route(name){
 }
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
-function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderScanPersonPicker();renderRecognition();renderStats();renderHours();renderColleagues();renderPeriodMenu();renderNotifications()}
+function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderScanPersonPicker();renderRecognition();renderStats();renderHours();renderColleagues();renderTeamMembers();renderPeriodMenu();renderNotifications()}
 function applyStoredAppearance(){
   var motion=document.getElementById("motionToggle");
   var reduced=storageGet("raspored.reducedMotion")==="1";
@@ -655,6 +731,9 @@ function bind(){
     motion.addEventListener("change",function(){if(!storageSet("raspored.reducedMotion",this.checked?"1":"0"))toast("Postavku animacija nije moguće spremiti.");document.body.dataset.reducedMotion=this.checked?"true":"false"});
   }
   document.getElementById("saveSchedule").addEventListener("click",importSelectedScanSchedule);
+  var saveTeamSchedules=document.getElementById("saveTeamSchedules");
+  if(saveTeamSchedules)saveTeamSchedules.addEventListener("click",importScannedTeamSchedules);
+  window.addEventListener("raspored:auth-ready",function(){renderScanPersonPicker();renderTeamMembers()});
   document.getElementById("clockInBtn").addEventListener("click",clockIn);
   document.getElementById("clockOutBtn").addEventListener("click",clockOut);
   document.getElementById("hoursNote").addEventListener("change",saveHoursNote);
