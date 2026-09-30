@@ -941,8 +941,14 @@ async function initApp(){
   if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
   document.body.dataset.appReady="loading";
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
-  await window.RasporedDataStore.init();
+
+  // Navigation and non-data controls must be usable immediately. JSON/account
+  // initialization can involve disk/session I/O; binding only after that await
+  // made early taps look dead and produced flaky real-world/Playwright routing.
   bind();
+  route(state.route);
+
+  await window.RasporedDataStore.init();
   if(window.RasporedPayroll)await window.RasporedPayroll.init();
   loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();
   syncAuthenticatedProfile();
