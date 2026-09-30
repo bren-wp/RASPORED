@@ -250,6 +250,11 @@ internal fun OcrScanScreen(
 
     val activeRow = result?.rows?.getOrNull(selectedRow)
     val recognizedMonth = selectedMonth
+    val previewAspect = bitmap
+        ?.takeIf { !it.isRecycled && it.height > 0 }
+        ?.let { it.width.toFloat() / it.height.toFloat() }
+        ?.coerceIn(0.72f, 2.20f)
+        ?: 1.30f
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("screen-scan").padding(horizontal = 14.dp),
@@ -281,7 +286,8 @@ internal fun OcrScanScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(310.dp)
+                            .heightIn(min = 220.dp, max = 430.dp)
+                            .aspectRatio(previewAspect)
                             .clip(RoundedCornerShape(14.dp))
                             .background(Color(0xFFE7EAEE)),
                         contentAlignment = Alignment.Center
@@ -306,26 +312,19 @@ internal fun OcrScanScreen(
                             }
                         }
                         ScanFrame()
-                        if (bitmap != null) {
-                            Surface(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(horizontal = 18.dp, vertical = 14.dp),
-                                shape = RoundedCornerShape(999.dp),
-                                color = Color(0xD90B1F44)
-                            ) {
-                                Text(
-                                    "OCR obrađuje cijelu fotografiju — provjeri da je cijela tablica vidljiva.",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                    color = Color.White,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
+                    }
+
+                    if (bitmap != null) {
+                        Text(
+                            "OCR obrađuje cijelu fotografiju. U plavom okviru mora biti vidljiv cijeli raspored: sva imena i svi dani mjeseca.",
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 9.dp),
+                            color = Color.White,
+                            fontSize = 11.sp
+                        )
                     }
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         TextButton(
@@ -685,7 +684,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
             Spacer(Modifier.height(7.dp))
             Surface(shape = RoundedCornerShape(9.dp), color = bg, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    if (code.isBlank()) "slobodno" else code,
+                    if (code.isBlank()) "" else code,
                     color = fg,
                     fontWeight = if (code.isBlank()) FontWeight.Medium else FontWeight.ExtraBold,
                     fontSize = if (code.isBlank()) 10.sp else 14.sp,
