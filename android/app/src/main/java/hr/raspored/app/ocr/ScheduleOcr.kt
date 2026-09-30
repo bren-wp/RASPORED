@@ -1391,7 +1391,13 @@ object ScheduleOcrEngine {
     private fun needsFocusedRecovery(schedule: RecognizedSchedule): Boolean {
         if (schedule.rows.size < 4) return false
         val mapped = schedule.rows.sumOf { it.dayShifts.size }
-        return mapped < maxOf(24, schedule.rows.size * 8)
+        val numbered = schedule.rows.mapNotNull { it.rowNumber }.distinct().sorted()
+        val denseRoster = schedule.rows.size >= 12 ||
+            (numbered.size >= 8 &&
+                (numbered.lastOrNull() ?: 0) - (numbered.firstOrNull() ?: 0) >= 10)
+        val targetPerRow = if (denseRoster) 12 else 8
+        return mapped < maxOf(24, schedule.rows.size * targetPerRow) ||
+            hasMissingNumberedRows(schedule)
     }
 
     private data class FocusedTile(
@@ -1406,17 +1412,46 @@ object ScheduleOcrEngine {
         baseline: RecognizedSchedule,
         onSuccess: (RecognizedSchedule) -> Unit
     ) {
-        val rowBands = listOf(
-            0.10f to 0.36f,
-            0.30f to 0.58f,
-            0.52f to 0.80f,
-            0.74f to 1.00f
-        )
-        val dayBands = listOf(
-            0.16f to 0.48f,
-            0.42f to 0.74f,
-            0.68f to 1.00f
-        )
+        val mapped = baseline.rows.sumOf { it.dayShifts.size }
+        val severeDenseFailure =
+            baseline.rows.size >= 12 &&
+                (mapped < baseline.rows.size * 6 || hasMissingNumberedRows(baseline))
+
+        val rowBands = if (severeDenseFailure) {
+            listOf(
+                0.08f to 0.29f,
+                0.24f to 0.45f,
+                0.40f to 0.61f,
+                0.56f to 0.77f,
+                0.72f to 0.93f,
+                0.86f to 1.00f
+            )
+        } else {
+            listOf(
+                0.10f to 0.36f,
+                0.30f to 0.58f,
+                0.52f to 0.80f,
+                0.74f to 1.00f
+            )
+        }
+        val dayBands = if (severeDenseFailure) {
+            // Dense 27–31 row tables photographed from a monitor can shrink a
+            // one-letter cell below reliable OCR size. Five narrow overlapping
+            // day windows magnify roughly 5–7 day columns at a time.
+            listOf(
+                0.14f to 0.34f,
+                0.30f to 0.50f,
+                0.46f to 0.66f,
+                0.62f to 0.82f,
+                0.78f to 1.00f
+            )
+        } else {
+            listOf(
+                0.16f to 0.48f,
+                0.42f to 0.74f,
+                0.68f to 1.00f
+            )
+        }
         val tiles = rowBands.flatMap { row ->
             dayBands.map { day ->
                 FocusedTile(row.first, row.second, day.first, day.second)
