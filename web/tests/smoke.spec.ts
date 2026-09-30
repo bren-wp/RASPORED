@@ -211,8 +211,7 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
   }
 });
 
-test("salary estimator uses official public-health role parameters and persists choices", async ({page}) => {
-  await page.goto("/");
+async function openPayroll(page:any){
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
     await page.locator('[data-route="stats"]:visible').first().click();
@@ -221,43 +220,94 @@ test("salary estimator uses official public-health role parameters and persists 
     await page.locator('[data-route="payroll"]:visible').first().click();
   }
   await expect(page.locator('[data-view="payroll"]')).toBeVisible();
-  await page.locator("#payrollRole").selectOption("kbc-portir");
+}
+
+test("salary estimator uses verified KBC Rijeka settings and persists choices", async ({page}) => {
+  await page.goto("/");
+  await openPayroll(page);
+  await expect(page.locator("#payrollCounty")).toHaveValue("Primorsko-goranska");
+  await expect(page.locator("#payrollResidence")).toHaveValue("Rijeka");
+  await expect(page.locator("#payrollTaxLower")).toHaveValue("20");
+  await expect(page.locator("#payrollTaxHigher")).toHaveValue("25");
+  await expect(page.locator("#payrollInstitution")).not.toHaveValue("__manual__");
+
+  await page.locator("#payrollRole").selectOption("health-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await page.locator("#payrollYears").fill("10");
   await page.locator("#payrollYears").blur();
-  await (page as any).waitForTimeout(100);
+  await page.locator("#payrollTurnus").check();
   await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+
   await expect(page.locator("#payrollBase")).toContainText("1.025");
   await expect(page.locator("#payrollCoefResult")).toHaveText("1,39");
   await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
-  await expect(page.locator("#payrollBreakdown")).toContainText("Noćni rad");
+  await expect(page.locator("#payrollNet")).not.toHaveText("—");
+  await expect(page.locator("#payrollDailyGross")).not.toHaveText("—");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
 
   await page.reload();
-  if(width<=820){
-    await page.locator('[data-route="stats"]:visible').first().click();
-    await page.locator(".stats-payroll-link").click();
-  }else{
-    await page.locator('[data-route="payroll"]:visible').first().click();
-  }
-  await expect(page.locator("#payrollRole")).toHaveValue("kbc-portir");
+  await openPayroll(page);
+  await expect(page.locator("#payrollRole")).toHaveValue("health-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await expect(page.locator("#payrollYears")).toHaveValue("10");
+  await expect(page.locator("#payrollTurnus")).toBeChecked();
 });
 
-test("salary estimator exposes sources and remains a gross estimate", async ({page}) => {
+test("salary estimator switches between police, fire and manual local regimes", async ({page}) => {
   await page.goto("/");
-  const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820){
-    await page.locator('[data-route="stats"]:visible').first().click();
-    await page.locator(".stats-payroll-link").click();
-  }else{
-    await page.locator('[data-route="payroll"]:visible').first().click();
-  }
-  await expect(page.locator("#payrollLegalText")).toContainText("Osnovna bruto plaća");
+  await openPayroll(page);
+
+  await page.locator("#payrollSector").selectOption("Policija");
+  await expect(page.locator("#payrollRole")).toHaveValue("police-station");
+  await expect(page.locator("#payrollCoefficient")).toHaveValue("1.70");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
+
+  await page.locator("#payrollSector").selectOption("Vatrogastvo");
+  await expect(page.locator("#payrollRole")).toHaveValue("firefighter");
+  await expect(page.locator("#payrollCoefficient")).toHaveValue("1.10");
+  await expect(page.locator("#payrollSecondShift")).toBeDisabled();
+  await expect(page.locator("#payrollTurnus")).toBeDisabled();
+
+  await page.locator("#payrollSector").selectOption("Lokalna i regionalna uprava");
+  await expect(page.locator("#payrollCustomBase")).toHaveAttribute("required","");
+  await page.locator("#payrollCustomBase").fill("900");
+  await page.locator("#payrollCoefficient").fill("2.10");
+  await expect(page.locator("#payrollGross")).not.toHaveText("Unesi osnovicu");
+});
+
+test("salary estimator applies residence tax presets independently from institution county", async ({page}) => {
+  await page.goto("/");
+  await openPayroll(page);
+  await page.locator("#payrollResidence").selectOption("Zagreb");
+  await expect(page.locator("#payrollTaxLower")).toHaveValue("23");
+  await expect(page.locator("#payrollTaxHigher")).toHaveValue("33");
+  await expect(page.locator("#payrollTaxNote")).toContainText("prebivalište");
+  await page.locator("#payrollResidence").selectOption("Rijeka");
+  await expect(page.locator("#payrollTaxLower")).toHaveValue("20");
+  await expect(page.locator("#payrollTaxHigher")).toHaveValue("25");
+
+  await page.locator("#payrollResidence").selectOption("__manual__");
+  await expect(page.locator("#payrollResidenceCustomWrap")).toBeVisible();
+  await page.locator("#payrollResidenceCustom").fill("Primjer Općina");
+  await page.locator("#payrollTaxLower").fill("19.5");
+  await page.locator("#payrollTaxHigher").fill("29.5");
+  await page.locator("#payrollResidenceCustom").blur();
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+  const stored=await page.evaluate(()=>JSON.parse((window as any).RasporedDataStore.get("raspored.payroll.v1")));
+  expect(stored.residence).toBe("Primjer Općina");
+  expect(stored.taxLower).toBe(19.5);
+  expect(stored.taxHigher).toBe(29.5);
+});
+
+test("salary estimator exposes official sources and clearly labels approximation limits", async ({page}) => {
+  await page.goto("/");
+  await openPayroll(page);
+  await expect(page.locator("#payrollLegalText")).toContainText("osnovna bruto plaća");
   await expect(page.locator(".payroll-legal-card")).toContainText("nije obračunska isprava");
-  await expect(page.locator("#payrollSources a")).toHaveCount(6);
+  expect(await page.locator("#payrollSources a").count()).toBeGreaterThanOrEqual(10);
   await expect(page.locator("#payrollSources")).toContainText("NN 22/2024");
-  await expect(page.locator("#payrollSources")).toContainText("KBC Rijeka");
+  await expect(page.locator("#payrollSources")).toContainText("Ministarstvo zdravstva");
+  await expect(page.locator(".payroll-day-note")).toContainText("nije službena dnevnica");
 });
 
 

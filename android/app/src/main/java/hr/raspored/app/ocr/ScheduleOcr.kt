@@ -26,8 +26,8 @@ data class RecognizedSchedule(
 )
 
 object ScheduleOcrParser {
-    private val shiftRegex = Regex("""(?<![\p{L}])(GO|G0|BO|B0|D|N)[.,;:]?(?![\p{L}])""", RegexOption.IGNORE_CASE)
-    private val exactShiftRegex = Regex("""^(GO|G0|BO|B0|D|N)[.,;:]?$""", RegexOption.IGNORE_CASE)
+    private val shiftRegex = Regex("""(?<![\p{L}])(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?(?![\p{L}])""", RegexOption.IGNORE_CASE)
+    private val exactShiftRegex = Regex("""^(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?$""", RegexOption.IGNORE_CASE)
     private val rowNumberRegex = Regex("""^\s*(\d{1,3})[.)]?\s*""")
     private val spaces = Regex("""\s+""")
     private val monthNames = mapOf(
@@ -55,6 +55,8 @@ object ScheduleOcrParser {
         "N" -> "N"
         "GO", "G0" -> "GO"
         "BO", "B0" -> "BO"
+        "PD" -> "PD"
+        "SD" -> "SD"
         else -> null
     }
 

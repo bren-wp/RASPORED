@@ -25,6 +25,21 @@
             <div><small>Izlaz</small><b id="hoursOutValue">—</b></div>
             <div><small>Odrađeno</small><b id="hoursDurationValue">0h 00min</b></div>
           </div>
+          <label class="hours-note hours-work-type">
+            <span>Vrsta rada</span>
+            <select id="hoursWorkType">
+              <option value="regular">Redovni rad</option>
+              <option value="shift1">1. smjena</option>
+              <option value="shift2">2. smjena</option>
+              <option value="shift3">3. smjena</option>
+              <option value="turnus">Turnus / 12-satni rad</option>
+              <option value="duty">Dežurstvo</option>
+              <option value="standby">Pripravnost</option>
+              <option value="callout">Rad po pozivu</option>
+              <option value="other">Drugi oblik rada</option>
+            </select>
+            <small>Trajanje se uvijek računa iz stvarnog ulaza i izlaza. Posebne naknade se ne izmišljaju ako za njih nema potvrđenog pravila.</small>
+          </label>
           <div class="hours-actions">
             <button class="primary-btn" id="clockInBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Evidentiraj ulaz</button>
             <button class="secondary-btn" id="clockOutBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg>Evidentiraj izlaz</button>

@@ -76,7 +76,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Tjedna statistika** | Vizualna raspodjela rada po tjednima u mjesecu. |
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
-| **Okvirna plaća** | Android i Web/PWA mogu procijeniti bruto plaću za javno zdravstvo iz službene osnovice/koeficijenta i stvarne Evidencije sati. |
+| **Okvirna plaća** | Android i Web/PWA procjenjuju bruto i okvirni neto za javni sektor RH iz provjerljivih osnovica/koeficijenata, mjesta prebivališta i stvarne Evidencije sati; lokalno uređeni slučajevi koriste ručni unos umjesto pretpostavki. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
 
 ## Kako radi skeniranje
@@ -107,13 +107,17 @@ RASPORED zato odvojeno vodi:
 
 Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno odrađeno vrijeme vode se odvojeno.
 
-## Okvirna plaća za javno zdravstvo
+## Okvirna plaća za javni sektor RH
 
-Android i Web/PWA imaju zaseban kalkulator **okvirne bruto plaće**. Kalkulator ne koristi jedan izmišljeni “bod bolnice”, nego važeći model javnih službi: službenu osnovicu, koeficijent konkretnog radnog mjesta, staž i stvarno evidentirane sate.
+Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija RASPORED-a. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
 
-Za 2026. ugrađene su službene osnovice po razdobljima iz NN 11/2026 te koeficijenti iz NN 22/2024. Dodaci za noćni rad, subotu, nedjelju, blagdan i prekovremeni rad temelje se na TKU-u NN 29/2024. KBC Rijeka preset nazivi mapiraju korisničke nazive poput transportnog radnika / nosača bolesnika, portira i prvostupnika fizioterapije na službene nazive iz sistematizacije i natječaja.
+Za 2026. ugrađene su službene osnovice javnih i državnih službi po razdobljima te provjerljivi koeficijenti za odabrana radna mjesta u zdravstvu, školstvu, policiji i profesionalnom vatrogastvu. Web katalog sadrži aktualni popis bolničkih zdravstvenih ustanova Ministarstva zdravstva. Za KBC Rijeka postoji zaseban 2026 preset organizacije rada; generički zdravstveni preset ne preuzima automatski ustanovne specifičnosti.
 
-Procjena se namjerno prikazuje kao **bruto**. Neto iznos se ne izmišlja jer ovisi o osobnom odbitku, poreznim parametrima i drugim individualnim podacima. Posebni dodaci koji ovise o konkretnom rješenju, ugovoru, dežurstvu ili pripravnosti ne uključuju se automatski bez provjerljivog pravila.
+Vrtići, lokalna i regionalna uprava te drugi slučajevi gdje osnovicu, koeficijent ili dodatke određuje lokalni/ustanovni akt koriste **ručni unos**. Aplikacija u tim slučajevima ne izmišlja nacionalnu vrijednost. Ako radno mjesto nije u katalogu, postoji **Drugo / ručni unos**.
+
+Procjena koristi stvarnu Evidenciju sati za noćni, subotnji, nedjeljni, blagdanski i okvirni prekovremeni rad tamo gdje je stopa za odabrani režim provjerena. Okvirni neto koristi uneseni osobni odbitak i stope grada/općine prebivališta; porez se ne veže uz županiju poslodavca. Prikaz “po radnom danu” samo je prosjek plaće po evidentiranom radnom danu i **nije službena dnevnica za službeni put**.
+
+Kalkulator je pomoćni informativni sloj, ne obračunska isprava. Bolovanje, godišnji odmor po prosjeku, pripravnost, dežurstva, posebni uvjeti rada, neoporezivi primici, prijevoz, obustave i individualna porezna prava ne dodaju se bez odgovarajućeg podatka ili provjerljivog pravila.
 
 ## Brand
 
@@ -159,7 +163,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - Material 3
 - ML Kit Text Recognition
 - lokalna pohrana rasporeda i evidencije
-- okvirna bruto plaća za javno zdravstvo iz stvarne evidencije sati
+- okvirna bruto/neto procjena za javni sektor iz stvarne evidencije sati
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
 - Compose unit/lint provjere i stvarni emulator launch/navigation smoke test u CI-ju
@@ -172,7 +176,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - PWA manifest + service worker
 - per-instalacijski JSON podaci u `storage/data` iza zaštićenog PHP API-ja
 - jednokratna migracija starog browser storagea u JSON spremište
-- okvirna bruto plaća za javno zdravstvo iz stvarne evidencije sati
+- okvirna bruto/neto procjena za javni sektor iz stvarne evidencije sati
 - Playwright funkcionalni i screenshot QA
 - stvarni camera/gallery image-upload tok
 
@@ -235,7 +239,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED je pripremljen kao **v1.0.3** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
+RASPORED je pripremljen kao **v1.0.4** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 

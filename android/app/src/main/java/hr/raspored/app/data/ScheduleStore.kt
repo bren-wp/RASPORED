@@ -44,6 +44,6 @@ class ScheduleStore(context: Context) {
 
     private companion object {
         val DATE = Regex("""\d{4}-\d{2}-\d{2}""")
-        val VALID_CODES = setOf("D", "N", "GO", "BO")
+        val VALID_CODES = setOf("D", "N", "GO", "BO", "PD", "SD")
     }
 }

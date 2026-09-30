@@ -1,0 +1,1562 @@
+{
+  "schema": 2,
+  "year": 2026,
+  "title": "Javni sektor Republike Hrvatske — okvirni obračun plaće 2026",
+  "disclaimer": "Procjena nije obračunska isprava. Točan iznos ovisi o službenom radnom mjestu, aktu poslodavca, kolektivnom ugovoru, evidenciji rada, poreznoj kartici i mjestu prebivališta.",
+  "baseSchedules": {
+    "publicService": [
+      {
+        "from": "2026-01-01",
+        "to": "2026-03-31",
+        "amount": 1004.87
+      },
+      {
+        "from": "2026-04-01",
+        "to": "2026-07-31",
+        "amount": 1015
+      },
+      {
+        "from": "2026-08-01",
+        "to": "2026-11-30",
+        "amount": 1025
+      },
+      {
+        "from": "2026-12-01",
+        "to": "2026-12-31",
+        "amount": 1035
+      }
+    ],
+    "stateService": [
+      {
+        "from": "2026-01-01",
+        "to": "2026-03-31",
+        "amount": 1004.87
+      },
+      {
+        "from": "2026-04-01",
+        "to": "2026-07-31",
+        "amount": 1015
+      },
+      {
+        "from": "2026-08-01",
+        "to": "2026-11-30",
+        "amount": 1025
+      },
+      {
+        "from": "2026-12-01",
+        "to": "2026-12-31",
+        "amount": 1035
+      }
+    ]
+  },
+  "tax": {
+    "monthlyThreshold": 5000,
+    "basicPersonalAllowance": 600,
+    "pensionContribution": 0.2,
+    "note": "Porez se određuje prema gradu/općini prebivališta, ne prema županiji poslodavca. Za mjesto koje nije u ugrađenom popisu koristi ručni unos i provjeri važeću odluku JLS-a.",
+    "localities": [
+      {
+        "county": "Grad Zagreb",
+        "name": "Zagreb",
+        "lower": 23,
+        "higher": 33,
+        "source": "NN 28/2025"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "name": "Rijeka",
+        "lower": 20,
+        "higher": 25,
+        "source": "NN 149/2025"
+      },
+      {
+        "county": "Splitsko-dalmatinska",
+        "name": "Split",
+        "lower": 21.5,
+        "higher": 32,
+        "source": "RRiF 2026 / NN 35/2025"
+      },
+      {
+        "county": "Osječko-baranjska",
+        "name": "Osijek",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Zadarska",
+        "name": "Zadar",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Istarska",
+        "name": "Pazin",
+        "lower": 22,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Istarska",
+        "name": "Pula",
+        "lower": 22,
+        "higher": 32,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Karlovačka",
+        "name": "Karlovac",
+        "lower": 19,
+        "higher": 29,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Varaždinska",
+        "name": "Varaždin",
+        "lower": 21,
+        "higher": 32,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Šibensko-kninska",
+        "name": "Šibenik",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Sisačko-moslavačka",
+        "name": "Sisak",
+        "lower": 21.6,
+        "higher": 31.6,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Dubrovačko-neretvanska",
+        "name": "Dubrovnik",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Međimurska",
+        "name": "Čakovec",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Bjelovarsko-bilogorska",
+        "name": "Bjelovar",
+        "lower": 18,
+        "higher": 25,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Ličko-senjska",
+        "name": "Gospić",
+        "lower": 22,
+        "higher": 32,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Virovitičko-podravska",
+        "name": "Virovitica",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Požeško-slavonska",
+        "name": "Požega",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Brodsko-posavska",
+        "name": "Slavonski Brod",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Vukovarsko-srijemska",
+        "name": "Vukovar",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Krapinsko-zagorska",
+        "name": "Krapina",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      },
+      {
+        "county": "Koprivničko-križevačka",
+        "name": "Koprivnica",
+        "lower": 20,
+        "higher": 30,
+        "source": "RRiF 2026"
+      }
+    ]
+  },
+  "counties": [
+    "Zagrebačka",
+    "Krapinsko-zagorska",
+    "Sisačko-moslavačka",
+    "Karlovačka",
+    "Varaždinska",
+    "Koprivničko-križevačka",
+    "Bjelovarsko-bilogorska",
+    "Primorsko-goranska",
+    "Ličko-senjska",
+    "Virovitičko-podravska",
+    "Požeško-slavonska",
+    "Brodsko-posavska",
+    "Zadarska",
+    "Osječko-baranjska",
+    "Šibensko-kninska",
+    "Vukovarsko-srijemska",
+    "Splitsko-dalmatinska",
+    "Istarska",
+    "Dubrovačko-neretvanska",
+    "Međimurska",
+    "Grad Zagreb"
+  ],
+  "regimes": [
+    {
+      "id": "public-health",
+      "sector": "Zdravstvo",
+      "label": "Javno zdravstvo",
+      "baseType": "publicService",
+      "additions": {
+        "night": 0.4,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": null
+      },
+      "note": "Turnus i druga posebna prava ovise o granskom/ustanovnom pravilu. KBC Rijeka ima zaseban provjereni preset."
+    },
+    {
+      "id": "kbc-rijeka-2026",
+      "sector": "Zdravstvo",
+      "label": "KBC Rijeka — provjereni obračunski preset 2026",
+      "baseType": "publicService",
+      "additions": {
+        "night": 0.5,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": 0.05
+      },
+      "note": "Preset odgovara provjerenoj strukturi obračuna 2026.; posebni dodaci po radnom mjestu i osobna porezna prava i dalje se unose zasebno."
+    },
+    {
+      "id": "public-education",
+      "sector": "Školstvo i obrazovanje",
+      "label": "Osnovne/srednje škole i učenički domovi",
+      "baseType": "publicService",
+      "additions": {
+        "night": 0.4,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": null
+      }
+    },
+    {
+      "id": "state-service",
+      "sector": "Državna služba",
+      "label": "Državna služba / ministarstva",
+      "baseType": "stateService",
+      "additions": {
+        "night": 0.5,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": 0.05
+      }
+    },
+    {
+      "id": "police",
+      "sector": "Policija",
+      "label": "MUP / policija",
+      "baseType": "stateService",
+      "additions": {
+        "night": 0.5,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": 0.05
+      },
+      "note": "Policijska radna mjesta imaju velik broj posebnih službenih naziva i koeficijenata; odaberi točan naziv ili ručni unos."
+    },
+    {
+      "id": "firefighter",
+      "sector": "Vatrogastvo",
+      "label": "Profesionalno vatrogastvo",
+      "baseType": "stateService",
+      "additions": {
+        "night": null,
+        "overtime": null,
+        "saturday": null,
+        "sunday": null,
+        "holiday": null,
+        "secondShift": null,
+        "turnus": null
+      },
+      "note": "Pravilnik propisuje koeficijente/minimalni okvir; lokalni kolektivni ugovor i akt postrojbe mogu dati povoljnija prava. Dodatke potvrdi ili unesi ručno."
+    },
+    {
+      "id": "social-care",
+      "sector": "Socijalna skrb",
+      "label": "Javna socijalna skrb",
+      "baseType": "publicService",
+      "additions": {
+        "night": 0.4,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": null
+      }
+    },
+    {
+      "id": "culture",
+      "sector": "Kultura",
+      "label": "Javne ustanove u kulturi",
+      "baseType": "publicService",
+      "additions": {
+        "night": 0.4,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": null
+      }
+    },
+    {
+      "id": "science",
+      "sector": "Znanost i visoko obrazovanje",
+      "label": "Javne ustanove znanosti i visokog obrazovanja",
+      "baseType": "publicService",
+      "additions": {
+        "night": 0.4,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": null
+      }
+    },
+    {
+      "id": "preschool-local",
+      "sector": "Vrtići",
+      "label": "Gradski/općinski vrtić",
+      "baseType": "manual",
+      "additions": {
+        "night": null,
+        "overtime": null,
+        "saturday": null,
+        "sunday": null,
+        "holiday": null,
+        "secondShift": null,
+        "turnus": null
+      },
+      "note": "Plaće u vrtićima ovise o osnivaču, kolektivnom ugovoru i aktima ustanove; zato se osnovica i koeficijent ne smiju automatski izjednačiti sa školama."
+    },
+    {
+      "id": "local-government",
+      "sector": "Lokalna i regionalna uprava",
+      "label": "Grad/općina/županija",
+      "baseType": "manual",
+      "additions": {
+        "night": null,
+        "overtime": null,
+        "saturday": null,
+        "sunday": null,
+        "holiday": null,
+        "secondShift": null,
+        "turnus": null
+      },
+      "note": "Osnovicu utvrđuje kolektivni ugovor ili župan/gradonačelnik/općinski načelnik, a koeficijent lokalni akt. Potreban je ručni unos ili verificirani preset."
+    },
+    {
+      "id": "other-public",
+      "sector": "Ostalo",
+      "label": "Druga javna ustanova / ručni unos",
+      "baseType": "manual",
+      "additions": {
+        "night": null,
+        "overtime": null,
+        "saturday": null,
+        "sunday": null,
+        "holiday": null,
+        "secondShift": null,
+        "turnus": null
+      }
+    }
+  ],
+  "roles": [
+    {
+      "id": "health-transport-sss",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Nosač bolesnika / transportni radnik — Radnik III. vrste",
+      "official": "Radnik III. vrste",
+      "code": "10.1.23",
+      "coefficient": 1.25
+    },
+    {
+      "id": "health-transport-nss",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Nosač bolesnika / pomoćni radnik — posebni uvjeti",
+      "official": "Pomoćni radnik u sustavu s posebnim uvjetima rada",
+      "code": "10.1.24",
+      "coefficient": 1.15
+    },
+    {
+      "id": "health-portir",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Portir / stručni radnik na tehničkom održavanju",
+      "official": "Stručni radnik na tehničkom održavanju",
+      "code": "10.1.20",
+      "coefficient": 1.39
+    },
+    {
+      "id": "health-cleaner-special",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Spremač/čistač — posebni uvjeti",
+      "official": "Čistač – spremač u sustavu s posebnim uvjetima rada",
+      "code": "10.1.25",
+      "coefficient": 1.15
+    },
+    {
+      "id": "health-cleaner",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Spremač/čistač",
+      "official": "Čistač – spremač",
+      "code": "10.1.26",
+      "coefficient": 1.06
+    },
+    {
+      "id": "health-caregiver",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Njegovatelj / njegovateljica",
+      "official": "Njegovatelj",
+      "code": "16.15.1",
+      "coefficient": 1.35
+    },
+    {
+      "id": "health-bolnicar",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Bolničar / bolničarka",
+      "official": "Bolničar",
+      "code": "16.15.2",
+      "coefficient": 1.35
+    },
+    {
+      "id": "health-nurse-sss-1",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Medicinska sestra/tehničar — bolnica 1",
+      "official": "Medicinska sestra/medicinski tehničar / zdravstveni radnik u bolnici 1",
+      "code": "16.13.1",
+      "coefficient": 1.78
+    },
+    {
+      "id": "health-nurse-sss-2",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Medicinska sestra/tehničar — bolnica 2",
+      "official": "Medicinska sestra/medicinski tehničar / zdravstveni radnik u bolnici 2",
+      "code": "16.13.2",
+      "coefficient": 1.7
+    },
+    {
+      "id": "health-nurse-bacc-1",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Viša medicinska sestra / prvostupnik sestrinstva — bolnica 1",
+      "official": "Zdravstveni radnik prvostupnik u bolnici 1",
+      "code": "16.11.1",
+      "coefficient": 1.95
+    },
+    {
+      "id": "health-nurse-bacc-2",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Viša medicinska sestra / prvostupnik sestrinstva — bolnica 2",
+      "official": "Zdravstveni radnik prvostupnik u bolnici 2",
+      "code": "16.11.2",
+      "coefficient": 1.87
+    },
+    {
+      "id": "health-nurse-master",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Magistra sestrinstva / dipl. medicinska sestra — posebni poslovi",
+      "official": "Magistra sestrinstva/diplomirana medicinska sestra na propisanim posebnim poslovima",
+      "code": "16.10.1",
+      "coefficient": 2.45
+    },
+    {
+      "id": "health-physio-1",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Viši fizioterapeut / prvostupnik fizioterapije — bolnica 1",
+      "official": "Zdravstveni radnik prvostupnik u bolnici 1",
+      "code": "16.11.1",
+      "coefficient": 1.95
+    },
+    {
+      "id": "health-physio-2",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Viši fizioterapeut / prvostupnik fizioterapije — bolnica 2",
+      "official": "Zdravstveni radnik prvostupnik u bolnici 2",
+      "code": "16.11.2",
+      "coefficient": 1.87
+    },
+    {
+      "id": "health-doctor-1",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Doktor medicine — 1",
+      "official": "Doktor medicine i doktor dentalne medicine 1",
+      "code": "16.4.3",
+      "coefficient": 2.92
+    },
+    {
+      "id": "health-doctor-2",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Doktor medicine — 2",
+      "official": "Doktor medicine i doktor dentalne medicine 2",
+      "code": "16.4.6",
+      "coefficient": 2.83
+    },
+    {
+      "id": "health-doctor-3",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Doktor medicine — 3",
+      "official": "Doktor medicine i doktor dentalne medicine 3",
+      "code": "16.4.9",
+      "coefficient": 2.81
+    },
+    {
+      "id": "health-doctor-specialization",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Doktor medicine na specijalizaciji",
+      "official": "Doktor medicine/dentalne medicine na specijalizaciji",
+      "code": "16.4.10",
+      "coefficient": 2.81
+    },
+    {
+      "id": "health-doctor-specialist-1",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Doktor medicine specijalist — 1",
+      "official": "Doktor medicine specijalist 1",
+      "code": "16.4.2",
+      "coefficient": 3.82
+    },
+    {
+      "id": "health-doctor-specialist-2",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Doktor medicine specijalist — 2",
+      "official": "Doktor medicine specijalist 2",
+      "code": "16.4.5",
+      "coefficient": 3.74
+    },
+    {
+      "id": "health-doctor-specialist-3",
+      "regimes": [
+        "public-health",
+        "kbc-rijeka-2026"
+      ],
+      "label": "Doktor medicine specijalist — 3",
+      "official": "Doktor medicine specijalist 3",
+      "code": "16.4.8",
+      "coefficient": 3.65
+    },
+    {
+      "id": "edu-teacher",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Učitelj",
+      "official": "Učitelj",
+      "code": "12.5.22",
+      "coefficient": 2.01
+    },
+    {
+      "id": "edu-secondary-teacher",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Nastavnik",
+      "official": "Nastavnik",
+      "code": "12.5.21",
+      "coefficient": 2.01
+    },
+    {
+      "id": "edu-educator",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Odgajatelj u učeničkom domu",
+      "official": "Odgajatelj",
+      "code": "12.5.20",
+      "coefficient": 2.01
+    },
+    {
+      "id": "edu-professional",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Stručni suradnik",
+      "official": "Stručni suradnik",
+      "code": "12.5.23",
+      "coefficient": 2.01
+    },
+    {
+      "id": "edu-mentor-teacher",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Učitelj / nastavnik / odgajatelj — mentor",
+      "official": "Mentor",
+      "code": "12.5.15–18",
+      "coefficient": 2.17
+    },
+    {
+      "id": "edu-adviser-teacher",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Učitelj / nastavnik / odgajatelj — savjetnik",
+      "official": "Savjetnik",
+      "code": "12.5.8–11",
+      "coefficient": 2.38
+    },
+    {
+      "id": "edu-secretary-1",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Tajnik školske ustanove 1",
+      "official": "Tajnik školske ustanove 1",
+      "code": "12.5.25",
+      "coefficient": 2.01
+    },
+    {
+      "id": "edu-secretary-2",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Tajnik školske ustanove 2",
+      "official": "Tajnik školske ustanove 2",
+      "code": "12.5.32",
+      "coefficient": 1.77
+    },
+    {
+      "id": "edu-accounting-1",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Voditelj računovodstva u školi 1",
+      "official": "Voditelj računovodstva u školi 1",
+      "code": "12.5.26",
+      "coefficient": 2.01
+    },
+    {
+      "id": "edu-night-watch",
+      "regimes": [
+        "public-education"
+      ],
+      "label": "Noćni pazitelj u učeničkom domu",
+      "official": "Noćni pazitelj u učeničkom domu",
+      "code": "12.5.38",
+      "coefficient": 1.3
+    },
+    {
+      "id": "police-station",
+      "regimes": [
+        "police"
+      ],
+      "label": "Policijski službenik u policijskoj postaji",
+      "official": "Policijski službenik u policijskoj postaji",
+      "code": "MUP",
+      "coefficient": 1.7
+    },
+    {
+      "id": "police-intervention",
+      "regimes": [
+        "police"
+      ],
+      "label": "Policijski službenik interventne policije",
+      "official": "Policijski službenik interventne policije",
+      "code": "MUP",
+      "coefficient": 1.7
+    },
+    {
+      "id": "police-contact",
+      "regimes": [
+        "police"
+      ],
+      "label": "Kontakt policajac",
+      "official": "Kontakt policajac",
+      "code": "MUP",
+      "coefficient": 1.7
+    },
+    {
+      "id": "police-patrol-lead",
+      "regimes": [
+        "police"
+      ],
+      "label": "Vođa ophodnje u policijskoj postaji",
+      "official": "Vođa ophodnje u policijskoj postaji",
+      "code": "MUP",
+      "coefficient": 1.65
+    },
+    {
+      "id": "police-border",
+      "regimes": [
+        "police"
+      ],
+      "label": "Policijski službenik granične policije",
+      "official": "Policijski službenik granične policije",
+      "code": "MUP",
+      "coefficient": 1.65
+    },
+    {
+      "id": "police-motorcycle",
+      "regimes": [
+        "police"
+      ],
+      "label": "Policijski službenik — motociklist",
+      "official": "Policijski službenik – motociklist",
+      "code": "MUP",
+      "coefficient": 1.75
+    },
+    {
+      "id": "police-dispatcher",
+      "regimes": [
+        "police"
+      ],
+      "label": "Policijski službenik — dispečer",
+      "official": "Policijski službenik – dispečer",
+      "code": "MUP",
+      "coefficient": 1.75
+    },
+    {
+      "id": "firefighter",
+      "regimes": [
+        "firefighter"
+      ],
+      "label": "Vatrogasac",
+      "official": "Vatrogasac",
+      "code": "Prilog 1",
+      "coefficient": 1.1
+    },
+    {
+      "id": "firefighter-specialist",
+      "regimes": [
+        "firefighter"
+      ],
+      "label": "Vatrogasac specijalist",
+      "official": "Vatrogasac specijalist",
+      "code": "Prilog 1",
+      "coefficient": 1.16
+    },
+    {
+      "id": "firefighter-senior-specialist",
+      "regimes": [
+        "firefighter"
+      ],
+      "label": "Stariji vatrogasac specijalist",
+      "official": "Stariji vatrogasac specijalist",
+      "code": "Prilog 1",
+      "coefficient": 1.2
+    },
+    {
+      "id": "firefighter-driver",
+      "regimes": [
+        "firefighter"
+      ],
+      "label": "Vatrogasac — vozač",
+      "official": "Vatrogasac – vozač",
+      "code": "Prilog 1",
+      "coefficient": 1.22
+    },
+    {
+      "id": "firefighter-group-lead",
+      "regimes": [
+        "firefighter"
+      ],
+      "label": "Voditelj vatrogasne grupe",
+      "official": "Voditelj vatrogasne grupe",
+      "code": "Prilog 1",
+      "coefficient": 1.24
+    },
+    {
+      "id": "firefighter-group-driver",
+      "regimes": [
+        "firefighter"
+      ],
+      "label": "Voditelj vatrogasne grupe — vozač",
+      "official": "Voditelj vatrogasne grupe – vozač",
+      "code": "Prilog 1",
+      "coefficient": 1.25
+    },
+    {
+      "id": "firefighter-section-lead",
+      "regimes": [
+        "firefighter"
+      ],
+      "label": "Voditelj vatrogasnog odjeljenja",
+      "official": "Voditelj vatrogasnog odjeljenja",
+      "code": "Prilog 1",
+      "coefficient": 1.3
+    },
+    {
+      "id": "state-senior-adviser",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Viši savjetnik",
+      "official": "Viši savjetnik",
+      "code": "JRM",
+      "coefficient": 2.1
+    },
+    {
+      "id": "state-associate",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Suradnik",
+      "official": "Suradnik",
+      "code": "JRM",
+      "coefficient": 1.8
+    },
+    {
+      "id": "state-senior-referent",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Viši referent",
+      "official": "Viši referent",
+      "code": "JRM",
+      "coefficient": 1.7
+    },
+    {
+      "id": "state-it-technician",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Informatički tehničar",
+      "official": "Informatički tehničar",
+      "code": "JRM",
+      "coefficient": 1.5
+    },
+    {
+      "id": "state-admin-secretary",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Administrativni tajnik čelnika tijela",
+      "official": "Administrativni tajnik čelnika tijela",
+      "code": "JRM",
+      "coefficient": 1.44
+    },
+    {
+      "id": "state-referent",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Referent",
+      "official": "Referent",
+      "code": "JRM",
+      "coefficient": 1.43
+    },
+    {
+      "id": "state-driver",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Vozač",
+      "official": "Vozač",
+      "code": "JRM",
+      "coefficient": 1.37
+    },
+    {
+      "id": "state-employee-iii",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Namještenik III. vrste",
+      "official": "Namještenik – III. vrste",
+      "code": "JRM",
+      "coefficient": 1.25
+    },
+    {
+      "id": "state-caretaker",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Domar",
+      "official": "Domar",
+      "code": "JRM",
+      "coefficient": 1.25
+    },
+    {
+      "id": "state-doorman",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Portir",
+      "official": "Portir",
+      "code": "JRM",
+      "coefficient": 1.06
+    },
+    {
+      "id": "state-cleaner",
+      "regimes": [
+        "state-service"
+      ],
+      "label": "Spremač",
+      "official": "Spremač",
+      "code": "JRM",
+      "coefficient": 1.06
+    },
+    {
+      "id": "manual",
+      "regimes": [
+        "public-health",
+        "public-education",
+        "state-service",
+        "police",
+        "firefighter",
+        "social-care",
+        "culture",
+        "science",
+        "preschool-local",
+        "local-government",
+        "other-public"
+      ],
+      "label": "Drugo / ručni unos",
+      "official": "Drugo radno mjesto",
+      "code": "ručno",
+      "coefficient": null
+    }
+  ],
+  "institutionGroups": {
+    "Zdravstvo": [
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinički bolnički centar Zagreb",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinički bolnički centar Sestre milosrdnice",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinička bolnica Dubrava",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinička bolnica Merkur",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinička bolnica Sveti Duh",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinika za infektivne bolesti Dr. Fran Mihaljević",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinika za psihijatriju Vrapče",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinika za dječje bolesti Zagreb",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Psihijatrijska bolnica za djecu i mladež",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Specijalna bolnica za zaštitu djece s neurorazvojnim i motoričkim smetnjama",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Specijalna bolnica za plućne bolesti",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Klinika za psihijatriju Sveti Ivan",
+        "regime": "public-health"
+      },
+      {
+        "county": "Grad Zagreb",
+        "city": "Zagreb",
+        "name": "Dječja bolnica Srebrnjak",
+        "regime": "public-health"
+      },
+      {
+        "county": "Zagrebačka",
+        "city": "Ivanić-Grad",
+        "name": "Naftalan — Specijalna bolnica za medicinsku rehabilitaciju",
+        "regime": "public-health"
+      },
+      {
+        "county": "Zagrebačka",
+        "city": "Gornja Bistra",
+        "name": "Specijalna bolnica za kronične bolesti dječje dobi Gornja Bistra",
+        "regime": "public-health"
+      },
+      {
+        "county": "Krapinsko-zagorska",
+        "city": "Krapinske Toplice",
+        "name": "Magdalena — Klinika za kardiovaskularne bolesti",
+        "regime": "public-health"
+      },
+      {
+        "county": "Krapinsko-zagorska",
+        "city": "Krapinske Toplice",
+        "name": "Specijalna bolnica za medicinsku rehabilitaciju Krapinske Toplice",
+        "regime": "public-health"
+      },
+      {
+        "county": "Krapinsko-zagorska",
+        "city": "Stubičke Toplice",
+        "name": "Specijalna bolnica za medicinsku rehabilitaciju Stubičke Toplice",
+        "regime": "public-health"
+      },
+      {
+        "county": "Krapinsko-zagorska",
+        "city": "Zabok",
+        "name": "Opća bolnica Zabok i bolnica hrvatskih veterana",
+        "regime": "public-health"
+      },
+      {
+        "county": "Sisačko-moslavačka",
+        "city": "Sisak",
+        "name": "Opća bolnica Dr. Ivo Pedišić Sisak",
+        "regime": "public-health"
+      },
+      {
+        "county": "Sisačko-moslavačka",
+        "city": "Popovača",
+        "name": "Neuropsihijatrijska bolnica Dr. Ivan Barbot Popovača",
+        "regime": "public-health"
+      },
+      {
+        "county": "Sisačko-moslavačka",
+        "city": "Topusko",
+        "name": "Lječilište Topusko",
+        "regime": "public-health"
+      },
+      {
+        "county": "Karlovačka",
+        "city": "Karlovac",
+        "name": "Opća bolnica Karlovac",
+        "regime": "public-health"
+      },
+      {
+        "county": "Karlovačka",
+        "city": "Ogulin",
+        "name": "Opća bolnica i bolnica branitelja Domovinskog rata Ogulin",
+        "regime": "public-health"
+      },
+      {
+        "county": "Karlovačka",
+        "city": "Duga Resa",
+        "name": "Specijalna bolnica za produženo liječenje Duga Resa",
+        "regime": "public-health"
+      },
+      {
+        "county": "Varaždinska",
+        "city": "Varaždin",
+        "name": "Opća bolnica Varaždin",
+        "regime": "public-health"
+      },
+      {
+        "county": "Varaždinska",
+        "city": "Varaždinske Toplice",
+        "name": "Specijalna bolnica za medicinsku rehabilitaciju Varaždinske Toplice",
+        "regime": "public-health"
+      },
+      {
+        "county": "Koprivničko-križevačka",
+        "city": "Koprivnica",
+        "name": "Opća bolnica Dr. Tomislav Bardek Koprivnica",
+        "regime": "public-health"
+      },
+      {
+        "county": "Bjelovarsko-bilogorska",
+        "city": "Bjelovar",
+        "name": "Opća bolnica Bjelovar",
+        "regime": "public-health"
+      },
+      {
+        "county": "Bjelovarsko-bilogorska",
+        "city": "Daruvar",
+        "name": "Daruvarske Toplice — Specijalna bolnica za medicinsku rehabilitaciju",
+        "regime": "public-health"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "city": "Rijeka",
+        "name": "Klinički bolnički centar Rijeka",
+        "regime": "kbc-rijeka-2026"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "city": "Lovran",
+        "name": "Klinika za ortopediju Lovran",
+        "regime": "public-health"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "city": "Opatija",
+        "name": "Thalassotherapia Opatija",
+        "regime": "public-health"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "city": "Crikvenica",
+        "name": "Thalassotherapia Crikvenica",
+        "regime": "public-health"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "city": "Rab",
+        "name": "Insula — županijska specijalna bolnica za psihijatriju i rehabilitaciju",
+        "regime": "public-health"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "city": "Dražice",
+        "name": "Psihijatrijska bolnica Lopača",
+        "regime": "public-health"
+      },
+      {
+        "county": "Primorsko-goranska",
+        "city": "Veli Lošinj",
+        "name": "Lječilište Veli Lošinj",
+        "regime": "public-health"
+      },
+      {
+        "county": "Ličko-senjska",
+        "city": "Gospić",
+        "name": "Opća bolnica Gospić",
+        "regime": "public-health"
+      },
+      {
+        "county": "Virovitičko-podravska",
+        "city": "Virovitica",
+        "name": "Opća bolnica Virovitica",
+        "regime": "public-health"
+      },
+      {
+        "county": "Požeško-slavonska",
+        "city": "Požega",
+        "name": "Opća županijska bolnica Požega",
+        "regime": "public-health"
+      },
+      {
+        "county": "Požeško-slavonska",
+        "city": "Pakrac",
+        "name": "Opća županijska bolnica Pakrac i bolnica hrvatskih veterana",
+        "regime": "public-health"
+      },
+      {
+        "county": "Požeško-slavonska",
+        "city": "Lipik",
+        "name": "Toplice Lipik — Specijalna bolnica za medicinsku rehabilitaciju",
+        "regime": "public-health"
+      },
+      {
+        "county": "Brodsko-posavska",
+        "city": "Slavonski Brod",
+        "name": "Opća bolnica Dr. Josip Benčević Slavonski Brod",
+        "regime": "public-health"
+      },
+      {
+        "county": "Brodsko-posavska",
+        "city": "Nova Gradiška",
+        "name": "Opća bolnica Nova Gradiška",
+        "regime": "public-health"
+      },
+      {
+        "county": "Brodsko-posavska",
+        "city": "Cernik",
+        "name": "Specijalna bolnica za psihijatriju i palijativnu skrb Sveti Rafael Strmac",
+        "regime": "public-health"
+      },
+      {
+        "county": "Zadarska",
+        "city": "Zadar",
+        "name": "Opća bolnica Zadar",
+        "regime": "public-health"
+      },
+      {
+        "county": "Zadarska",
+        "city": "Biograd na Moru",
+        "name": "Specijalna bolnica za ortopediju Biograd na Moru",
+        "regime": "public-health"
+      },
+      {
+        "county": "Zadarska",
+        "city": "Ugljan",
+        "name": "Psihijatrijska bolnica Ugljan",
+        "regime": "public-health"
+      },
+      {
+        "county": "Osječko-baranjska",
+        "city": "Osijek",
+        "name": "Klinički bolnički centar Osijek",
+        "regime": "public-health"
+      },
+      {
+        "county": "Osječko-baranjska",
+        "city": "Našice",
+        "name": "Opća županijska bolnica Našice",
+        "regime": "public-health"
+      },
+      {
+        "county": "Šibensko-kninska",
+        "city": "Šibenik",
+        "name": "Opća bolnica Šibensko-kninske županije",
+        "regime": "public-health"
+      },
+      {
+        "county": "Šibensko-kninska",
+        "city": "Knin",
+        "name": "Opća i veteranska bolnica Hrvatski ponos Knin",
+        "regime": "public-health"
+      },
+      {
+        "county": "Vukovarsko-srijemska",
+        "city": "Vinkovci",
+        "name": "Opća županijska bolnica Vinkovci",
+        "regime": "public-health"
+      },
+      {
+        "county": "Vukovarsko-srijemska",
+        "city": "Vukovar",
+        "name": "Nacionalna memorijalna bolnica Dr. Juraj Njavro Vukovar",
+        "regime": "public-health"
+      },
+      {
+        "county": "Splitsko-dalmatinska",
+        "city": "Split",
+        "name": "Klinički bolnički centar Split",
+        "regime": "public-health"
+      },
+      {
+        "county": "Splitsko-dalmatinska",
+        "city": "Makarska",
+        "name": "Biokovka — Specijalna bolnica za medicinsku rehabilitaciju",
+        "regime": "public-health"
+      },
+      {
+        "county": "Istarska",
+        "city": "Pula",
+        "name": "Opća bolnica Pula",
+        "regime": "public-health"
+      },
+      {
+        "county": "Istarska",
+        "city": "Rovinj",
+        "name": "Specijalna bolnica za ortopediju i rehabilitaciju Martin Horvat Rovinj-Rovigno",
+        "regime": "public-health"
+      },
+      {
+        "county": "Dubrovačko-neretvanska",
+        "city": "Dubrovnik",
+        "name": "Opća bolnica Dubrovnik",
+        "regime": "public-health"
+      },
+      {
+        "county": "Dubrovačko-neretvanska",
+        "city": "Vela Luka",
+        "name": "Specijalna bolnica za medicinsku rehabilitaciju Kalos",
+        "regime": "public-health"
+      },
+      {
+        "county": "Međimurska",
+        "city": "Čakovec",
+        "name": "Županijska bolnica Čakovec",
+        "regime": "public-health"
+      }
+    ],
+    "Školstvo i obrazovanje": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Osnovna škola (odaberi županiju / ručni naziv)",
+        "regime": "public-education"
+      },
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Srednja škola (odaberi županiju / ručni naziv)",
+        "regime": "public-education"
+      },
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Učenički dom (odaberi županiju / ručni naziv)",
+        "regime": "public-education"
+      }
+    ],
+    "Policija": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "MUP / policijska uprava ili postaja",
+        "regime": "police"
+      }
+    ],
+    "Vatrogastvo": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Javna vatrogasna postrojba",
+        "regime": "firefighter"
+      }
+    ],
+    "Vrtići": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Gradski/općinski vrtić — ručni naziv",
+        "regime": "preschool-local"
+      }
+    ],
+    "Lokalna i regionalna uprava": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Županijska uprava",
+        "regime": "local-government"
+      },
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Gradska uprava",
+        "regime": "local-government"
+      },
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Općinska uprava",
+        "regime": "local-government"
+      }
+    ],
+    "Državna služba": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Ministarstvo / državno tijelo — ručni naziv",
+        "regime": "state-service"
+      }
+    ],
+    "Socijalna skrb": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Javna ustanova socijalne skrbi — ručni naziv",
+        "regime": "social-care"
+      }
+    ],
+    "Kultura": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Javna ustanova u kulturi — ručni naziv",
+        "regime": "culture"
+      }
+    ],
+    "Znanost i visoko obrazovanje": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Javna visokoškolska/znanstvena ustanova — ručni naziv",
+        "regime": "science"
+      }
+    ],
+    "Ostalo": [
+      {
+        "county": "*",
+        "city": "*",
+        "name": "Druga javna ustanova — ručni unos",
+        "regime": "other-public"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "public-coeff",
+      "label": "Uredba o nazivima radnih mjesta i koeficijentima za obračun plaće u javnim službama — NN 22/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2024_02_22_354.html"
+    },
+    {
+      "id": "state-coeff",
+      "label": "Uredba o nazivima radnih mjesta i koeficijentima za obračun plaće u državnoj službi — NN 22/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2024_02_22_353.html"
+    },
+    {
+      "id": "public-base",
+      "label": "Osnovica zaposlenika u javnim službama za 2026. — NN 11/2026",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2026_01_11_86.html"
+    },
+    {
+      "id": "state-base",
+      "label": "Dodatak V. KU za državne službenike i namještenike — NN 11/2026",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2026_01_11_92.html"
+    },
+    {
+      "id": "public-tku",
+      "label": "Temeljni kolektivni ugovor za zaposlenike u javnim službama — NN 29/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_03_29_458.html"
+    },
+    {
+      "id": "state-ku",
+      "label": "Kolektivni ugovor za državne službenike — izmjene NN 29/2024 i Dodatak IV. NN 4/2025",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2025_01_4_22.html"
+    },
+    {
+      "id": "fire",
+      "label": "Pravilnik o koeficijentima profesionalnih vatrogasaca — NN 85/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_07_85_1484.html"
+    },
+    {
+      "id": "local",
+      "label": "Zakon o plaćama u lokalnoj i područnoj (regionalnoj) samoupravi",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2010_03_28_665.html"
+    },
+    {
+      "id": "tax-law",
+      "label": "Zakon o izmjenama i dopunama Zakona o porezu na dohodak — NN 152/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_12_152_2505.html"
+    },
+    {
+      "id": "tax-2026",
+      "label": "RRiF — pregled stopa poreza na dohodak za isplate od 1.1.2026.",
+      "url": "https://www.rrif.hr/stope_poreza_na_dohodak_za_isplate_od_1_sijecnja_2-13-strucnainformacija/"
+    },
+    {
+      "id": "tax-rijeka",
+      "label": "Grad Rijeka — stope poreza na dohodak od 1.1.2026., NN 149/2025",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2025_12_149_2229.html"
+    },
+    {
+      "id": "tax-zagreb",
+      "label": "Grad Zagreb — stope poreza na dohodak, NN 28/2025",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2025_02_28_291.html"
+    },
+    {
+      "id": "hospitals",
+      "label": "Ministarstvo zdravstva — bolničke zdravstvene ustanove",
+      "url": "https://zdravlje.gov.hr/-zdravstvenih-ustanova/bolnicke-zdravstvene-ustanove/2722"
+    }
+  ]
+}

@@ -6,7 +6,7 @@ var MONTHS={
   "TRAVANJ":4,"SVIBANJ":5,"LIPANJ":6,"SRPANJ":7,"KOLOVOZ":8,"RUJAN":9,
   "LISTOPAD":10,"STUDENI":11,"PROSINAC":12
 };
-var VALID=new Set(["D","N","GO","BO"]);
+var VALID=new Set(["D","N","GO","BO","PD","SD"]);
 function canonicalShift(raw){
   var value=normalize(raw).toUpperCase().replace(/[.,;:]+$/,"");
   if(value==="G0")return "GO";
@@ -28,7 +28,7 @@ function cleanName(text){
   return normalize(text)
     .replace(/^\d{1,3}[.)]?\s*/,"")
     .replace(/\b\d{1,2}([./-]\d{1,2})?\b/g," ")
-    .replace(/\b(?:GO|BO|D|N)\b/gi," ")
+    .replace(/\b(?:GO|BO|PD|SD|D|N)\b/gi," ")
     .replace(/\s+/g," ")
     .replace(/^[\s|:;.,-]+|[\s|:;.,-]+$/g,"");
 }
@@ -43,7 +43,7 @@ function dedupe(rows){
 }
 function parseText(text){
   var rows=String(text||"").split(/\r?\n/).map(normalize).filter(Boolean).map(function(line){
-    var codes=[].concat(line.match(/(?<!\p{L})(GO|G0|BO|B0|D|N)[.,;:]?(?!\p{L})/giu)||[]).map(canonicalShift).filter(Boolean);
+    var codes=[].concat(line.match(/(?<!\p{L})(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?(?!\p{L})/giu)||[]).map(canonicalShift).filter(Boolean);
     if(!codes.length)return null;
     var rowMatch=line.match(/^\s*(\d{1,3})[.)]?\s*/);
     var name=cleanName(line);

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
+import hr.raspored.app.data.WorkType
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDateTime
@@ -37,13 +38,18 @@ internal fun TimeEvidenceScreen(
     val store = remember(context) { TimeEvidenceStore(context) }
     val entries = remember { mutableStateListOf<TimeEvidenceEntry>() }
     var note by remember { mutableStateOf("") }
+    var selectedWorkType by remember { mutableStateOf(WorkType.REGULAR) }
+    var workTypeMenu by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(evidenceNow()) }
 
     fun refresh() {
         entries.clear()
         entries.addAll(store.load())
-        note = entries.lastOrNull { it.endedAt == null }?.note
-            ?: entries.lastOrNull()?.note.orEmpty()
+        val activeEntry = entries.lastOrNull { it.endedAt == null }
+        note = activeEntry?.note ?: entries.lastOrNull()?.note.orEmpty()
+        selectedWorkType = activeEntry?.workType
+            ?: entries.lastOrNull()?.workType
+            ?: selectedWorkType
     }
 
     LaunchedEffect(store) { refresh() }
@@ -154,13 +160,58 @@ internal fun TimeEvidenceScreen(
                         )
                     }
 
+                    Text(
+                        "Vrsta rada",
+                        modifier = Modifier.padding(top = 14.dp),
+                        color = RasporedTokens.Slate,
+                        fontSize = 12.sp
+                    )
+                    Box(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                        OutlinedButton(
+                            onClick = { workTypeMenu = true },
+                            modifier = Modifier.fillMaxWidth().testTag("hours-work-type")
+                        ) {
+                            Text(workTypeLabel(selectedWorkType), modifier = Modifier.weight(1f))
+                            Icon(Icons.Outlined.Schedule, null)
+                        }
+                        DropdownMenu(
+                            expanded = workTypeMenu,
+                            onDismissRequest = { workTypeMenu = false },
+                            modifier = Modifier.heightIn(max = 420.dp)
+                        ) {
+                            workTypeOptions().forEach { option ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(workTypeLabel(option), fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                workTypeCaption(option),
+                                                color = RasporedTokens.Slate,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedWorkType = option
+                                        active?.let { entry ->
+                                            store.updateWorkType(entry.id, option)
+                                            refresh()
+                                            onEvidenceChanged()
+                                        }
+                                        workTypeMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         Modifier.fillMaxWidth().padding(top = 14.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Button(
                             onClick = {
-                                store.clockIn(evidenceNow())
+                                store.clockIn(evidenceNow(), selectedWorkType)
                                 refresh()
                                 onEvidenceChanged()
                             },
@@ -249,6 +300,7 @@ internal fun TimeEvidenceScreen(
                                             (entry.endedAt?.let { epochToTime(it, timeFormatter, zone) } ?: "u tijeku"),
                                         fontWeight = FontWeight.Bold
                                     )
+                                    Text(workTypeLabel(entry.workType), color = RasporedTokens.Cyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     if (entry.note.isNotBlank()) Text(entry.note, color = RasporedTokens.Slate, fontSize = 11.sp)
                                 }
                                 Text(durationLabel(entry.durationMinutes(now)), fontWeight = FontWeight.Bold)
@@ -282,3 +334,40 @@ private fun durationLabel(minutes: Long): String =
     "${minutes / 60}h ${(minutes % 60).toString().padStart(2, '0')}min"
 
 private fun evidenceNow(): Long = System.currentTimeMillis()
+
+
+private fun workTypeOptions(): List<String> = listOf(
+    WorkType.REGULAR,
+    WorkType.SHIFT_1,
+    WorkType.SHIFT_2,
+    WorkType.SHIFT_3,
+    WorkType.TURNUS,
+    WorkType.DUTY,
+    WorkType.STANDBY,
+    WorkType.CALLOUT,
+    WorkType.OTHER
+)
+
+private fun workTypeLabel(type: String): String = when (type) {
+    WorkType.SHIFT_1 -> "1. smjena"
+    WorkType.SHIFT_2 -> "2. smjena"
+    WorkType.SHIFT_3 -> "3. smjena"
+    WorkType.TURNUS -> "Turnus / 12-satni rad"
+    WorkType.DUTY -> "Dežurstvo"
+    WorkType.STANDBY -> "Pripravnost"
+    WorkType.CALLOUT -> "Rad po pozivu"
+    WorkType.OTHER -> "Drugi oblik rada"
+    else -> "Redovni rad"
+}
+
+private fun workTypeCaption(type: String): String = when (type) {
+    WorkType.SHIFT_1 -> "Označavanje organizacije rada; trajanje dolazi iz ulaza/izlaza."
+    WorkType.SHIFT_2 -> "Može imati dodatak za drugu smjenu ako to vrijedi za odabrani režim."
+    WorkType.SHIFT_3 -> "Noćni dio računa se po stvarnom vremenu 22:00–06:00."
+    WorkType.TURNUS -> "Koristi se samo kada je rad stvarno organiziran u turnusu."
+    WorkType.DUTY -> "Poseban oblik rada; ne pretpostavlja se automatska stopa."
+    WorkType.STANDBY -> "Pripravnost; samo stvarni rad i potvrđena pravila ulaze u procjenu."
+    WorkType.CALLOUT -> "Rad po pozivu; evidentiraj stvarni početak i završetak."
+    WorkType.OTHER -> "Za rad koji ne odgovara ponuđenim kategorijama."
+    else -> "Standardna evidencija ulaza i izlaza."
+}

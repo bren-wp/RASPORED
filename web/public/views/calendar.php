@@ -6,7 +6,14 @@
         <div class="calendar-grid calendar-grid--mobile" id="calendarGridMobile"></div>
       </section>
       <section class="card selected-day" id="selectedDayCard"></section>
-      <div class="shift-legend"><span><i class="shift d">D</i>Dnevna<br><small>07:00–19:00</small></span><span><i class="shift n">N</i>Noćna<br><small>19:00–07:00</small></span><span><i class="shift go">GO</i>Slobodan dan</span><span><i class="shift bo">BO</i>Bolovanje</span></div>
+      <div class="shift-legend">
+        <span><i class="shift d">D</i>Dnevna<br><small>radna smjena</small></span>
+        <span><i class="shift n">N</i>Noćna<br><small>radna smjena</small></span>
+        <span><i class="shift go">GO</i>Godišnji odmor</span>
+        <span><i class="shift bo">BO</i>Bolovanje</span>
+        <span><i class="shift pd">PD</i>Plaćeni dopust</span>
+        <span><i class="shift sd">SD</i>Slobodan dan</span>
+      </div>
       <section class="card month-strip"><div class="card-head"><h3>Sažetak za mjesec</h3><button class="link-btn" data-route="stats">Vidi detalje ›</button></div><div class="month-strip-grid" id="monthStrip"></div></section>
     </section>
 

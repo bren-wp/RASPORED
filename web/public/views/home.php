@@ -11,8 +11,10 @@
         <div class="mobile-shift-chips" aria-label="Oznake smjena">
           <span><i class="shift d">D</i><small>Dnevna</small></span>
           <span><i class="shift n">N</i><small>Noćna</small></span>
-          <span><i class="shift go">GO</i><small>Slobodan</small></span>
+          <span><i class="shift go">GO</i><small>Godišnji</small></span>
           <span><i class="shift bo">BO</i><small>Bolovanje</small></span>
+          <span><i class="shift pd">PD</i><small>Plaćeni dopust</small></span>
+          <span><i class="shift sd">SD</i><small>Slobodan dan</small></span>
         </div>
 
         <div class="mobile-metric-grid" id="mobileMetricGrid"></div>
