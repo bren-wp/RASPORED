@@ -113,6 +113,10 @@ class RemoteAccountStore(context: Context) {
         account = session.account
     }
 
+    fun updateAccount(account: RemoteAccount) {
+        this.account = account
+    }
+
     fun clearCredentials() {
         runCatching { securePreferences.edit().clear().commit() }
         preferences.edit().remove(KEY_TOKEN).apply()
