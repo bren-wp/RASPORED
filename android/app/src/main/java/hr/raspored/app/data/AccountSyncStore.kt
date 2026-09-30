@@ -255,29 +255,38 @@ class AccountSyncStore(private val context: Context) {
 
     private fun parseEvidence(array: JSONArray): List<TimeEvidenceEntry> {
         val zone = ZoneId.systemDefault()
-        return buildList {
-            for (index in 0 until array.length()) {
-                val item = array.optJSONObject(index) ?: continue
-                val started = item.optLong("startedAt", Long.MIN_VALUE).takeIf { it > 0L }
-                    ?: parseDateTime(item.optString("date"), item.optString("in"), zone)
-                    ?: continue
-                val endedRaw = item.optLong("endedAt", Long.MIN_VALUE)
-                val ended = endedRaw.takeIf { it > 0L } ?: run {
-                    val out = item.optString("out")
-                    if (out.isBlank()) null else parseDateTime(item.optString("date"), out, zone)
-                        ?.let { candidate -> if (candidate <= started) candidate + DAY_MILLIS else candidate }
-                }
-                add(
-                    TimeEvidenceEntry(
-                        id = started,
-                        startedAt = started,
-                        endedAt = ended,
-                        note = item.optString("note").take(500),
-                        workType = WorkType.normalized(item.optString("workType"))
-                    )
-                )
+        val entries = mutableListOf<TimeEvidenceEntry>()
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val storedStart = item.optLong("startedAt", Long.MIN_VALUE)
+            val started: Long = if (storedStart > 0L) {
+                storedStart
+            } else {
+                parseDateTime(item.optString("date"), item.optString("in"), zone) ?: continue
             }
-        }.distinctBy { it.startedAt }.sortedBy { it.startedAt }
+            val storedEnd = item.optLong("endedAt", Long.MIN_VALUE)
+            val ended: Long? = if (storedEnd > 0L) {
+                storedEnd.coerceAtLeast(started)
+            } else {
+                val out = item.optString("out")
+                if (out.isBlank()) {
+                    null
+                } else {
+                    parseDateTime(item.optString("date"), out, zone)?.let { candidate: Long ->
+                        if (candidate <= started) candidate + DAY_MILLIS else candidate
+                    }
+                }
+            }
+            entries += TimeEvidenceEntry(
+                id = started,
+                startedAt = started,
+                endedAt = ended,
+                note = item.optString("note").take(500),
+                workType = WorkType.normalized(item.optString("workType"))
+            )
+        }
+        return entries.distinctBy { entry -> entry.startedAt }
+            .sortedBy { entry -> entry.startedAt }
     }
 
     private fun parseDateTime(date: String, time: String, zone: ZoneId): Long? = runCatching {
