@@ -150,8 +150,19 @@ function loadScanSession(){
     }
   }catch(e){}
 }
+function releaseScanPreview(){
+  var img=document.getElementById("scanPreviewImage"),preview=document.getElementById("scanPreview");
+  if(img&&img.dataset.objectUrl){
+    URL.revokeObjectURL(img.dataset.objectUrl);
+    delete img.dataset.objectUrl;
+  }
+  if(img)img.removeAttribute("src");
+  if(preview)preview.classList.remove("has-image");
+}
 function clearScanSession(){
+  state.scanGeneration++;
   state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.editRecognition=false;
+  releaseScanPreview();
   try{sessionStorage.removeItem("raspored.scan.v1")}catch(e){}
 }
 function scanTargetMonth(){
@@ -554,6 +565,15 @@ async function handleScanFile(file){
   renderScanPersonPicker();renderRecognition();
 }
 function route(name){
+  if(state.route==="scan"&&name!=="scan"){
+    state.scanGeneration++;
+    var scanStatus=document.getElementById("scanStatus"),scanProgress=scanStatus&&scanStatus.querySelector(".scan-progress i");
+    if(scanStatus&&scanStatus.classList.contains("is-scanning")){
+      scanStatus.classList.remove("is-scanning");
+      scanStatus.querySelector("span").textContent="Skeniranje je prekinuto. Pokreni ga ponovno kad se vratiš.";
+      if(scanProgress)scanProgress.style.width="0";
+    }
+  }
   state.route=name;document.body.dataset.routeCurrent=name;
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
   document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===name)});
