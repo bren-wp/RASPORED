@@ -23,6 +23,10 @@ test("calendar and statistics remain interactive", async ({page}) => {
   await expect(page.locator("#calendarGridMobile")).toBeVisible();
   await page.locator('[data-route="stats"]:visible').first().click();
   await expect(page.getByText("Ukupno odrađeno sati")).toBeVisible();
+  if((page.viewportSize()?.width ?? 1440)<=820){
+    await page.locator("#statsRefreshBtn").click();
+    await expect(page.locator("#toast")).toContainText("Podaci su osvježeni.");
+  }
   await page.locator("#statsPeriod").click();
   await expect(page.locator("#statsPeriodMenu")).toBeVisible();
 });
@@ -71,6 +75,11 @@ test("recognized schedule can be corrected before import", async ({page}) => {
   await seedApp(page,{withScan:true});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
+  await expect(page.locator("#scanMonthLabel")).toHaveText("Listopad 2026.");
+  await page.locator("#scanMonthNext").click();
+  await expect(page.locator("#scanMonthLabel")).toHaveText("Studeni 2026.");
+  await page.locator("#scanMonthPrev").click();
+  await expect(page.locator("#scanMonthLabel")).toHaveText("Listopad 2026.");
   await page.locator("#editRecognitionBtn").click();
   const first=page.locator('[data-scan-day="1"]');
   await expect(first).toBeEnabled();
