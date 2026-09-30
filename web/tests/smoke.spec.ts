@@ -55,8 +55,8 @@ test("blank calendar cell remains a regular day off and is not SD", async ({page
   await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   const blank=page.locator('[data-date="2026-10-18"]:visible').first();
   await blank.click();
-  await expect(page.locator("#selectedDayCard")).toContainText("Redovni slobodni dan");
-  await expect(page.locator("#selectedDayCard")).not.toContainText("SD");
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("Redovni slobodni dan");
+  await expect(page.locator("#selectedDayCard .selected-shift > .shift")).toHaveText("—");
   await expect(page.locator('[data-date="2026-10-18"]:visible .code')).toHaveCount(0);
 });
 
