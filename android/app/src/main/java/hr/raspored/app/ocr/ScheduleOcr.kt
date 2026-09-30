@@ -905,7 +905,17 @@ object ScheduleOcrEngine {
                     return@addOnSuccessListener
                 }
 
-                val enhanced = enhanceForOcr(bitmap)
+                // Dense monthly schedules often occupy only part of the photo.
+                // Recovery OCR therefore works on the detected grid instead of
+                // spending pixels on monitor chrome, desk area and margins.
+                val recoverySource =
+                    ScheduleTableDetector.cropForRecovery(bitmap) ?: bitmap
+                fun finish(schedule: RecognizedSchedule) {
+                    recycleTemporary(recoverySource, bitmap)
+                    onSuccess(schedule)
+                }
+
+                val enhanced = enhanceForOcr(recoverySource)
                 recognizer.process(InputImage.fromBitmap(enhanced, 0))
                     .addOnSuccessListener { secondResult ->
                         val second = ScheduleOcrParser.parse(
@@ -913,31 +923,29 @@ object ScheduleOcrEngine {
                             monthHint = first.month
                         )
                         val merged = mergeSchedules(first, second)
-                        if (needsStripeRecovery(merged, bitmap)) {
-                            recycleTemporary(enhanced, bitmap)
+                        if (needsStripeRecovery(merged, recoverySource)) {
                             recognizeStripes(
-                                source = bitmap,
+                                source = recoverySource,
                                 baseline = merged,
-                                onSuccess = onSuccess
+                                onSuccess = ::finish
                             )
                         } else {
-                            onSuccess(merged)
+                            finish(merged)
                         }
                     }
                     .addOnFailureListener {
-                        if (needsStripeRecovery(first, bitmap)) {
-                            recycleTemporary(enhanced, bitmap)
+                        if (needsStripeRecovery(first, recoverySource)) {
                             recognizeStripes(
-                                source = bitmap,
+                                source = recoverySource,
                                 baseline = first,
-                                onSuccess = onSuccess
+                                onSuccess = ::finish
                             )
                         } else {
-                            onSuccess(first)
+                            finish(first)
                         }
                     }
                     .addOnCompleteListener {
-                        recycleTemporary(enhanced, bitmap)
+                        recycleTemporary(enhanced, recoverySource)
                     }
             }
             .addOnFailureListener(onError)
@@ -984,8 +992,8 @@ object ScheduleOcrEngine {
     private fun needsStripeRecovery(
         schedule: RecognizedSchedule,
         source: Bitmap
-    ): Boolean = source.width >= 1600 &&
-        source.height >= 1000 &&
+    ): Boolean = source.width >= 900 &&
+        source.height >= 450 &&
         (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule) || schedule.rows.size in 1..15)
 
     private fun recognizeStripes(
@@ -995,7 +1003,7 @@ object ScheduleOcrEngine {
     ) {
         val ranges = stripeRanges(source.height)
         if (ranges.isEmpty()) {
-            onSuccess(baseline)
+            recognizeDayBands(source, baseline, onSuccess)
             return
         }
 
@@ -1313,7 +1321,7 @@ object ScheduleOcrEngine {
     }
 
     private fun stripeRanges(height: Int): List<IntRange> {
-        if (height < 900) return emptyList()
+        if (height < 620) return emptyList()
         // Tri preklapajuća pojasa daju veću efektivnu visinu retka nego
         // dva velika polu-okvira. To je ključno kod fotografije cijelog
         // mjesečnog rasporeda s 20–40 sitnih redaka.
