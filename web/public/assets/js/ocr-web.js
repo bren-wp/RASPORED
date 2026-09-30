@@ -1000,6 +1000,7 @@ window.RasporedWebOcr={
   parseGeometry:parseGeometry,
   detectMonth:detectMonth,
   inferDayCenters:inferDayCenters,
-  inferDayCentersFromShiftXs:inferDayCentersFromShiftXs
+  inferDayCentersFromShiftXs:inferDayCentersFromShiftXs,
+  finalizeRows:finalizeRows
 };
 })();
