@@ -781,7 +781,11 @@ object ScheduleOcrParser {
     }
 
     private fun nameFingerprint(value: String): String =
-        normalizeAscii(value).filter { it.isLetterOrDigit() }
+        normalizeAscii(value)
+            .split(Regex("""[^A-Z0-9]+"""))
+            .filter(String::isNotBlank)
+            .sorted()
+            .joinToString("")
 
     internal fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
         val merged = mutableListOf<RecognizedScheduleRow>()
