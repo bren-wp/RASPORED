@@ -142,18 +142,22 @@ test("no demo or development labels ship in production UI", async ({page}) => {
 });
 
 
-test("web OCR parser normalizes common OCR errors without user data", async ({page}) => {
+test("web OCR parser keeps exact day columns and normalizes common OCR errors", async ({page}) => {
   await page.goto("/");
   const parsed=await page.evaluate(() => {
     const api=(window as any).RasporedWebOcr;
     return {
-      rows:api.parseText("3 IVA KOVAČ G0 B0 D N"),
-      month:api.detectMonth("SIJECANJ 2027.")
+      rows:api.parseText("3 IVA KOVAČ 1 D 2 N 4 G0 7 B0 9 PD 12 SD"),
+      monthNamed:api.detectMonth("SIJECANJ 2027."),
+      monthNumeric:api.detectMonth("2026-10")
     };
   });
   expect(parsed.rows).toHaveLength(1);
-  expect(parsed.rows[0].dayShifts).toEqual({"1":"GO","2":"BO","3":"D","4":"N"});
-  expect(parsed.month).toEqual({year:2027,month:1});
+  expect(parsed.rows[0].dayShifts).toEqual({
+    "1":"D","2":"N","4":"GO","7":"BO","9":"PD","12":"SD"
+  });
+  expect(parsed.monthNamed).toEqual({year:2027,month:1});
+  expect(parsed.monthNumeric).toEqual({year:2026,month:10});
 });
 
 test("overnight time evidence can be closed after midnight", async ({page}) => {
