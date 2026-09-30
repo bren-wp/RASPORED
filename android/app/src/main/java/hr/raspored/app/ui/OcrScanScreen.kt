@@ -65,6 +65,29 @@ internal fun OcrScanScreen(
         editMode = false
         val totalRecognizedDays = recognized.rows.sumOf { it.dayShifts.size }
         val emptyRows = recognized.rows.count { it.dayShifts.isEmpty() }
+        val numberedRows = recognized.rows
+            .mapNotNull { it.rowNumber }
+            .filter { it in 1..100 }
+            .distinct()
+            .sorted()
+        val expectedRows = if (
+            numberedRows.size >= 5 &&
+            numberedRows.firstOrNull()?.let { it <= 3 } == true
+        ) {
+            val first = numberedRows.first()
+            val last = numberedRows.last()
+            (last - first + 1).takeIf { it >= 8 }
+        } else {
+            null
+        }
+        val rosterWarning = expectedRows?.let { expected ->
+            val found = numberedRows.size
+            if (found * 100 < expected * 88) {
+                " Upozorenje: prepoznato je $found od najmanje $expected numeriranih redaka; za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra."
+            } else {
+                ""
+            }
+        }.orEmpty()
         when {
             recognized.rows.isEmpty() -> {
                 selectedRow = -1
@@ -88,9 +111,10 @@ internal fun OcrScanScreen(
                 selectedRow = -1
                 phase = OcrPhase.Success
                 val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
-                message = "Prepoznate su $countLabel i ukupno $totalRecognizedDays oznaka dana. " +
-                    if (emptyRows > 0) "$emptyRows numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih. " else "" +
-                    "Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                message = "Prepoznate su $countLabel i ukupno $totalRecognizedDays oznaka dana." +
+                    rosterWarning +
+                    if (emptyRows > 0) " $emptyRows numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih." else "" +
+                    " Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }
