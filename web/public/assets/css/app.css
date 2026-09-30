@@ -314,3 +314,29 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   .scan-copy--with-help{align-items:flex-start}
   .scan-help-btn{width:40px;height:40px;font-size:18px}
 }
+
+.mobile-shift-card-head--button{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  padding:0;
+  cursor:pointer;
+}
+.mobile-shift-card-head--button:hover,
+.mobile-shift-card-head--button:focus-visible{color:#078DE9;outline:none}
+.mobile-shift-info-action{font:inherit}
+.next-shift--button{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.next-shift--button:hover,.next-shift--button:focus-visible{
+  background:var(--surface-2);
+  outline:none;
+  border-radius:10px;
+}
