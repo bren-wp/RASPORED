@@ -40,7 +40,7 @@ object ScheduleOcrParser {
     )
     private val rowNumberRegex = Regex("""^\s*(\d{1,3})[.)]?\s*""")
     private val explicitDayShiftRegex = Regex(
-        """(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)\-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?![\p{L}])""",
+        """(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)|\-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?![\p{L}])""",
         setOf(RegexOption.IGNORE_CASE)
     )
     private val spaces = Regex("""\s+""")
