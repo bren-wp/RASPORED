@@ -329,6 +329,33 @@ function shiftStatus(date,code){
   if(now<end)return "U tijeku";
   return "Završeno";
 }
+function upcomingShiftNotification(){
+  var start=appNow();
+  for(var i=0;i<31;i++){
+    var date=addDays(start,i),code=state.schedule[iso(date)];
+    if(code==="D"||code==="N")return {date:date,code:code,key:iso(date)+"-"+code};
+  }
+  return null;
+}
+function renderNotifications(){
+  var item=upcomingShiftNotification(),textEl=document.getElementById("notificationText"),dot=document.getElementById("notificationDot");
+  if(!textEl||!dot)return;
+  if(!item){
+    textEl.textContent="Nema novih obavijesti.";
+    dot.hidden=true;
+    return;
+  }
+  var meta=shiftMeta(item.code),dateLabel=item.date.toLocaleDateString("hr-HR",{weekday:"long",day:"numeric",month:"long"});
+  textEl.textContent="Sljedeća smjena: "+dateLabel+" · "+meta.name+" · "+meta.time+".";
+  var readKey="";
+  try{readKey=localStorage.getItem("raspored.notifications.readKey")||""}catch(e){}
+  dot.hidden=readKey===item.key;
+}
+function markNotificationsRead(){
+  var item=upcomingShiftNotification();
+  if(item){try{localStorage.setItem("raspored.notifications.readKey",item.key)}catch(e){}}
+  renderNotifications();
+}
 function renderMobileHome(){
   var date=appNow(),entry=currentShiftFor(date),code=entry?entry.code:null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
   var title=document.getElementById("mobileTodayTitle");
@@ -493,7 +520,7 @@ function route(name){
 }
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2200)}
-function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderScanPersonPicker();renderRecognition();renderStats();renderHours();renderColleagues();renderPeriodMenu()}
+function renderAll(){setMonthLabels();renderCalendar("calendarGrid");renderCalendar("calendarGridMobile");renderSummary();renderMobileHome();nextShifts();renderSelected();renderScanPersonPicker();renderRecognition();renderStats();renderHours();renderColleagues();renderPeriodMenu();renderNotifications()}
 function bind(){
   document.querySelectorAll("[data-route]").forEach(function(x){x.addEventListener("click",function(e){e.preventDefault();route(this.dataset.route)})});
   document.addEventListener("click",function(e){
@@ -578,7 +605,7 @@ function bind(){
   }
   var notificationBtn=document.getElementById("notificationBtn"),notificationPanel=document.getElementById("notificationPanel"),closeNotificationBtn=document.getElementById("closeNotificationBtn");
   function setNotificationPanel(open){if(!notificationPanel||!notificationBtn)return;notificationPanel.hidden=!open;notificationBtn.setAttribute("aria-expanded",open?"true":"false")}
-  if(notificationBtn)notificationBtn.addEventListener("click",function(e){e.stopPropagation();setNotificationPanel(notificationPanel?notificationPanel.hidden:false);if(profilePanel)profilePanel.hidden=true});
+  if(notificationBtn)notificationBtn.addEventListener("click",function(e){e.stopPropagation();var opening=notificationPanel?notificationPanel.hidden:false;setNotificationPanel(opening);if(opening)markNotificationsRead();if(profilePanel)profilePanel.hidden=true});
   if(closeNotificationBtn)closeNotificationBtn.addEventListener("click",function(){setNotificationPanel(false)});
   var profileButton=document.getElementById("profileButton"),profilePanel=document.getElementById("profilePanel"),closeProfileBtn=document.getElementById("closeProfileBtn");
   function setProfilePanel(open){if(!profilePanel||!profileButton)return;profilePanel.hidden=!open}
