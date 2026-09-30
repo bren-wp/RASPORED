@@ -371,6 +371,7 @@ test("server JSON storage works when browser Storage APIs are unavailable", asyn
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator('[data-view="settings"]')).toBeVisible();
   await page.locator("#themeToggle").check();
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
   await page.reload();
   await expect(page.locator("#themeToggle")).toBeChecked();
   await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
@@ -406,6 +407,38 @@ test("state API rejects writes without the application request header", async ({
     return response.status;
   });
   expect(status).toBe(403);
+});
+
+
+test("queued JSON writes preserve edits made while an earlier PUT is in flight", async ({page}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    store.set("raspored.theme","dark");
+    await new Promise(resolve=>setTimeout(resolve,0));
+    store.set("raspored.profile.name","Ana Horvat");
+    await store.flush();
+  });
+  const saved=await page.evaluate(async () => {
+    const response=await fetch((document.body.dataset.base||"")+"/api/state.php",{cache:"no-store"});
+    return (await response.json()).state;
+  });
+  expect(saved.settings.theme).toBe("dark");
+  expect(saved.profile.name).toBe("Ana Horvat");
+});
+
+test("offline API startup rejects writes instead of overwriting server state", async ({browser}) => {
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  const page=await context.newPage();
+  await page.route("**/api/state.php",route=>route.abort());
+  await page.goto("/");
+  const result=await page.evaluate(() => {
+    const store=(window as any).RasporedDataStore;
+    return {available:store.isAvailable(),saved:store.set("raspored.profile.name","Ne smije se spremiti")};
+  });
+  expect(result.available).toBe(false);
+  expect(result.saved).toBe(false);
+  await context.close();
 });
 
 
