@@ -269,7 +269,8 @@ function renderScanPersonPicker(){
   button.disabled=state.scanPeople.length===0;
   menu.innerHTML=state.scanPeople.map(function(item,index){
     var allowed=scanPersonAllowed(item);
-    return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'" '+(allowed?'':'disabled')+'><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>'+(allowed?'Samo ovaj raspored bit će uvezen':'Račun dopušta uvoz samo vlastitog rasporeda')+'</small></button>';
+    var count=Object.keys(item.dayShifts||{}).length;
+    return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'" '+(allowed?'':'disabled')+'><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>'+count+' prepoznatih dana · '+(allowed?'Samo ovaj raspored bit će uvezen':'Račun dopušta uvoz samo vlastitog rasporeda')+'</small></button>';
   }).join("");
   if(status){
     if(expectedName&&!person&&state.scanPeople.length)status.textContent="Ime s računa nije pouzdano pronađeno u skeniranom rasporedu.";
@@ -706,9 +707,12 @@ async function handleScanFile(file){
     if(state.scanPeople.length){
       status.classList.add("is-success");
       var monthWarning=result.month?"":" Mjesec nije pouzdano prepoznat; provjeri ga prije spremanja.";
+      var recognizedDays=state.scanPeople.reduce(function(total,person){
+        return total+Object.keys(person.dayShifts||{}).length;
+      },0);
       status.querySelector("span").textContent=(state.scanPeople.length===1
-        ?"Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
-        :"Prepoznate su "+state.scanPeople.length+" osobe. Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
+        ?"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja."
+        :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana. Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
     }else{
       status.classList.add("is-error");
       status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Pokušaj s ravnijom i oštrijom fotografijom.";
