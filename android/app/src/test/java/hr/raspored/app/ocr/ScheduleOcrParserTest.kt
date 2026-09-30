@@ -198,6 +198,27 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun mergesReorderedNamesWhenRowNumberIsMissingInRecoveryPass() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(1 to "D")
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "HORVAT ANA",
+                    dayShifts = mapOf(20 to "N")
+                )
+            )
+        )
+
+        assertEquals(1, merged.size)
+        assertEquals(mapOf(1 to "D", 20 to "N"), merged.single().dayShifts)
+    }
+
+    @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
         assertEquals(YearMonth.of(2027, 1), result.month)
