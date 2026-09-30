@@ -173,3 +173,46 @@ test("OCR finalization suppresses one-off ghost people in a dense numbered roste
   expect(rows).toHaveLength(30);
   expect(rows.map((row:any)=>row.row)).toEqual(Array.from({length:30},(_,i)=>i+1));
 });
+
+
+test("OCR finalization keeps very similar real names as separate people", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    return api.finalizeRows([
+      {row:null,name:"IVAN HORVAT",dayShifts:{"1":"D"},supportCount:3},
+      {row:null,name:"IVANA HORVAT",dayShifts:{"2":"N"},supportCount:3}
+    ]);
+  });
+
+  expect(rows).toHaveLength(2);
+  expect(rows.map((row:any)=>row.name).sort()).toEqual(["IVAN HORVAT","IVANA HORVAT"]);
+});
+
+test("OCR finalization fills one missing dense-roster slot with repeated unnumbered employee", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const numbered=Array.from({length:30},(_,index)=>index+1)
+      .filter(number=>number!==15)
+      .map(number=>({
+        row:number,
+        name:"OSOBA BROJ",
+        dayShifts:{"1":"D","31":"N"},
+        supportCount:3
+      }));
+    return api.finalizeRows(numbered.concat([
+      {row:null,name:"MAJA PERIĆ",dayShifts:{"1":"N","16":"GO","31":"D"},supportCount:4},
+      {row:null,name:"NASLOV TABLICE",dayShifts:{"2":"D"},supportCount:3}
+    ]));
+  });
+
+  expect(rows).toHaveLength(30);
+  const unnumbered=rows.filter((row:any)=>row.row==null);
+  expect(unnumbered).toHaveLength(1);
+  expect(unnumbered[0].name).toBe("MAJA PERIĆ");
+});
