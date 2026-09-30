@@ -84,17 +84,11 @@ function loadTeamMembers(){
   }catch(e){return []}
 }
 function saveTeamMembers(items){return storageSet("raspored.team.v1",JSON.stringify(items.slice(0,100)))}
-function isManagerAccount(){return !!(window.RasporedAuth&&window.RasporedAuth.isManager&&window.RasporedAuth.isManager())}
 function authSnapshot(){return window.RasporedAuth&&window.RasporedAuth.snapshot?window.RasporedAuth.snapshot():{authenticated:false,account:null}}
 function normalizePersonName(value){
   return String(value||"").toLocaleUpperCase("hr-HR").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/Đ/g,"D").replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim()
     .split(" ").filter(Boolean).sort().join(" ");
-}
-function individualAccountName(){
-  var auth=authSnapshot();
-  if(!auth.authenticated||!auth.account||auth.account.accountType==="manager")return "";
-  return ((auth.account.firstName||"")+" "+(auth.account.lastName||"")).trim();
 }
 function syncAuthenticatedProfile(){
   var auth=authSnapshot(),input=document.getElementById("profileNameInput"),saveBtn=document.getElementById("saveProfileBtn"),help=document.getElementById("profileHelp");
