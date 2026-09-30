@@ -116,6 +116,7 @@ var SEARCH_ROUTES=[
   {label:"Kalendar",route:"calendar",keywords:"kalendar raspored smjene"},
   {label:"Skeniraj raspored",route:"scan",keywords:"skeniraj scan ocr fotografija uvezi"},
   {label:"Statistika",route:"stats",keywords:"statistika saldo izvještaji izvjestaji"},
+  {label:"Okvirna plaća",route:"payroll",keywords:"plaća placa bruto koeficijent bod osnovica"},
   {label:"Evidencija sati",route:"hours",keywords:"sati evidencija ulaz izlaz"},
   {label:"Kolege",route:"colleagues",keywords:"kolege djelatnici osobe"},
   {label:"Postavke",route:"settings",keywords:"postavke profil tema izgled"}
@@ -124,7 +125,7 @@ function renderSearchResults(query){
   var list=document.getElementById("searchResults");if(!list)return;
   var q=(query||"").trim().toLocaleLowerCase("hr-HR");
   var matches=SEARCH_ROUTES.filter(function(item){return !q||item.label.toLocaleLowerCase("hr-HR").includes(q)||item.keywords.includes(q)}).slice(0,7);
-  list.innerHTML=matches.map(function(item){return '<button type="button" data-search-route="'+item.route+'">'+icon(item.route==="home"?"home":item.route==="calendar"?"calendar":item.route==="scan"?"camera":item.route==="stats"?"chart":item.route==="hours"?"clock":item.route==="colleagues"?"users":"settings")+'<span><b>'+item.label+'</b><small>Otvori '+item.label.toLocaleLowerCase("hr-HR")+'</small></span>'+icon("chevron-right")+'</button>'}).join("")||'<p class="search-empty">Nema rezultata.</p>';
+  list.innerHTML=matches.map(function(item){return '<button type="button" data-search-route="'+item.route+'">'+icon(item.route==="home"?"home":item.route==="calendar"?"calendar":item.route==="scan"?"camera":item.route==="stats"?"chart":item.route==="payroll"?"scale":item.route==="hours"?"clock":item.route==="colleagues"?"users":"settings")+'<span><b>'+item.label+'</b><small>Otvori '+item.label.toLocaleLowerCase("hr-HR")+'</small></span>'+icon("chevron-right")+'</button>'}).join("")||'<p class="search-empty">Nema rezultata.</p>';
 }
 function openSearch(){
   var dialog=document.getElementById("searchDialog"),input=document.getElementById("searchInput");
@@ -578,6 +579,7 @@ function route(name){
   document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===name)});
   if(name==="hours")renderHours();
   if(name==="colleagues")renderColleagues();
+  if(name==="payroll"&&window.RasporedPayroll)window.RasporedPayroll.render();
   window.scrollTo({top:0,behavior:document.body.dataset.reducedMotion==="true"?"auto":"smooth"});
 }
 function moveMonth(delta){state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth()+delta,1);state.selected=new Date(state.cursor);renderAll()}
