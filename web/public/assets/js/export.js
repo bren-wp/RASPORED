@@ -129,7 +129,7 @@ function printReport(){
     var rows=evidence.map(function(entry){
       var span=clippedInterval(entry,dayStart,dayEnd);
       if(!span)return null;
-      var suffix=(entryInterval(entry)&&entryInterval(entry).end>Date.now()&&!entry.endedAt)?" · u tijeku":"";
+      var suffix=(!entry.endedAt&&!entry.out)?" · u tijeku":"";
       return hhmm(span.start)+"–"+hhmm(span.end)+" · "+workType(entry.workType)+suffix;
     }).filter(Boolean);
     evidenceCell.textContent=rows.length?rows.join(" | "):"—";
