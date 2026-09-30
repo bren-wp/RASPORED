@@ -472,6 +472,25 @@ function anchoredRows(tokens,geometry,tolerance){
     return row.row!=null||Object.keys(row.dayShifts).length>0;
   });
 }
+function parseRosterRows(blocks){
+  var lines=flattenLines(blocks);
+  var tokens=allWords(lines);
+  if(!tokens.length)return [];
+  var tolerance=Math.max(8,(median(tokens.map(function(token){return boxHeight(token.bbox)}))||12)*.90);
+  var rows=clusterByY(tokens,tolerance).map(function(cluster){
+    var ordered=cluster.slice().sort(function(a,b){return centerX(a.bbox)-centerX(b.bbox)});
+    var text=ordered.map(function(token){return token.text}).join(" ").replace(/\s+/g," ").trim();
+    var match=text.match(/^\s*(\d{1,3})[.)]?\s*/);
+    if(!match)return null;
+    var row=Number(match[1]);
+    if(!(row>=1&&row<=100))return null;
+    var name=cleanName(text);
+    var words=name.split(/\s+/).filter(function(word){return /\p{L}/u.test(word)});
+    if(!validName(name)||(words.length<2&&(name.match(/\p{L}/gu)||[]).length<8))return null;
+    return {row:row,name:name,dayShifts:{}};
+  }).filter(Boolean);
+  return mergeRows(rows);
+}
 function parseGeometry(blocks,maxDay){
   var lines=flattenLines(blocks);
   if(!lines.length)return [];
@@ -553,6 +572,38 @@ async function prepareStripe(file,startRatio,endRatio){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
+async function prepareRosterColumn(file){
+  if(typeof createImageBitmap!=="function")return file;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var pixelScale=Math.sqrt(5000000/(cropWidth*bitmap.height));
+    var edgeScale=3000/cropWidth;
+    var scale=Math.max(1,Math.min(2.20,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(cropWidth*scale));
+    canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return file;
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.42)";
+    context.drawImage(
+      bitmap,
+      0,0,cropWidth,bitmap.height,
+      0,0,canvas.width,canvas.height
+    );
+    context.filter="none";
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.96);
+    });
+  }catch(error){
+    return file;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
 async function getWorker(){
   if(workerPromise)return workerPromise;
   workerPromise=(async function(){
@@ -616,7 +667,7 @@ async function recognizeScheduleNow(file,onProgress){
 
     var stripes=[[0,.46],[.27,.74],[.55,1]];
     for(var i=0;i<stripes.length;i++){
-      if(onProgress)onProgress(.86+i*.04,"table-stripe-"+(i+1));
+      if(onProgress)onProgress(.84+i*.035,"table-stripe-"+(i+1));
       var stripeSource=await prepareStripe(file,stripes[i][0],stripes[i][1]);
       var stripe=parsedResult(
         await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
@@ -624,6 +675,11 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged=mergeRecognized(merged,stripe);
     }
+    if(onProgress)onProgress(.96,"roster-column");
+    var rosterSource=await prepareRosterColumn(file);
+    var rosterResult=await worker.recognize(rosterSource,{}, {text:true,blocks:true});
+    var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
+    merged.people=mergeRows((merged.people||[]).concat(rosterRows));
     return merged;
   }finally{
     activeProgressCallback=null;
