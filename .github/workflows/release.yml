@@ -76,9 +76,11 @@ jobs:
         run: |
           set -euo pipefail
           find public -name '*.php' -print0 | xargs -0 -n1 php -l
+          find public/assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
+          node -e "JSON.parse(require('fs').readFileSync('public/assets/data/payroll-public-sector-2026.json','utf8'))"
           npm install
           npx playwright install --with-deps chromium
-          npx playwright test tests/smoke.spec.ts tests/capture.spec.ts
+          npx playwright test tests/smoke.spec.ts tests/capture.spec.ts tests/export-history.spec.ts
 
       - name: Package Web/PWA
         shell: bash
