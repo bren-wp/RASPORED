@@ -71,13 +71,21 @@ function renderColleagues(){
   }).join("");
 }
 function addColleague(){
-  var name=window.prompt("Ime i prezime kolege:","");
-  if(!name)return;
-  name=name.trim().replace(/\s+/g," ").slice(0,80);
-  if(name.length<2){toast("Unesi valjano ime kolege.");return}
+  var dialog=document.getElementById("colleagueDialog"),name=document.getElementById("colleagueNameInput"),note=document.getElementById("colleagueNoteInput");
+  if(!dialog)return;
+  if(name)name.value="";if(note)note.value="";
+  dialog.showModal();
+  setTimeout(function(){if(name)name.focus()},0);
+}
+function submitColleague(){
+  var dialog=document.getElementById("colleagueDialog"),nameInput=document.getElementById("colleagueNameInput"),noteInput=document.getElementById("colleagueNoteInput");
+  var name=(nameInput?nameInput.value:"").trim().replace(/\s+/g," ").slice(0,80);
+  var note=(noteInput?noteInput.value:"").trim().replace(/\s+/g," ").slice(0,120);
+  if(name.length<2){toast("Unesi valjano ime i prezime.");if(nameInput)nameInput.focus();return false}
   var items=loadColleagues();
-  if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return}
-  items.push({name:name,note:"Lokalni kontakt"});saveColleagues(items);renderColleagues();toast("Kolega je dodan.");
+  if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return false}
+  items.push({name:name,note:note||"Raspored kolege"});saveColleagues(items);renderColleagues();
+  if(dialog)dialog.close();toast("Kolega je dodan.");return true;
 }
 function yearMonthKey(y,m){return y+"-"+String(m+1).padStart(2,"0")}
 function renderPeriodMenu(){
@@ -92,17 +100,26 @@ function renderPeriodMenu(){
     menu.appendChild(button);
   }
 }
+var SEARCH_ROUTES=[
+  {label:"Početna",route:"home",keywords:"početna pocetna naslovnica"},
+  {label:"Kalendar",route:"calendar",keywords:"kalendar raspored smjene"},
+  {label:"Skeniraj raspored",route:"scan",keywords:"skeniraj scan ocr fotografija uvezi"},
+  {label:"Statistika",route:"stats",keywords:"statistika saldo izvještaji izvjestaji"},
+  {label:"Evidencija sati",route:"hours",keywords:"sati evidencija ulaz izlaz"},
+  {label:"Kolege",route:"colleagues",keywords:"kolege djelatnici osobe"},
+  {label:"Postavke",route:"settings",keywords:"postavke profil tema izgled"}
+];
+function renderSearchResults(query){
+  var list=document.getElementById("searchResults");if(!list)return;
+  var q=(query||"").trim().toLocaleLowerCase("hr-HR");
+  var matches=SEARCH_ROUTES.filter(function(item){return !q||item.label.toLocaleLowerCase("hr-HR").includes(q)||item.keywords.includes(q)}).slice(0,7);
+  list.innerHTML=matches.map(function(item){return '<button type="button" data-search-route="'+item.route+'">'+icon(item.route==="home"?"home":item.route==="calendar"?"calendar":item.route==="scan"?"camera":item.route==="stats"?"chart":item.route==="hours"?"clock":item.route==="colleagues"?"users":"settings")+'<span><b>'+item.label+'</b><small>Otvori '+item.label.toLocaleLowerCase("hr-HR")+'</small></span>'+icon("chevron-right")+'</button>'}).join("")||'<p class="search-empty">Nema rezultata.</p>';
+}
 function openSearch(){
-  var q=window.prompt("Pretraži RASPORED:","");
-  if(!q)return;
-  var normalized=q.trim().toLocaleLowerCase("hr-HR");
-  var routes=[
-    ["početna","home"],["pocetna","home"],["kalendar","calendar"],["raspored","calendar"],
-    ["skeniraj","scan"],["scan","scan"],["statistika","stats"],["sati","hours"],["evidencija","hours"],
-    ["kolege","colleagues"],["postavke","settings"]
-  ];
-  var match=routes.find(function(x){return normalized.indexOf(x[0])>=0});
-  if(match)route(match[1]);else toast("Nema rezultata za „"+q.trim().slice(0,40)+"“.");
+  var dialog=document.getElementById("searchDialog"),input=document.getElementById("searchInput");
+  if(!dialog)return;
+  if(input)input.value="";renderSearchResults("");dialog.showModal();
+  setTimeout(function(){if(input)input.focus()},0);
 }
 function saveScanSession(){
   try{
@@ -517,6 +534,16 @@ function bind(){
     document.addEventListener("click",function(e){if(!menu.hidden&&!e.target.closest(".period-picker")){menu.hidden=true;period.setAttribute("aria-expanded","false")}});
   }
   var search=document.getElementById("searchBtn");if(search)search.addEventListener("click",openSearch);
+  var searchDialog=document.getElementById("searchDialog"),searchInput=document.getElementById("searchInput"),searchResults=document.getElementById("searchResults");
+  if(searchInput)searchInput.addEventListener("input",function(){renderSearchResults(this.value)});
+  if(searchResults)searchResults.addEventListener("click",function(e){
+    var button=e.target.closest("[data-search-route]");if(!button)return;
+    if(searchDialog)searchDialog.close();route(button.dataset.searchRoute);
+  });
+  var colleagueForm=document.getElementById("colleagueForm"),colleagueDialog=document.getElementById("colleagueDialog");
+  if(colleagueForm)colleagueForm.addEventListener("submit",function(e){e.preventDefault();submitColleague()});
+  ["closeColleagueDialog","cancelColleagueBtn"].forEach(function(id){var button=document.getElementById(id);if(button)button.addEventListener("click",function(){if(colleagueDialog)colleagueDialog.close()})});
+
   var addColleagueBtn=document.getElementById("addColleagueBtn");if(addColleagueBtn)addColleagueBtn.addEventListener("click",addColleague);
   var scanPersonButton=document.getElementById("scanPersonButton"),scanPersonMenu=document.getElementById("scanPersonMenu");
   if(scanPersonButton&&scanPersonMenu){
