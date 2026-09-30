@@ -747,6 +747,7 @@ object ScheduleOcrEngine {
                         )
                         val merged = mergeSchedules(first, second)
                         if (needsStripeRecovery(merged, bitmap)) {
+                            recycleTemporary(enhanced, bitmap)
                             recognizeStripes(
                                 source = bitmap,
                                 baseline = merged,
@@ -758,6 +759,7 @@ object ScheduleOcrEngine {
                     }
                     .addOnFailureListener {
                         if (needsStripeRecovery(first, bitmap)) {
+                            recycleTemporary(enhanced, bitmap)
                             recognizeStripes(
                                 source = bitmap,
                                 baseline = first,
@@ -768,12 +770,16 @@ object ScheduleOcrEngine {
                         }
                     }
                     .addOnCompleteListener {
-                        if (enhanced !== bitmap && !enhanced.isRecycled) {
-                            enhanced.recycle()
-                        }
+                        recycleTemporary(enhanced, bitmap)
                     }
             }
             .addOnFailureListener(onError)
+    }
+
+    private fun recycleTemporary(candidate: Bitmap, source: Bitmap) {
+        if (candidate !== source && !candidate.isRecycled) {
+            candidate.recycle()
+        }
     }
 
     private fun needsRecoveryPass(schedule: RecognizedSchedule): Boolean {
