@@ -122,6 +122,23 @@ test("time evidence stores selected work type without inventing a special-duty r
   expect(stored.workType).toBe("duty");
 });
 
+test("web OCR infers a dense full-month grid when header numbers are missed", async ({page}) => {
+  await page.goto("/");
+  const result=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const xs:number[]=[];
+    for(let day=1;day<=31;day++){
+      const center=120+(day-1)*42;
+      xs.push(center-2,center,center+2);
+    }
+    return api.inferDayCentersFromShiftXs(xs,31);
+  });
+  expect(result).not.toBeNull();
+  expect(Math.round(result.centers["1"])).toBe(120);
+  expect(Math.round(result.centers["16"])).toBe(750);
+  expect(Math.round(result.centers["31"])).toBe(1380);
+});
+
 test("profile, notifications and colleagues controls work", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
