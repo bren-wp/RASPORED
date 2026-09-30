@@ -733,6 +733,16 @@ async function handleScanFile(file){
       var emptyRows=state.scanPeople.filter(function(person){
         return Object.keys(person.dayShifts||{}).length===0;
       }).length;
+      var rowNumbers=Array.from(new Set(state.scanPeople.map(function(person){return Number(person.row)}).filter(function(value){
+        return Number.isInteger(value)&&value>=1&&value<=100;
+      }))).sort(function(a,b){return a-b});
+      var rosterWarning="";
+      if(rowNumbers.length>=5&&rowNumbers[0]<=3){
+        var expectedRows=rowNumbers[rowNumbers.length-1]-rowNumbers[0]+1;
+        if(expectedRows>=8&&rowNumbers.length*100<expectedRows*88){
+          rosterWarning=" Upozorenje: prepoznato je "+rowNumbers.length+" od najmanje "+expectedRows+" numeriranih redaka; za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra.";
+        }
+      }
       if(recognizedDays===0){
         status.classList.add("is-error");
         status.querySelector("span").textContent="Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."+monthWarning;
@@ -743,7 +753,7 @@ async function handleScanFile(file){
           :"";
         status.querySelector("span").textContent=(state.scanPeople.length===1
           ?"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja."
-          :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana."+emptyWarning+" Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
+          :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana."+rosterWarning+emptyWarning+" Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
       }
     }else{
       status.classList.add("is-error");
