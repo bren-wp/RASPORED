@@ -41,7 +41,7 @@ class ScheduleHistoryTest {
         store.saveMonth(middle, mapOf(17 to "N"))
         store.saveMonth(last, mapOf(31 to "GO"))
 
-        val sequenceStart = YearMonth.of(2026, 1)
+        val sequenceStart = YearMonth.of(2037, 1)
         repeat(121) { offset ->
             val month = sequenceStart.plusMonths(offset.toLong())
             store.saveMonth(month, mapOf(1 to if (offset % 2 == 0) "D" else "N"))
