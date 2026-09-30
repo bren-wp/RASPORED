@@ -327,7 +327,7 @@ function loadTimeEntries(){
     });
   }catch(e){return []}
 }
-function saveTimeEntries(entries){return storageSet("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
+function saveTimeEntries(entries){return storageSet("raspored.timeEntries.v1",JSON.stringify(entries.slice(-3000)))}
 function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function durationMinutes(entry,now){
   if(!entry||!entry.in)return 0;
