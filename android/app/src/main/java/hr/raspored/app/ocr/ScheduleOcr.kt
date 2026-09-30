@@ -528,18 +528,22 @@ object ScheduleOcrParser {
         return true
     }
 
+    private fun nameFingerprint(value: String): String =
+        normalizeAscii(value).filter { it.isLetterOrDigit() }
+
     internal fun mergeRows(rows: List<RecognizedScheduleRow>): List<RecognizedScheduleRow> {
         val merged = mutableListOf<RecognizedScheduleRow>()
         rows.forEach { row ->
-            val normalizedName = normalizeAscii(row.name).replace(spaces, " ").trim()
+            val normalizedName = nameFingerprint(row.name)
             val index = merged.indexOfFirst { existing ->
                 val sameRow = row.rowNumber != null &&
                     existing.rowNumber != null &&
                     row.rowNumber == existing.rowNumber
-                val sameName = normalizeAscii(existing.name)
-                    .replace(spaces, " ")
-                    .trim() == normalizedName
-                sameRow || sameName
+                val sameName = nameFingerprint(existing.name) == normalizedName
+                val conflictingRows = row.rowNumber != null &&
+                    existing.rowNumber != null &&
+                    row.rowNumber != existing.rowNumber
+                sameRow || (sameName && !conflictingRows)
             }
             if (index < 0) {
                 merged += row
