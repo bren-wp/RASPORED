@@ -5,7 +5,27 @@ on:
     branches: [main]
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION"; exit 1; }
+          grep -q "\"version\":\"$VERSION\"" web/package.json || { echo "web/package.json version differs from VERSION"; exit 1; }
+          grep -q "^$VERSION$" web/public/version.txt || { echo "web/public/version.txt differs from VERSION"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists. Bump VERSION before merging new changes." >&2
+            exit 1
+          fi
+
   web:
+    needs: version
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -47,6 +67,7 @@ jobs:
           if-no-files-found: error
 
   android:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
