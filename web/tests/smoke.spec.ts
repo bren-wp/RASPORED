@@ -294,3 +294,25 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
     }
   }
 });
+
+
+test("app remains usable when localStorage is unavailable", async ({browser}) => {
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  const page=await context.newPage();
+  const pageErrors:string[]=[];
+  page.on("pageerror",error=>pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    const blocked=()=>{throw new DOMException("Storage blocked","SecurityError")};
+    Storage.prototype.getItem=blocked;
+    Storage.prototype.setItem=blocked;
+    Storage.prototype.removeItem=blocked;
+  });
+  await page.goto("/");
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
+  await page.locator('[data-route="settings"]:visible').first().click();
+  await expect(page.locator('[data-view="settings"]')).toBeVisible();
+  await page.locator("#themeToggle").check();
+  await expect(page.locator("#toast")).toContainText("nije moguće spremiti");
+  expect(pageErrors).toEqual([]);
+  await context.close();
+});
