@@ -4,7 +4,7 @@
           <h1>Okvirna plaća</h1>
           <p>Procjena bruto plaće za javne zdravstvene ustanove prema službenom koeficijentu, osnovici i stvarno evidentiranim satima.</p>
         </div>
-        <label class="payroll-month"><span>Mjesec</span><input type="month" id="payrollMonth"></label>
+        <label class="payroll-month"><span>Mjesec</span><input type="month" id="payrollMonth" min="2026-01" max="2026-12"></label>
       </div>
 
       <div class="payroll-layout">
@@ -26,7 +26,7 @@
             <label class="payroll-field"><span>Dodatak po rješenju/ugovoru (%)</span><input id="payrollExtraPercent" type="number" min="0" max="100" step="0.1" inputmode="decimal" value="0"></label>
           </div>
           <label class="setting-row payroll-switch">
-            <span><b>Druga smjena / turnus 10%</b><small>Uključi samo ako se na tvoju organizaciju rada primjenjuje dodatak za sate 14:00–22:00.</small></span>
+            <span><b>Druga smjena 10%</b><small>Uključi samo ako se na tvoju organizaciju rada primjenjuje dodatak za rad u drugoj smjeni, u pravilu 14:00–22:00.</small></span>
             <input type="checkbox" id="payrollSecondShift">
           </label>
           <div class="payroll-role-note" id="payrollRoleNote"></div>
@@ -56,7 +56,7 @@
       <section class="card payroll-legal-card">
         <h2>Kako je procjena napravljena</h2>
         <p id="payrollLegalText">Učitavanje službenih parametara…</p>
-        <p><b>Važno:</b> ovo nije obračunska isprava niti konačan neto iznos. Porez, osobni odbitak, bolovanje, dežurstva, pripravnost, posebna rješenja i druga prava mogu promijeniti konačnu isplatu.</p>
+        <p><b>Važno:</b> važeći javni sustav koristi koeficijente radnih mjesta; ne postoji jedan univerzalni “bod plaće” koji bi svaka bolnica proizvoljno određivala. Ovo nije obračunska isprava niti konačan neto iznos. Porez, osobni odbitak, bolovanje, dežurstva, pripravnost, posebna rješenja i druga prava mogu promijeniti konačnu isplatu.</p>
         <div id="payrollSources" class="payroll-sources"></div>
       </section>
     </section>
