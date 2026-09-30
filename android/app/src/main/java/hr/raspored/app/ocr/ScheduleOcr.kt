@@ -1778,7 +1778,11 @@ object ScheduleOcrEngine {
 
         fun processBand(index: Int, accumulated: RecognizedSchedule) {
             if (index >= ranges.size) {
-                onSuccess(accumulated)
+                if (needsLastMileRecovery(accumulated)) {
+                    recognizeSingleEmployeeRows(source, accumulated, onSuccess)
+                } else {
+                    onSuccess(accumulated)
+                }
                 return
             }
             val (startRatio, endRatio) = ranges[index]
@@ -1806,6 +1810,64 @@ object ScheduleOcrEngine {
                 }
         }
         processBand(0, baseline)
+    }
+
+    private fun needsLastMileRecovery(schedule: RecognizedSchedule): Boolean {
+        val rows = schedule.rows
+        if (rows.size < 8) return true
+        val mapped = rows.sumOf { it.dayShifts.size }
+        val numbered = rows.filter { it.rowNumber != null }
+        val verySparseNumbered = numbered.count { it.dayShifts.size < 3 }
+        return hasMissingNumberedRows(schedule) ||
+            mapped < rows.size * 10 ||
+            (numbered.size >= 8 && verySparseNumbered * 4 > numbered.size)
+    }
+
+    /**
+     * Final high-accuracy fallback for dense monthly grids. Each OCR request
+     * contains the real day-number header plus exactly one employee row. This
+     * is deliberately slower and only runs when earlier passes still look
+     * incomplete; it prevents accepting a 27-row roster with only a few people
+     * or only a few dates recognized.
+     */
+    private fun recognizeSingleEmployeeRows(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val bands = ScheduleTableDetector.detectEmployeeRowBands(source, rowsPerBand = 1)
+        if (bands.isEmpty()) {
+            onSuccess(baseline)
+            return
+        }
+
+        fun process(index: Int, accumulated: RecognizedSchedule) {
+            if (index >= bands.size) {
+                onSuccess(accumulated)
+                return
+            }
+            val composite = createEnhancedExactRowBand(source, bands[index])
+            if (composite == null) {
+                process(index + 1, accumulated)
+                return
+            }
+            recognizer.process(InputImage.fromBitmap(composite, 0))
+                .addOnSuccessListener { result ->
+                    val parsed = ScheduleOcrParser.parse(
+                        result,
+                        monthHint = accumulated.month
+                    )
+                    process(index + 1, mergeSchedules(accumulated, parsed))
+                }
+                .addOnFailureListener {
+                    process(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!composite.isRecycled) composite.recycle()
+                }
+        }
+
+        process(0, baseline)
     }
 
     private fun createEnhancedRosterBand(
