@@ -69,14 +69,19 @@ function sortedShiftMap(raw){
     .sort(function(a,b){return a-b})
     .reduce(function(out,day){out[day]=raw[day];return out},{});
 }
+function nameFingerprint(value){
+  return normalizeAscii(value).replace(/[^A-Z0-9ČĆŽŠĐ]/g,"");
+}
 function mergeRows(rows){
   var merged=[];
   (rows||[]).forEach(function(row){
     if(!row||!validName(row.name||""))return;
-    var key=normalizeAscii(row.name);
+    var key=nameFingerprint(row.name);
     var index=merged.findIndex(function(existing){
       var sameRow=row.row!=null&&existing.row!=null&&Number(row.row)===Number(existing.row);
-      return sameRow||normalizeAscii(existing.name)===key;
+      var conflictingRows=row.row!=null&&existing.row!=null&&Number(row.row)!==Number(existing.row);
+      var sameName=nameFingerprint(existing.name)===key;
+      return sameRow||(sameName&&!conflictingRows);
     });
     if(index<0){
       merged.push({row:row.row==null?null:Number(row.row),name:row.name,dayShifts:sortedShiftMap(row.dayShifts||{})});
