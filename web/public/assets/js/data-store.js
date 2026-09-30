@@ -118,7 +118,7 @@ function sanitize(raw){
   };
 }
 function emptyState(data){
-  return data.revision===0&&!Object.keys(data.schedule).length&&!data.evidence.length&&!data.profile.name&&!data.colleagues.length&&!data.teamMembers.length&&!data.scanSession.people.length;
+  return !Object.keys(data.schedule).length&&!data.evidence.length&&!data.profile.name&&!data.colleagues.length&&!data.teamMembers.length&&!data.scanSession.people.length;
 }
 function legacyValue(key){
   try{return localStorage.getItem(key)}catch(e){return null}
