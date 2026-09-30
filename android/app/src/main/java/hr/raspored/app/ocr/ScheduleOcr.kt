@@ -358,14 +358,16 @@ object ScheduleOcrParser {
             )
         }
 
-        val year = Regex("""\b(20\d{2})\b""")
-            .find(upper)
-            ?.groupValues?.getOrNull(1)
-            ?.toIntOrNull()
-            ?: return null
         val month = monthNames.entries
-            .firstOrNull { upper.contains(it.key) }
+            .firstOrNull { (name, _) ->
+                Regex("""(?:^|\s)$name(?:\s|[.,;:/-]|$)""").containsMatchIn(upper)
+            }
             ?.value
+            ?: return null
+        val year = Regex("""20\d{2}""")
+            .find(upper)
+            ?.value
+            ?.toIntOrNull()
             ?: return null
         return YearMonth.of(year, month)
     }
