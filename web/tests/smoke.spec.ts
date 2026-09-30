@@ -159,10 +159,11 @@ test("web OCR parser normalizes common OCR errors without user data", async ({pa
 test("overnight time evidence can be closed after midnight", async ({page}) => {
   await page.goto("/");
   await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
-  await page.evaluate(() => {
-    localStorage.setItem("raspored.timeEntries.v1",JSON.stringify([
+  await page.evaluate(async () => {
+    (window as any).RasporedDataStore.set("raspored.timeEntries.v1",JSON.stringify([
       {id:"night-active",date:"2026-10-16",in:"19:00",out:null,note:"Noćna smjena"}
     ]));
+    await (window as any).RasporedDataStore.flush();
   });
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
@@ -175,12 +176,20 @@ test("overnight time evidence can be closed after midnight", async ({page}) => {
 
 
 test("main routes have no page-level horizontal overflow or fixed-nav overlap", async ({page}) => {
-  for (const route of ["home","calendar","scan","stats","hours","settings"]) {
+  for (const route of ["home","calendar","scan","stats","payroll","hours","settings"]) {
     await page.goto("/");
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
       else await page.locator('[data-route="hours"]:visible').first().click();
+    }else if(route==="payroll"){
+      const width=page.viewportSize()?.width ?? 1440;
+      if(width<=820){
+        await page.locator('[data-route="stats"]:visible').first().click();
+        await page.locator(".stats-payroll-link").click();
+      }else{
+        await page.locator('[data-route="payroll"]:visible').first().click();
+      }
     }else if(route!=="home"){
       await page.locator('[data-route="'+route+'"]:visible').first().click();
     }
@@ -201,6 +210,56 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
     }
   }
 });
+
+test("salary estimator uses official public-health role parameters and persists choices", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.locator('[data-route="stats"]:visible').first().click();
+    await page.locator(".stats-payroll-link").click();
+  }else{
+    await page.locator('[data-route="payroll"]:visible').first().click();
+  }
+  await expect(page.locator('[data-view="payroll"]')).toBeVisible();
+  await page.locator("#payrollRole").selectOption("kbc-portir");
+  await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
+  await page.locator("#payrollYears").fill("10");
+  await page.locator("#payrollYears").blur();
+  await (page as any).waitForTimeout(100);
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+  await expect(page.locator("#payrollBase")).toContainText("1.025");
+  await expect(page.locator("#payrollCoefResult")).toHaveText("1,39");
+  await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
+  await expect(page.locator("#payrollBreakdown")).toContainText("Noćni rad");
+
+  await page.reload();
+  if(width<=820){
+    await page.locator('[data-route="stats"]:visible').first().click();
+    await page.locator(".stats-payroll-link").click();
+  }else{
+    await page.locator('[data-route="payroll"]:visible').first().click();
+  }
+  await expect(page.locator("#payrollRole")).toHaveValue("kbc-portir");
+  await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
+  await expect(page.locator("#payrollYears")).toHaveValue("10");
+});
+
+test("salary estimator exposes sources and remains a gross estimate", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.locator('[data-route="stats"]:visible').first().click();
+    await page.locator(".stats-payroll-link").click();
+  }else{
+    await page.locator('[data-route="payroll"]:visible').first().click();
+  }
+  await expect(page.locator("#payrollLegalText")).toContainText("Osnovna bruto plaća");
+  await expect(page.locator(".payroll-legal-card")).toContainText("nije obračunska isprava");
+  await expect(page.locator("#payrollSources a")).toHaveCount(6);
+  await expect(page.locator("#payrollSources")).toContainText("NN 22/2024");
+  await expect(page.locator("#payrollSources")).toContainText("KBC Rijeka");
+});
+
 
 test("calendar, scan help and settings controls are wired", async ({page}) => {
   await page.goto("/");
