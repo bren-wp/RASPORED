@@ -222,7 +222,14 @@ function finalizeRows(rows){
         dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},target.dayShifts||{})),
         supportCount:(Number(target.supportCount)||1)+(Number(row.supportCount)||1)
       };
-    }else if((Number(row.supportCount)||1)>=3&&validName(row.name||"")){
+    }else if(
+      (Number(row.supportCount)||1)>=3&&
+      validName(row.name||"")&&
+      Object.keys(row.dayShifts||{}).length>=2
+    ){
+      // Footer leave notes can repeat a real name and one GO marker across
+      // several OCR passes. Do not promote such notes into a missing roster
+      // slot; a genuine unnumbered employee row needs multiple mapped cells.
       unmatched.push(row);
     }
   });
