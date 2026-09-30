@@ -105,6 +105,40 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun rejectsAmbiguousLeadingBlankDayWithoutHeaderEvidence() {
+        val xs = buildList {
+            for (day in 2..31) {
+                val center = 120 + (day - 1) * 42
+                add(center - 2)
+                add(center)
+                add(center + 2)
+            }
+        }
+        assertNull(ScheduleOcrParser.inferDayCentersFromShiftXs(xs, 31))
+    }
+
+    @Test
+    fun usesSingleHeaderAnchorToPreserveLeadingBlankDay() {
+        val xs = buildList {
+            for (day in 2..31) {
+                val center = 120 + (day - 1) * 42
+                add(center - 2)
+                add(center)
+                add(center + 2)
+            }
+        }
+        val centers = ScheduleOcrParser.inferDayCentersFromShiftXs(
+            rawXs = xs,
+            maxDay = 31,
+            absoluteAnchors = mapOf(2 to listOf(162))
+        )
+        requireNotNull(centers)
+        assertEquals(120, centers[1])
+        assertEquals(162, centers[2])
+        assertEquals(1380, centers[31])
+    }
+
+    @Test
     fun rejectsSparseShiftColumnsInsteadOfInventingCalendarDays() {
         assertNull(
             ScheduleOcrParser.inferDayCentersFromShiftXs(
