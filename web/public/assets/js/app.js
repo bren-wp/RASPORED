@@ -852,6 +852,7 @@ async function initApp(){
   await window.RasporedDataStore.init();
   if(window.RasporedPayroll)await window.RasporedPayroll.init();
   loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();
+  syncAuthenticatedProfile();
   renderAll();
   document.body.dataset.appReady=window.RasporedDataStore.isAvailable()?"true":"storage-unavailable";
   if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
