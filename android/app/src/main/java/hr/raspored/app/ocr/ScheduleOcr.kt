@@ -103,6 +103,20 @@ object ScheduleOcrParser {
         return value
     }
 
+    private fun gridCodeForToken(
+        token: Token,
+        minDayX: Int,
+        spacing: Double
+    ): String? {
+        canonicalShift(token.text)?.let { return it }
+        // Recovery bands can contain only late-month header numbers. Their
+        // missing early-day centers are extrapolated left of the photographed
+        // grid; do not allow row numbers or short names to become custom codes
+        // in those synthetic columns.
+        if (token.centerX < minDayX - max(4.0, spacing * 0.55)) return null
+        return canonicalGridCode(token.text)
+    }
+
     private data class HeaderGeometry(
         val bottom: Int,
         val dayCenters: Map<Int, Int>,
@@ -531,7 +545,7 @@ object ScheduleOcrParser {
         val anchoredRows = anchors.mapNotNull { anchor ->
             val rowTokens = tokensForAnchor(anchor, anchors, tokens, rowTolerance)
             val shiftTokens = rowTokens.mapNotNull { token ->
-                canonicalGridCode(token.text)?.let { token to it }
+                gridCodeForToken(token, minDayX, spacing)?.let { token to it }
             }
             val dayShifts = mapShiftTokensToDays(shiftTokens, dayCenters, maxDistance)
             // Ako je redak numeriran, zadržavamo osobu i kada OCR nije
@@ -707,8 +721,9 @@ object ScheduleOcrParser {
         dayCenters: Map<Int, Int>,
         maxDistance: Double
     ): RecognizedScheduleRow? {
+        val spacing = medianDaySpacing(dayCenters)
         val shiftTokens = tokens.mapNotNull { token ->
-            canonicalGridCode(token.text)?.let { token to it }
+            gridCodeForToken(token, minDayX, spacing)?.let { token to it }
         }
         if (shiftTokens.isEmpty()) return null
 
