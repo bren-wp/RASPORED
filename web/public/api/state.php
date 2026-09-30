@@ -492,6 +492,9 @@ if (($payload['patch'] ?? false) === true) {
 $expectedRevision = isset($payload['expectedRevision']) && is_numeric($payload['expectedRevision'])
     ? max(0, (int) $payload['expectedRevision'])
     : null;
+if ($mobile && $expectedRevision === null) {
+    fail_json(428, 'Android sinkronizacija zahtijeva poznatu reviziju stanja. Najprije preuzmi podatke.');
+}
 $next = write_state(
     $file,
     is_array($incoming) ? $incoming : [],
