@@ -996,8 +996,15 @@ async function recognizeScheduleNow(file,onProgress){
     var tableSource=window.RasporedOcrTableCrop
       ?await window.RasporedOcrTableCrop.cropScheduleTable(file)
       :file;
+    var detectedSingleBands=[];
+    if(window.RasporedOcrTableCrop&&typeof window.RasporedOcrTableCrop.detectEmployeeRowBands==="function"){
+      detectedSingleBands=await window.RasporedOcrTableCrop.detectEmployeeRowBands(tableSource,1);
+      if(detectedSingleBands.length>=3)first.expectedRows=detectedSingleBands.length;
+    }
     var forceDenseRecovery=tableSource!==file;
-    var needsDeep=forceDenseRecovery||sparseResult(first)||missingNumberedRows(first)||hasAnonymousNumberedRows(first)||(first.people||[]).length<16;
+    var geometryIncomplete=(Number(first.expectedRows)||0)>=3&&
+      (first.people||[]).length*100<(Number(first.expectedRows)||0)*88;
+    var needsDeep=forceDenseRecovery||geometryIncomplete||sparseResult(first)||missingNumberedRows(first)||hasAnonymousNumberedRows(first)||(first.people||[]).length<16;
     if(!needsDeep)return first;
 
     if(onProgress)onProgress(.78,"recovery");
@@ -1007,15 +1014,18 @@ async function recognizeScheduleNow(file,onProgress){
       first.month
     );
     var merged=mergeRecognized(first,second);
-    if(!forceDenseRecovery&&!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
+    var mergedExpected=Number(merged.expectedRows)||0;
+    var mergedGeometryIncomplete=mergedExpected>=3&&(merged.people||[]).length*100<mergedExpected*88;
+    if(!forceDenseRecovery&&!mergedGeometryIncomplete&&!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
 
     // Prefer real horizontal grid rules over fixed screen ratios. A full
     // hospital roster can contain 25–35 people and 31 very narrow day cells;
     // magnifying four real employee rows together with the original day header
     // gives Tesseract enough pixels per name/cell without changing the day map.
-    var detectedSingleBands=[];
     if(window.RasporedOcrTableCrop&&typeof window.RasporedOcrTableCrop.detectEmployeeRowBands==="function"){
-      detectedSingleBands=await window.RasporedOcrTableCrop.detectEmployeeRowBands(tableSource,1);
+      if(!detectedSingleBands.length){
+        detectedSingleBands=await window.RasporedOcrTableCrop.detectEmployeeRowBands(tableSource,1);
+      }
       if(detectedSingleBands.length>=3){
         merged.expectedRows=Math.max(Number(merged.expectedRows)||0,detectedSingleBands.length);
       }
@@ -1033,7 +1043,9 @@ async function recognizeScheduleNow(file,onProgress){
 
     if(!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16){
       var finalizedEarly=finalizeRows(merged.people||[]).filter(function(row){return validName(row.name||"")});
-      if(finalizedEarly.length>=16){
+      var expectedAfterExact=Number(merged.expectedRows)||0;
+      var completeEnough=expectedAfterExact<3||finalizedEarly.length*100>=expectedAfterExact*88;
+      if(finalizedEarly.length>=16&&completeEnough){
         merged.people=finalizedEarly;
         return merged;
       }
