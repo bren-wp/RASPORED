@@ -60,9 +60,55 @@ function cleanName(text){
     .replace(/^[\s|:;.,-]+|[\s|:;.,-]+$/g,"");
 }
 function validName(name){
-  if(name.length<3||(name.match(/\p{L}/gu)||[]).length<3)return false;
+  if(name.length<3||name.length>64||(name.match(/\p{L}/gu)||[]).length<3)return false;
   var normalized=normalizeAscii(name);
-  return !["IME PREZIME","IME I PREZIME","DJELATNIK","ZAPOSLENIK","RADNIK"].includes(normalized);
+  if(["IME PREZIME","IME I PREZIME","DJELATNIK","ZAPOSLENIK","RADNIK","RB","NOSAC BOLESNIKA","NOSAC BOLESNIKA PREZIME IME"].includes(normalized))return false;
+  var letters=(name.match(/\p{L}/gu)||[]).length;
+  var digits=(name.match(/\d/g)||[]).length;
+  if(digits>2||letters/Math.max(1,name.length)<.52)return false;
+  return normalizeAscii(name).split(/[^A-Z]+/).filter(function(word){return word.length>=2}).length>0;
+}
+function nameWords(value){
+  return new Set(normalizeAscii(value).split(/[^A-Z]+/).filter(function(word){return word.length>=2}));
+}
+function editSimilarity(left,right){
+  var a=normalizeAscii(left).replace(/[^A-Z0-9]/g,""),b=normalizeAscii(right).replace(/[^A-Z0-9]/g,"");
+  if(!a||!b)return 0;
+  if(a===b)return 1;
+  var prev=Array.from({length:b.length+1},function(_,i){return i}),curr=new Array(b.length+1);
+  for(var i=0;i<a.length;i++){
+    curr[0]=i+1;
+    for(var j=0;j<b.length;j++){
+      var cost=a[i]===b[j]?0:1;
+      curr[j+1]=Math.min(curr[j]+1,prev[j+1]+1,prev[j]+cost);
+    }
+    for(var k=0;k<prev.length;k++)prev[k]=curr[k];
+  }
+  return 1-prev[b.length]/Math.max(a.length,b.length);
+}
+function namesProbablySame(left,right){
+  if(!validName(left)||!validName(right))return false;
+  if(nameFingerprint(left)===nameFingerprint(right))return true;
+  var lw=nameWords(left),rw=nameWords(right),overlap=0,union=new Set();
+  lw.forEach(function(x){union.add(x);if(rw.has(x))overlap++});
+  rw.forEach(function(x){union.add(x)});
+  var jaccard=overlap/Math.max(1,union.size),edit=editSimilarity(left,right);
+  return edit>=.84||(overlap>=1&&jaccard>=.34&&edit>=.72);
+}
+function nameQuality(value){
+  if(!validName(value))return -1000000;
+  var words=nameWords(value).size,letters=(value.match(/\p{L}/gu)||[]).length;
+  var punctuation=(value.match(/[^\p{L}\s'-]/gu)||[]).length;
+  var bonus=words===2?28:words===3?24:words===4?16:words===1?2:-8;
+  return letters+bonus-punctuation*8-(value.match(/\d/g)||[]).length*10-Math.max(0,value.length-42);
+}
+function betterName(left,right){
+  if(!validName(left))return right;
+  if(!validName(right))return left;
+  var l=nameQuality(left),r=nameQuality(right);
+  if(r>l)return right;
+  if(r<l)return left;
+  return right.length<left.length?right:left;
 }
 function sortedShiftMap(raw){
   return Object.keys(raw||{}).map(Number).filter(function(day){return day>=1&&day<=31})
@@ -79,22 +125,21 @@ function mergeRows(rows){
     var numbered=Number.isInteger(Number(row.row))&&Number(row.row)>=1&&Number(row.row)<=100;
     var valid=validName(row.name||"");
     if(!valid&&!numbered)return;
-    var key=valid?nameFingerprint(row.name):("__ROW__"+Number(row.row));
     var index=merged.findIndex(function(existing){
       var sameRow=row.row!=null&&existing.row!=null&&Number(row.row)===Number(existing.row);
       var conflictingRows=row.row!=null&&existing.row!=null&&Number(row.row)!==Number(existing.row);
-      var sameName=nameFingerprint(existing.name)===key;
-      return sameRow||(sameName&&!conflictingRows);
+      return sameRow||(!conflictingRows&&namesProbablySame(existing.name,row.name));
     });
     if(index<0){
-      merged.push({row:row.row==null?null:Number(row.row),name:row.name,dayShifts:sortedShiftMap(row.dayShifts||{})});
+      merged.push({row:row.row==null?null:Number(row.row),name:valid?String(row.name).trim():"",dayShifts:sortedShiftMap(row.dayShifts||{}),supportCount:Math.max(1,Number(row.supportCount)||1)});
       return;
     }
     var existing=merged[index];
     merged[index]={
       row:existing.row==null?row.row:existing.row,
-      name:existing.name.length>=row.name.length?existing.name:row.name,
-      dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},existing.dayShifts||{}))
+      name:betterName(existing.name,row.name),
+      dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},existing.dayShifts||{})),
+      supportCount:(Number(existing.supportCount)||1)+Math.max(1,Number(row.supportCount)||1)
     };
   });
   var numbered=Array.from(new Set(merged.filter(function(row){return row.row!=null}).map(function(row){return Number(row.row)})))
@@ -119,6 +164,36 @@ function mergeRows(rows){
     }
   }
   return merged.sort(function(a,b){
+    var ar=a.row==null?9999:a.row,br=b.row==null?9999:b.row;
+    return ar-br||a.name.localeCompare(b.name,"hr");
+  });
+}
+function finalizeRows(rows){
+  var merged=mergeRows(rows),numbered=merged.filter(function(row){return row.row!=null});
+  if(numbered.length<5)return merged;
+  var numbers=Array.from(new Set(numbered.map(function(row){return Number(row.row)}))).sort(function(a,b){return a-b});
+  var first=numbers[0],last=numbers[numbers.length-1],span=Math.max(1,last-first+1);
+  var denseRoster=first<=3&&numbers.length/span>=.72;
+  var authoritative=numbered.slice();
+  merged.filter(function(row){return row.row==null}).forEach(function(row){
+    var best=-1,bestScore=0;
+    authoritative.forEach(function(target,index){
+      var score=editSimilarity(target.name,row.name);
+      if(score>bestScore){bestScore=score;best=index}
+    });
+    if(best>=0&&bestScore>=.78){
+      var target=authoritative[best];
+      authoritative[best]={
+        row:target.row,
+        name:betterName(target.name,row.name),
+        dayShifts:sortedShiftMap(Object.assign({},row.dayShifts||{},target.dayShifts||{})),
+        supportCount:(Number(target.supportCount)||1)+(Number(row.supportCount)||1)
+      };
+    }else if(!denseRoster&&(Number(row.supportCount)||1)>=3&&validName(row.name||"")){
+      authoritative.push(row);
+    }
+  });
+  return authoritative.sort(function(a,b){
     var ar=a.row==null?9999:a.row,br=b.row==null?9999:b.row;
     return ar-br||a.name.localeCompare(b.name,"hr");
   });
@@ -907,7 +982,7 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
     }
-    merged.people=(merged.people||[]).filter(function(row){return validName(row.name||"")});
+    merged.people=finalizeRows(merged.people||[]).filter(function(row){return validName(row.name||"")});
     return merged;
   }finally{
     activeProgressCallback=null;
