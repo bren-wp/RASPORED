@@ -88,6 +88,23 @@ function individualAccountName(){
   if(!auth.authenticated||!auth.account||auth.account.accountType==="manager")return "";
   return ((auth.account.firstName||"")+" "+(auth.account.lastName||"")).trim();
 }
+function syncAuthenticatedProfile(){
+  var auth=authSnapshot(),input=document.getElementById("profileNameInput"),saveBtn=document.getElementById("saveProfileBtn"),help=document.getElementById("profileHelp");
+  if(auth.authenticated&&auth.account){
+    var name=((auth.account.firstName||"")+" "+(auth.account.lastName||"")).trim().replace(/\s+/g," ").slice(0,80);
+    if(input){input.value=name;input.readOnly=true}
+    if(saveBtn)saveBtn.hidden=true;
+    if(help)help.textContent="Prijavljen profil koristi ime i prezime iz korisničkog računa. Promjena lokalnog imena nije dopuštena dok je račun prijavljen.";
+    if(name&&window.RasporedDataStore&&window.RasporedDataStore.isAvailable&&window.RasporedDataStore.isAvailable()){
+      if((storageGet("raspored.profile.name")||"")!==name)storageSet("raspored.profile.name",name);
+    }
+    configureProfile();
+    return;
+  }
+  if(input)input.readOnly=false;
+  if(saveBtn)saveBtn.hidden=false;
+  if(help)help.textContent="Bez računa ime se sprema u ovoj instalaciji. Nakon prijave koristi se ime i prezime iz korisničkog računa.";
+}
 function scanPersonAllowed(person){
   var expected=individualAccountName();
   return !expected||normalizePersonName(expected)===normalizePersonName(person&&person.name);
@@ -733,7 +750,7 @@ function bind(){
   document.getElementById("saveSchedule").addEventListener("click",importSelectedScanSchedule);
   var saveTeamSchedules=document.getElementById("saveTeamSchedules");
   if(saveTeamSchedules)saveTeamSchedules.addEventListener("click",importScannedTeamSchedules);
-  window.addEventListener("raspored:auth-ready",function(){renderScanPersonPicker();renderTeamMembers()});
+  window.addEventListener("raspored:auth-ready",function(){syncAuthenticatedProfile();renderScanPersonPicker();renderTeamMembers()});
   document.getElementById("clockInBtn").addEventListener("click",clockIn);
   document.getElementById("clockOutBtn").addEventListener("click",clockOut);
   document.getElementById("hoursNote").addEventListener("change",saveHoursNote);
@@ -803,6 +820,7 @@ function bind(){
   var profileInput=document.getElementById("profileNameInput"),saveProfileBtn=document.getElementById("saveProfileBtn");
   if(saveProfileBtn&&profileInput){
     saveProfileBtn.addEventListener("click",function(){
+      if(authSnapshot().authenticated){toast("Ime profila dolazi iz prijavljenog korisničkog računa.");return}
       var value=profileInput.value.trim().replace(/\s+/g," ").slice(0,80);
       if(value.length>0&&value.length<2){toast("Unesi valjano ime i prezime.");return}
       var stored=value?storageSet("raspored.profile.name",value):storageRemove("raspored.profile.name");
