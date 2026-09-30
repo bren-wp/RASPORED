@@ -107,6 +107,12 @@ RASPORED zato odvojeno vodi:
 
 Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno odrađeno vrijeme vode se odvojeno.
 
+## Oznake rasporeda i Evidencija sati
+
+RASPORED razlikuje planirani raspored od stvarne Evidencije sati. Podržane oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (slobodan dan). OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
+
+Evidencija sati dodatno razlikuje **redovni rad, 1./2./3. smjenu, turnus, dežurstvo, pripravnost, rad po pozivu i drugi oblik rada**. Trajanje uvijek dolazi iz stvarnog ulaza/izlaza; posebna naknada ne pretpostavlja se ako za nju nema provjerljivog pravila.
+
 ## Okvirna plaća za javni sektor RH
 
 Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija RASPORED-a. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
@@ -180,6 +186,12 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - Playwright funkcionalni i screenshot QA
 - stvarni camera/gallery image-upload tok
 
+## Podrška
+
+- WhatsApp: **+385 91 901 0092**
+- E-mail: **info@raspored.eu**
+- Developer: **Brendigo Studio** — brendigo.com
+
 ## Privatnost i podaci
 
 - **Android:** raspored, evidencija i postavke ostaju u aplikacijskoj pohrani uređaja.
@@ -189,7 +201,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - **Web OCR:** fotografija se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
-RASPORED ne predstavlja cloud/team sustav niti centralni korisnički račun kao implementiranu funkciju.
+RASPORED ne predstavlja cloud/team sustav niti centralni korisnički račun kao implementiranu funkciju. Gostujući način rada ostaje bez registracije; registrirani račun i timski/cloud način nisu navedeni kao dovršeni dok stvarno ne budu implementirani i testirani.
 
 ## QA koji mora proći
 
@@ -239,7 +251,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED je pripremljen kao **v1.0.4** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
+RASPORED je pripremljen kao **v1.0.5** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 

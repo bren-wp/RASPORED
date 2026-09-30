@@ -105,6 +105,23 @@ test("time evidence records and persists check-in and check-out", async ({page})
   await expect(page.locator("#hoursHistory")).toContainText("Redovna smjena");
 });
 
+test("time evidence stores selected work type without inventing a special-duty rate", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+  else await page.locator('[data-route="hours"]:visible').first().click();
+
+  await page.locator("#hoursWorkType").selectOption("duty");
+  await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
+  await expect(page.locator("#hoursHistory")).toContainText("Dežurstvo");
+
+  const stored=await page.evaluate(() => {
+    const rows=JSON.parse((window as any).RasporedDataStore.get("raspored.timeEntries.v1")||"[]");
+    return rows[rows.length-1];
+  });
+  expect(stored.workType).toBe("duty");
+});
+
 test("profile, notifications and colleagues controls work", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
@@ -142,18 +159,22 @@ test("no demo or development labels ship in production UI", async ({page}) => {
 });
 
 
-test("web OCR parser normalizes common OCR errors without user data", async ({page}) => {
+test("web OCR parser keeps exact day columns and normalizes common OCR errors", async ({page}) => {
   await page.goto("/");
   const parsed=await page.evaluate(() => {
     const api=(window as any).RasporedWebOcr;
     return {
-      rows:api.parseText("3 IVA KOVAČ G0 B0 D N"),
-      month:api.detectMonth("SIJECANJ 2027.")
+      rows:api.parseText("3 IVA KOVAČ 1 D 2 N 4 G0 7 B0 9 PD 12 SD"),
+      monthNamed:api.detectMonth("SIJECANJ 2027."),
+      monthNumeric:api.detectMonth("2026-10")
     };
   });
   expect(parsed.rows).toHaveLength(1);
-  expect(parsed.rows[0].dayShifts).toEqual({"1":"GO","2":"BO","3":"D","4":"N"});
-  expect(parsed.month).toEqual({year:2027,month:1});
+  expect(parsed.rows[0].dayShifts).toEqual({
+    "1":"D","2":"N","4":"GO","7":"BO","9":"PD","12":"SD"
+  });
+  expect(parsed.monthNamed).toEqual({year:2027,month:1});
+  expect(parsed.monthNumeric).toEqual({year:2026,month:10});
 });
 
 test("overnight time evidence can be closed after midnight", async ({page}) => {
@@ -341,6 +362,9 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
   await page.locator("#motionToggle").check();
   await expect(page.locator("body")).toHaveAttribute("data-reduced-motion","true");
+  await expect(page.locator('a[href="https://wa.me/385919010092"]')).toBeVisible();
+  await expect(page.locator('a[href="mailto:info@raspored.eu"]')).toBeVisible();
+  await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
 });
 
 

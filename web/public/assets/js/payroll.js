@@ -119,7 +119,7 @@ function interval(entry){
 }
 function evidenceForMonth(year,monthIndex){
   var data=snapshot(),entries=Array.isArray(data.evidence)?data.evidence:[],holidays=holidayMap(year);
-  var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,active:false,workedDates:{}};
+  var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,active:false,workedDates:{}};
   entries.forEach(function(entry){
     var span=interval(entry);if(!span)return;
     if(!entry.out&&!Number.isFinite(Number(entry.endedAt)))result.active=true;
@@ -134,6 +134,14 @@ function evidenceForMonth(year,monthIndex){
       if(d.getDay()===0)result.sunday++;
       if(holidays[iso(d)])result.holiday++;
       if(hour>=14&&hour<22)result.secondShift++;
+      var workType=entry.workType||"regular";
+      if(workType==="shift1")result.shift1++;
+      else if(workType==="shift2")result.shift2++;
+      else if(workType==="shift3")result.shift3++;
+      else if(workType==="turnus")result.turnus++;
+      else if(workType==="duty")result.duty++;
+      else if(workType==="standby")result.standby++;
+      else if(workType==="callout")result.callout++;
     }
   });
   result.workedDays=Object.keys(result.workedDates).length;
@@ -323,7 +331,10 @@ function render(){
   var overtime=Math.max(0,evidence.total-fund*60);
   var secondEnabled=!!qs("payrollSecondShift").checked&&rates.secondShift!=null;
   var turnusEnabled=!!qs("payrollTurnus").checked&&rates.turnus!=null;
-  var turnusMinutes=turnusEnabled?Math.max(0,evidence.total-(secondEnabled?evidence.secondShift:0)):0;
+  var turnusMinutes=turnusEnabled?evidence.turnus:0;
+  var secondShiftMinutes=secondEnabled
+    ?(evidence.shift2>0?evidence.shift2:(turnusMinutes>0?0:evidence.secondShift))
+    :0;
   var components=[];
   function addComponent(label,minutes,rate){
     if(rate==null)return;
@@ -334,7 +345,7 @@ function render(){
   addComponent("Rad nedjeljom",evidence.sunday,rates.sunday);
   addComponent("Rad blagdanom / neradnim danom",evidence.holiday,rates.holiday);
   addComponent("Prekovremeni rad iznad mjesečnog fonda",overtime,rates.overtime);
-  if(secondEnabled)addComponent("Druga smjena 14:00–22:00",evidence.secondShift,rates.secondShift);
+  if(secondEnabled)addComponent("Druga smjena",secondShiftMinutes,rates.secondShift);
   if(turnusEnabled)addComponent("Rad u turnusu",turnusMinutes,rates.turnus);
   var additions=components.reduce(function(sum,item){return sum+item.value},0);
   var customAddition=basicGross*(extraPercent/100);
@@ -377,6 +388,12 @@ function render(){
   }
 
   var rows=[{label:"Ukupno evidentirano",minutes:evidence.total,value:null,rate:null}].concat(components);
+  if(evidence.shift1)rows.push({label:"1. smjena — evidentirano",minutes:evidence.shift1,rate:null,value:null});
+  if(evidence.shift2)rows.push({label:"2. smjena — evidentirano",minutes:evidence.shift2,rate:null,value:null});
+  if(evidence.shift3)rows.push({label:"3. smjena — evidentirano",minutes:evidence.shift3,rate:null,value:null});
+  if(evidence.duty)rows.push({label:"Dežurstvo — poseban obračun",minutes:evidence.duty,rate:null,value:null});
+  if(evidence.standby)rows.push({label:"Pripravnost — poseban obračun",minutes:evidence.standby,rate:null,value:null});
+  if(evidence.callout)rows.push({label:"Rad po pozivu — poseban obračun",minutes:evidence.callout,rate:null,value:null});
   if(extraPercent>0)rows.push({label:"Dodatak po rješenju/ugovoru",minutes:null,rate:extraPercent/100,value:customAddition});
   rows.push({label:"Mirovinski doprinosi iz bruto procjene",minutes:null,rate:null,value:-net.pension});
   rows.push({label:"Okvirni porez na dohodak",minutes:null,rate:null,value:-net.tax});
@@ -392,7 +409,7 @@ function render(){
   });
   qs("payrollLegalText").textContent=(regime?regime.label:"Ručni obračun")+" — osnovna bruto plaća računa se kao osnovica × koeficijent + 0,5% za svaku navršenu godinu staža. "+
     (autoRates.length?"Automatski obračunski postoci u ovom presetu: "+autoRates.join(", ")+". ":"Dodaci nisu automatski pretpostavljeni za ovaj režim. ")+
-    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
+    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
 }
 function refreshInstitutionAndRole(preferredRole){
   populateInstitutions("",null);
@@ -413,7 +430,10 @@ function bind(){
     applyTaxLocality();persist();render();
   });
   if(qs("payrollResidenceCustom"))qs("payrollResidenceCustom").addEventListener("change",function(){persist();render()});
-  ["payrollTaxLower","payrollTaxHigher"].forEach(function(id){qs(id).addEventListener("input",render);qs(id).addEventListener("change",persist)});
+  ["payrollTaxLower","payrollTaxHigher"].forEach(function(id){
+    qs(id).addEventListener("input",function(){render();persist()});
+    qs(id).addEventListener("change",persist);
+  });
   qs("payrollSector").addEventListener("change",function(){refreshInstitutionAndRole();persist()});
   qs("payrollInstitution").addEventListener("change",function(){
     var manual=this.value===OTHER;

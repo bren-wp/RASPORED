@@ -101,7 +101,15 @@ class PublicSectorPayrollTest {
 
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
-            entries = listOf(TimeEvidenceEntry(1L, started, ended, "")),
+            entries = listOf(
+                TimeEvidenceEntry(
+                    1L,
+                    started,
+                    ended,
+                    "",
+                    WorkType.TURNUS
+                )
+            ),
             regimeId = "kbc-rijeka-2026",
             coefficient = 1.25,
             yearsService = 0,
@@ -115,8 +123,48 @@ class PublicSectorPayrollTest {
         )
 
         assertEquals(480L, estimate.evidence.secondShiftMinutes)
+        assertEquals(480L, estimate.evidence.turnusMinutes)
+        assertEquals(0L, estimate.secondShiftPaidMinutes)
+        assertEquals(480L, estimate.turnusPaidMinutes)
+        assertEquals(0.0, estimate.secondShiftAddition, 0.001)
+        assertTrue(estimate.turnusAddition > 0.0)
+    }
+
+    @Test
+    fun explicitSecondShiftUsesTaggedDurationInBreakdownCalculation() {
+        val zone = ZoneId.of("Europe/Zagreb")
+        val started = LocalDateTime.of(2026, 10, 16, 13, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        val ended = LocalDateTime.of(2026, 10, 16, 21, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 10),
+            entries = listOf(
+                TimeEvidenceEntry(
+                    1L,
+                    started,
+                    ended,
+                    "",
+                    WorkType.SHIFT_2
+                )
+            ),
+            regimeId = "kbc-rijeka-2026",
+            coefficient = 1.25,
+            yearsService = 0,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = true,
+            turnus = false,
+            zone = zone
+        )
+
+        assertEquals(420L, estimate.evidence.secondShiftMinutes)
+        assertEquals(480L, estimate.evidence.shift2Minutes)
+        assertEquals(480L, estimate.secondShiftPaidMinutes)
         assertTrue(estimate.secondShiftAddition > 0.0)
-        assertEquals(0.0, estimate.turnusAddition, 0.001)
     }
 
     @Test

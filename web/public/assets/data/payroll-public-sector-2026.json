@@ -258,7 +258,7 @@
         "secondShift": 0.1,
         "turnus": 0.05
       },
-      "note": "Preset odgovara provjerenoj strukturi obračuna 2026.; posebni dodaci po radnom mjestu i osobna porezna prava i dalje se unose zasebno."
+      "note": "KBC Rijeka Pravilnik o radu potvrđuje 12-satni turnus (uz stanku 60 min) i navodi da radnik u pravilu ne smije raditi dulje od 16 sati neprekidno, osim više sile ili potrebe hitne intervencije. Zato se 24-satno trajanje ne tretira kao obična smjena nego kao poseban oblik rada koji treba provjeriti prema stvarnoj evidenciji/rješenju."
     },
     {
       "id": "public-education",
@@ -1557,6 +1557,11 @@
       "id": "hospitals",
       "label": "Ministarstvo zdravstva — bolničke zdravstvene ustanove",
       "url": "https://zdravlje.gov.hr/-zdravstvenih-ustanova/bolnicke-zdravstvene-ustanove/2722"
+    },
+    {
+      "id": "kbc-work-rules",
+      "label": "KBC Rijeka — Pravilnik o radu (radno vrijeme, turnus i odmori)",
+      "url": "https://kbc-rijeka.hr/wp-content/uploads/2023/06/Pravilnik-o-radu-KBC-a-Rijeka-12.06.23..pdf"
     }
   ]
 }

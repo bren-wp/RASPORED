@@ -67,7 +67,7 @@ internal fun OcrScanScreen(
             recognized.rows.isEmpty() -> {
                 selectedRow = -1
                 phase = OcrPhase.Error
-                message = "Nije pronađena osoba sa smjenama D, N, GO ili BO. Pokušaj ravniju i oštriju fotografiju."
+                message = "Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Pokušaj obuhvatiti cijelu tablicu, posebno zaglavlje s brojevima dana."
             }
             recognized.rows.size == 1 -> {
                 selectedRow = 0
@@ -390,7 +390,7 @@ internal fun OcrScanScreen(
                                 color = Color(0xFFD9F9EC)
                             ) {
                                 Text(
-                                    "✓ " + editedShifts.size + " prepoznato",
+                                    "✓ " + editedShifts.size + " oznaka",
                                     color = Color(0xFF07865F),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
@@ -402,11 +402,21 @@ internal fun OcrScanScreen(
 
                     if (editedShifts.isEmpty()) {
                         Text(
-                            "Nakon OCR prepoznavanja ovdje će se prikazati smjene.",
+                            "Nakon OCR prepoznavanja ovdje će se prikazati raspored odabrane osobe.",
                             color = RasporedTokens.Slate,
                             modifier = Modifier.padding(vertical = 20.dp)
                         )
                     } else {
+                        val emptyDays = recognizedMonth.lengthOfMonth() - editedShifts.keys.count {
+                            it in 1..recognizedMonth.lengthOfMonth()
+                        }
+                        Text(
+                            "Prepoznato: " + editedShifts.size + " oznaka · bez oznake: " +
+                                emptyDays.coerceAtLeast(0) + " dana. Prazan dan ostaje bez smjene.",
+                            modifier = Modifier.padding(top = 8.dp),
+                            color = RasporedTokens.Slate,
+                            fontSize = 11.sp
+                        )
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -463,7 +473,7 @@ internal fun OcrScanScreen(
                         recognizedMonth,
                         editedShifts
                             .filterKeys { it in 1..recognizedMonth.lengthOfMonth() }
-                            .filterValues { it in listOf("D", "N", "GO", "BO") }
+                            .filterValues { it in listOf("D", "N", "GO", "BO", "PD", "SD") }
                     )
                 },
                 enabled = selectedRow >= 0 && editedShifts.isNotEmpty(),
@@ -487,7 +497,7 @@ internal fun OcrScanScreen(
                     Text("• Obuhvati cijelu tablicu i zaglavlje s brojevima dana.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Ako je na rasporedu više osoba, odaberi samo jedno ime i prezime.")
-                    Text("• Provjeri D, N, GO i BO oznake prije spremanja.")
+                    Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.")
                 }
             },
             confirmButton = {
@@ -529,6 +539,8 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
         "N" -> RasporedTokens.NavyAlt
         "GO" -> RasporedTokens.TealSoft
         "BO" -> RasporedTokens.RedSoft
+        "PD" -> Color(0xFFFFF3D6)
+        "SD" -> Color(0xFFE9EEF5)
         else -> Color(0xFFF1F5F9)
     }
     val fg = when (code) {
@@ -536,6 +548,8 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
         "N" -> Color.White
         "GO" -> Color(0xFF07865F)
         "BO" -> Color(0xFFD22333)
+        "PD" -> Color(0xFF9A6500)
+        "SD" -> Color(0xFF475569)
         else -> RasporedTokens.Slate
     }
     Surface(
@@ -566,7 +580,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
 }
 
 private fun nextShiftCode(current: String): String {
-    val order = listOf("", "D", "N", "GO", "BO")
+    val order = listOf("", "D", "N", "GO", "BO", "PD", "SD")
     val index = order.indexOf(current).takeIf { it >= 0 } ?: 0
     return order[(index + 1) % order.size]
 }

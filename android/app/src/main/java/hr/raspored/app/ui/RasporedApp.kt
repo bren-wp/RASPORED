@@ -1,5 +1,7 @@
 package hr.raspored.app.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -939,13 +941,23 @@ private fun largeMinutesLabel(minutes:Long):String {
     onDarkModeChange:(Boolean)->Unit,
     onReducedMotionChange:(Boolean)->Unit
 ){
+    val context=LocalContext.current
+    fun openExternal(uri:String){
+        runCatching{
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW,Uri.parse(uri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
     LazyColumn(
         Modifier.fillMaxSize().testTag("screen-settings").padding(16.dp),
-        contentPadding=PaddingValues(top=10.dp,bottom=20.dp)
+        contentPadding=PaddingValues(top=10.dp,bottom=20.dp),
+        verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
         item{
             Text("Postavke",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)
-            Spacer(Modifier.height(14.dp))
+        }
+        item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp)){
                     Text("Izgled i pristupačnost",fontSize=20.sp,fontWeight=FontWeight.Bold)
@@ -964,8 +976,66 @@ private fun largeMinutesLabel(minutes:Long):String {
                 }
             }
         }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    Text("Podrška",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text(
+                        "Za pomoć s aplikacijom, rasporedom ili prijavom greške.",
+                        color=MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize=12.sp
+                    )
+                    SupportAction(
+                        icon=Icons.Outlined.Chat,
+                        title="WhatsApp",
+                        value="+385 91 901 0092",
+                        onClick={openExternal("https://wa.me/385919010092")}
+                    )
+                    SupportAction(
+                        icon=Icons.Outlined.Email,
+                        title="E-mail",
+                        value="info@raspored.eu",
+                        onClick={openExternal("mailto:info@raspored.eu")}
+                    )
+                    HorizontalDivider()
+                    Text("Developer",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    SupportAction(
+                        icon=Icons.Outlined.Language,
+                        title="Brendigo Studio",
+                        value="brendigo.com",
+                        onClick={openExternal("https://brendigo.com")}
+                    )
+                }
+            }
+        }
     }
 }
+@Composable private fun SupportAction(
+    icon:ImageVector,
+    title:String,
+    value:String,
+    onClick:()->Unit
+){
+    Surface(
+        modifier=Modifier.fillMaxWidth().clickable(onClick=onClick),
+        shape=RoundedCornerShape(14.dp),
+        color=MaterialTheme.colorScheme.surfaceVariant
+    ){
+        Row(
+            Modifier.padding(horizontal=14.dp,vertical=12.dp),
+            verticalAlignment=Alignment.CenterVertically
+        ){
+            Icon(icon,null,tint=Cyan)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)){
+                Text(title,fontWeight=FontWeight.Bold)
+                Text(value,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Outlined.ChevronRight,null,tint=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 @Composable private fun SettingSwitch(
     title:String,
     caption:String,

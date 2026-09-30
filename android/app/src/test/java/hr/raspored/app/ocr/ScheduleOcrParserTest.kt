@@ -42,8 +42,29 @@ class ScheduleOcrParserTest {
 
     @Test
     fun normalizesCommonOcrConfusionsForGoAndBo() {
-        val result = ScheduleOcrParser.parse("3 ANA HORVAT G0 B0 D N")
-        assertEquals(listOf("GO", "BO", "D", "N"), result.rows.single().shifts)
+        val result = ScheduleOcrParser.parse("3 ANA HORVAT G0 B0 D N PD SD")
+        assertEquals(listOf("GO", "BO", "D", "N", "PD", "SD"), result.rows.single().shifts)
+    }
+
+    @Test
+    fun preservesExplicitDayNumbersWithoutCompressingEmptyDays() {
+        val result = ScheduleOcrParser.parse("6 ANA HORVAT 1 D 2 N 4 GO 7 PD 9 SD")
+        assertEquals(
+            mapOf(1 to "D", 2 to "N", 4 to "GO", 7 to "PD", 9 to "SD"),
+            result.rows.single().dayShifts
+        )
+    }
+
+    @Test
+    fun detectsNumericMonthFormats() {
+        assertEquals(
+            YearMonth.of(2026, 10),
+            ScheduleOcrParser.parse("10/2026\n6 ANA HORVAT D N").month
+        )
+        assertEquals(
+            YearMonth.of(2026, 10),
+            ScheduleOcrParser.parse("2026-10\n6 ANA HORVAT D N").month
+        )
     }
 
     @Test
