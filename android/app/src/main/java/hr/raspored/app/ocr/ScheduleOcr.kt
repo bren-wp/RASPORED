@@ -86,7 +86,8 @@ object ScheduleOcrParser {
     private data class HeaderGeometry(
         val bottom: Int,
         val dayCenters: Map<Int, Int>,
-        val observedDays: Set<Int>
+        val observedDays: Set<Int>,
+        val gridStartX: Int
     )
 
     private data class DayToken(
@@ -237,7 +238,12 @@ object ScheduleOcrParser {
         return HeaderGeometry(
             bottom = bottom,
             dayCenters = centers,
-            observedDays = observed.keys
+            observedDays = observed.keys,
+            // For partial recovery bands this must be the first ACTUALLY
+            // observed day column, not extrapolated day 1. Otherwise late-month
+            // bands can extrapolate day 1 left of the image and hide the roster
+            // column from name parsing.
+            gridStartX = observed.values.minOrNull() ?: centers.values.minOrNull() ?: 0
         )
     }
 
@@ -282,7 +288,8 @@ object ScheduleOcrParser {
             // kasnije redove određujemo prema imenima i Y geometriji.
             bottom = Int.MIN_VALUE,
             dayCenters = centers,
-            observedDays = emptySet()
+            observedDays = emptySet(),
+            gridStartX = shiftMinX
         )
     }
 
@@ -473,7 +480,7 @@ object ScheduleOcrParser {
     ): List<RecognizedScheduleRow> {
         val dayCenters = header.dayCenters
         if (dayCenters.size < 2) return emptyList()
-        val minDayX = dayCenters.values.minOrNull() ?: return emptyList()
+        val minDayX = header.gridStartX
         val spacing = medianDaySpacing(dayCenters)
         val maxDistance = max(12.0, spacing * 0.52)
 
