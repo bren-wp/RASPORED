@@ -62,7 +62,12 @@ class ScheduleStore(context: Context) {
                 ?.trim()
                 ?.uppercase(Locale("hr", "HR"))
                 .orEmpty()
-            return value.takeIf { CODE.matches(it) }
+            val normalized = when (value) {
+                "G0" -> "GO"
+                "B0" -> "BO"
+                else -> value
+            }
+            return normalized.takeIf { CODE.matches(it) }
         }
     }
 }
