@@ -851,7 +851,7 @@ object ScheduleOcrParser {
         if (!validName(value)) return Int.MIN_VALUE / 4
         val words = nameWords(value)
         val letters = value.count(Char::isLetter)
-        val punctuation = value.count { !it.isLetter() && !it.isWhitespace() && it != '-' && it != ''' }
+        val punctuation = value.count { !it.isLetter() && !it.isWhitespace() && it != '-' && it != '\'' }
         return letters +
             when (words.size) {
                 2 -> 28
