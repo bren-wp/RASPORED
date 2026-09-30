@@ -164,3 +164,105 @@ function raspored_same_origin_ok(): bool
     $expected = (raspored_is_https() ? 'https://' : 'http://') . (string) ($_SERVER['HTTP_HOST'] ?? '');
     return hash_equals(strtolower($expected), strtolower($origin));
 }
+
+function raspored_secure_api_transport_ok(): bool
+{
+    if (raspored_is_https()) {
+        return true;
+    }
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\\d+$/', '', $host) ?? $host;
+    return in_array($host, ['localhost', '127.0.0.1', '[::1]', '::1'], true);
+}
+
+function raspored_bearer_token(): string
+{
+    $header = trim((string) (
+        $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? ''
+    ));
+    if (!preg_match('/^Bearer\\s+([a-f0-9]{64})$/i', $header, $match)) {
+        return '';
+    }
+    return strtolower($match[1]);
+}
+
+function raspored_mobile_client_request(): bool
+{
+    return strtolower(trim((string) ($_SERVER['HTTP_X_RASPORED_CLIENT'] ?? ''))) === 'android';
+}
+
+function raspored_mobile_token_path(string $token): string
+{
+    return raspored_storage_directory()
+        . '/mobile-token-'
+        . hash_hmac('sha256', strtolower($token), raspored_install_secret())
+        . '.json';
+}
+
+function raspored_mobile_account_from_token(string $token): ?array
+{
+    if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+        return null;
+    }
+    $tokenFile = raspored_mobile_token_path($token);
+    if (!is_file($tokenFile)) {
+        return null;
+    }
+    $record = json_decode((string) @file_get_contents($tokenFile), true);
+    if (!is_array($record) || (int) ($record['expiresAt'] ?? 0) <= time()) {
+        @unlink($tokenFile);
+        return null;
+    }
+    $accountFile = basename((string) ($record['accountFile'] ?? ''));
+    if (!preg_match('/^account-[a-f0-9]{64}\\.json$/', $accountFile)) {
+        return null;
+    }
+    $path = raspored_storage_directory() . '/' . $accountFile;
+    $account = is_file($path) ? json_decode((string) @file_get_contents($path), true) : null;
+    if (!is_array($account)
+        || !hash_equals((string) ($account['id'] ?? ''), (string) ($record['accountId'] ?? ''))
+    ) {
+        return null;
+    }
+    return $account;
+}
+
+function raspored_request_account(): ?array
+{
+    $token = raspored_bearer_token();
+    return $token !== '' ? raspored_mobile_account_from_token($token) : raspored_current_account();
+}
+
+function raspored_issue_mobile_token(string $accountPath, array $account): array
+{
+    $accountFile = basename($accountPath);
+    if (!preg_match('/^account-[a-f0-9]{64}\\.json$/', $accountFile)) {
+        throw new RuntimeException('Račun nije moguće povezati s Android aplikacijom.');
+    }
+    $token = bin2hex(random_bytes(32));
+    $expiresAt = time() + 15552000;
+    $record = [
+        'schema' => 1,
+        'accountId' => (string) ($account['id'] ?? ''),
+        'accountFile' => $accountFile,
+        'createdAt' => gmdate('c'),
+        'expiresAt' => $expiresAt,
+    ];
+    $json = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    $path = raspored_mobile_token_path($token);
+    if ($json === false || @file_put_contents($path, $json . PHP_EOL, LOCK_EX) === false) {
+        @unlink($path);
+        throw new RuntimeException('Pristupni token nije moguće spremiti.');
+    }
+    @chmod($path, 0600);
+    return ['token' => $token, 'expiresAt' => gmdate('c', $expiresAt)];
+}
+
+function raspored_revoke_mobile_token(string $token): void
+{
+    if (preg_match('/^[a-f0-9]{64}$/', $token)) {
+        @unlink(raspored_mobile_token_path($token));
+    }
+}
