@@ -8,7 +8,7 @@ var current={
   evidence:[],
   profile:{name:""},
   colleagues:[],
-  settings:{theme:"light",reducedMotion:false},
+  settings:{theme:"light",reducedMotion:false,notificationReadKey:""},
   scanSession:{people:[],selected:-1,month:null},
   updatedAt:null
 };
@@ -74,7 +74,7 @@ function sanitize(raw){
     evidence:sanitizeEvidence(raw.evidence),
     profile:{name:typeof profile.name==="string"?profile.name.trim().replace(/\s+/g," ").slice(0,80):""},
     colleagues:colleagues,
-    settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion},
+    settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
     scanSession:{people:people,selected:selected,month:month},
     updatedAt:typeof raw.updatedAt==="string"?raw.updatedAt:null
   };
@@ -105,6 +105,7 @@ function readLegacy(){
   var name=legacyValue("raspored.profile.name");if(name!==null){legacy.profile.name=name;found=true}
   var theme=legacyValue("raspored.theme");if(theme==="dark"||theme==="light"){legacy.settings.theme=theme;found=true}
   var reduced=legacyValue("raspored.reducedMotion");if(reduced!==null){legacy.settings.reducedMotion=reduced==="1";found=true}
+  var notificationKey=legacyValue("raspored.notifications.readKey");if(notificationKey!==null){legacy.settings.notificationReadKey=notificationKey;found=true}
   try{
     var scan=JSON.parse(legacySession("raspored.scan.v1")||"null");
     if(scan&&typeof scan==="object"){legacy.scanSession=scan;found=true}
@@ -112,7 +113,7 @@ function readLegacy(){
   return found?sanitize(legacy):null;
 }
 function clearLegacy(){
-  ["raspored.schedule","raspored.timeEntries.v1","raspored.colleagues.v1","raspored.profile.name","raspored.theme","raspored.reducedMotion"].forEach(function(key){try{localStorage.removeItem(key)}catch(e){}});
+  ["raspored.schedule","raspored.timeEntries.v1","raspored.colleagues.v1","raspored.profile.name","raspored.theme","raspored.reducedMotion","raspored.notifications.readKey"].forEach(function(key){try{localStorage.removeItem(key)}catch(e){}});
   try{sessionStorage.removeItem("raspored.scan.v1")}catch(e){}
 }
 function notifyError(){
@@ -145,6 +146,7 @@ function valueForKey(key){
   if(key==="raspored.theme")return current.settings.theme||"light";
   if(key==="raspored.reducedMotion")return current.settings.reducedMotion?"1":"0";
   if(key==="raspored.scan.v1")return JSON.stringify(current.scanSession);
+  if(key==="raspored.notifications.readKey")return current.settings.notificationReadKey||null;
   return null;
 }
 function setKey(key,value){
@@ -158,7 +160,8 @@ function setKey(key,value){
     else if(key==="raspored.scan.v1"){
       var parsed=JSON.parse(value||"null");
       current.scanSession=sanitize({scanSession:parsed}).scanSession;
-    }else return false;
+    }else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey=String(value||"").slice(0,120);
+    else return false;
     queueWrite();
     return true;
   }catch(e){return false}
@@ -171,6 +174,7 @@ function removeKey(key){
   else if(key==="raspored.theme")current.settings.theme="light";
   else if(key==="raspored.reducedMotion")current.settings.reducedMotion=false;
   else if(key==="raspored.scan.v1")current.scanSession={people:[],selected:-1,month:null};
+  else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey="";
   else return false;
   queueWrite();
   return true;
