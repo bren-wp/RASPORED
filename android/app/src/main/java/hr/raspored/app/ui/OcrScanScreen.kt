@@ -42,21 +42,30 @@ internal fun OcrScanScreen(
     var result by remember { mutableStateOf<RecognizedSchedule?>(null) }
     var phase by remember { mutableStateOf(OcrPhase.Idle) }
     var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
-    var selectedRow by remember { mutableIntStateOf(0) }
+    var selectedRow by remember { mutableIntStateOf(-1) }
     var employeeMenu by remember { mutableStateOf(false) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
         result = recognized
-        selectedRow = 0
         editedShifts.clear()
-        recognized.rows.firstOrNull()?.dayShifts?.let(editedShifts::putAll)
-        if (recognized.rows.isEmpty()) {
-            phase = OcrPhase.Error
-            message = "Nije pronađen red sa smjenama D, N, GO ili BO. Pokušaj ravniju i oštriju fotografiju."
-        } else {
-            phase = OcrPhase.Success
-            message = "Prepoznato ${recognized.rows.size} redaka. Provjeri svoj redak prije spremanja."
+        when {
+            recognized.rows.isEmpty() -> {
+                selectedRow = -1
+                phase = OcrPhase.Error
+                message = "Nije pronađena osoba sa smjenama D, N, GO ili BO. Pokušaj ravniju i oštriju fotografiju."
+            }
+            recognized.rows.size == 1 -> {
+                selectedRow = 0
+                editedShifts.putAll(recognized.rows.first().dayShifts)
+                phase = OcrPhase.Success
+                message = "Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
+            }
+            else -> {
+                selectedRow = -1
+                phase = OcrPhase.Success
+                message = "Prepoznato je ${recognized.rows.size} osoba. Odaberi ime i prezime osobe čiji raspored želiš uvesti."
+            }
         }
     }
 
@@ -207,7 +216,7 @@ internal fun OcrScanScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text("Odaberi moj redak", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Provjeri je li ispravno prepoznat tvoj redak.",
+                        "Ako raspored sadrži više osoba, obavezno odaberi samo jednu osobu čiji će se raspored uvesti.",
                         color = RasporedTokens.Slate,
                         fontSize = 13.sp
                     )
@@ -221,7 +230,7 @@ internal fun OcrScanScreen(
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 activeRow?.let { row -> (row.rowNumber?.let { number -> number.toString() + ". " } ?: "") + row.name }
-                                    ?: "Nema prepoznatog zaposlenika",
+                                    ?: if ((result?.rows?.size ?: 0) > 1) "Odaberi ime i prezime" else "Nema prepoznate osobe",
                                 modifier = Modifier.weight(1f),
                                 fontWeight = FontWeight.Bold
                             )
@@ -351,7 +360,7 @@ internal fun OcrScanScreen(
                             .filterValues { it in listOf("D", "N", "GO", "BO") }
                     )
                 },
-                enabled = editedShifts.isNotEmpty(),
+                enabled = selectedRow >= 0 && editedShifts.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
