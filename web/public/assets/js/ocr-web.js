@@ -9,11 +9,11 @@ var VALID=new Set(["D","N","GO","BO","PD","SD"]);
 var workerPromise=null;
 
 function normalize(value){
-  return String(value||"").replace(/ /g," ").replace(/s+/g," ").trim();
+  return String(value||"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
 }
 function normalizeAscii(value){
   return normalize(value).toLocaleUpperCase("hr-HR")
-    .normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/Đ/g,"D");
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/Đ/g,"D");
 }
 function canonicalShift(raw){
   var value=normalize(raw).toUpperCase().replace(/[.,;:]+$/,"");
@@ -31,28 +31,28 @@ function median(values){
 }
 function detectMonth(text){
   var upper=normalizeAscii(text);
-  var yearFirst=upper.match(/(20d{2})s*[./-]s*(0?[1-9]|1[0-2])/);
+  var yearFirst=upper.match(/\b(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])\b/);
   if(yearFirst)return {year:Number(yearFirst[1]),month:Number(yearFirst[2])};
-  var monthFirst=upper.match(/(0?[1-9]|1[0-2])s*[./-]s*(20d{2})/);
+  var monthFirst=upper.match(/\b(0?[1-9]|1[0-2])\s*[./-]\s*(20\d{2})\b/);
   if(monthFirst)return {year:Number(monthFirst[2]),month:Number(monthFirst[1])};
-  var labelled=upper.match(/(?:MJESEC|MJESECA|ZA)s*[:.-]?s*(0?[1-9]|1[0-2])s+(20d{2})/);
+  var labelled=upper.match(/\b(?:MJESEC|MJESECA|ZA)\s*[:.-]?\s*(0?[1-9]|1[0-2])\s+(20\d{2})\b/);
   if(labelled)return {year:Number(labelled[2]),month:Number(labelled[1])};
-  var yearMatch=upper.match(/(20d{2})/);
+  var yearMatch=upper.match(/\b(20\d{2})\b/);
   if(!yearMatch)return null;
   var monthName=Object.keys(MONTHS).find(function(name){return upper.indexOf(name)>=0});
   return monthName?{year:Number(yearMatch[1]),month:MONTHS[monthName]}:null;
 }
 function cleanName(text){
   return normalize(text)
-    .replace(/^d{1,3}[.)]?s*/,"")
-    .replace(/(?<!d)([1-9]|[12]d|3[01])s*[:.)-]?s*(?:GO|G0|BO|B0|PD|SD|D|N)(?!p{L})/giu," ")
-    .replace(/d{1,2}([./-]d{1,2})?/g," ")
-    .replace(/(?:GO|G0|BO|B0|PD|SD|D|N)/gi," ")
-    .replace(/s+/g," ")
-    .replace(/^[s|:;.,-]+|[s|:;.,-]+$/g,"");
+    .replace(/^\d{1,3}[.)]?\s*/,"")
+    .replace(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)-]?\s*(?:GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu," ")
+    .replace(/\b\d{1,2}([./-]\d{1,2})?\b/g," ")
+    .replace(/\b(?:GO|G0|BO|B0|PD|SD|D|N)\b/gi," ")
+    .replace(/\s+/g," ")
+    .replace(/^[\s|:;.,-]+|[\s|:;.,-]+$/g,"");
 }
 function validName(name){
-  if(name.length<3||(name.match(/p{L}/gu)||[]).length<3)return false;
+  if(name.length<3||(name.match(/\p{L}/gu)||[]).length<3)return false;
   var normalized=normalizeAscii(name);
   return !["IME PREZIME","IME I PREZIME","DJELATNIK","ZAPOSLENIK"].includes(normalized);
 }
@@ -76,18 +76,17 @@ function mergeRows(rows){
   });
 }
 function parseText(text){
-  var rows=String(text||"").split(/?
-/).map(normalize).filter(Boolean).map(function(line){
+  var rows=String(text||"").split(/\r?\n/).map(normalize).filter(Boolean).map(function(line){
     var explicit={};
-    Array.from(line.matchAll(/(?<!d)([1-9]|[12]d|3[01])s*[:.)-]?s*(GO|G0|BO|B0|PD|SD|D|N)(?!p{L})/giu))
+    Array.from(line.matchAll(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu))
       .forEach(function(match){
         var code=canonicalShift(match[2]);
         if(code)explicit[Number(match[1])]=code;
       });
-    var codes=Array.from(line.matchAll(/(?<!p{L})(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?(?!p{L})/giu))
+    var codes=Array.from(line.matchAll(/(?<!\p{L})(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?(?!\p{L})/giu))
       .map(function(match){return canonicalShift(match[0])}).filter(Boolean);
     if(!codes.length)return null;
-    var rowMatch=line.match(/^s*(d{1,3})[.)]?s*/);
+    var rowMatch=line.match(/^\s*(\d{1,3})[.)]?\s*/);
     var name=cleanName(line);
     if(!validName(name))return null;
     var dayShifts=Object.keys(explicit).length?explicit:{};
@@ -142,14 +141,17 @@ function parseTokenRow(tokens,geometry){
     return code&&token.bbox?{code:code,x:centerX(token.bbox)}:null;
   }).filter(Boolean);
   if(!shifts.length)return null;
+
   var firstShiftX=Math.min.apply(null,shifts.map(function(item){return item.x}));
   var boundary=Math.min(firstShiftX,geometry.minX);
   var leftText=tokens.filter(function(token){
     return token.bbox&&centerX(token.bbox)<boundary&&!canonicalShift(token.text);
   }).map(function(token){return token.text}).join(" ");
-  var rowMatch=leftText.match(/^s*(d{1,3})[.)]?s*/);
+
+  var rowMatch=leftText.match(/^\s*(\d{1,3})[.)]?\s*/);
   var name=cleanName(leftText);
   if(!validName(name))return null;
+
   var dayShifts={};
   var maxDistance=Math.max(14,geometry.spacing*0.58);
   shifts.forEach(function(item){
@@ -160,13 +162,16 @@ function parseTokenRow(tokens,geometry){
     });
     if(nearest&&best<=maxDistance)dayShifts[nearest]=item.code;
   });
-  return Object.keys(dayShifts).length?{row:rowMatch?Number(rowMatch[1]):null,name:name,dayShifts:dayShifts}:null;
+  return Object.keys(dayShifts).length
+    ?{row:rowMatch?Number(rowMatch[1]):null,name:name,dayShifts:dayShifts}
+    :null;
 }
 function parseGeometry(blocks){
   var lines=flattenLines(blocks);
   if(!lines.length)return [];
   var header=bestHeader(lines);
   if(!header)return [];
+
   var geometry=dayGeometry(header);
   var headerBottom=header.line.bbox?Number(header.line.bbox.y1):-Infinity;
 
@@ -176,8 +181,6 @@ function parseGeometry(blocks){
   }).filter(Boolean);
   if(rows.length)return mergeRows(rows);
 
-  // Secondary pass: Tesseract sometimes splits one schedule row into multiple
-  // OCR lines. Rebuild visual rows by vertical centers before mapping columns.
   var tokens=[];
   lines.forEach(function(line){
     if(!line.bbox||Number(line.bbox.y0)<=headerBottom)return;
@@ -186,7 +189,11 @@ function parseGeometry(blocks){
     });
   });
   if(!tokens.length)return [];
-  var tolerance=Math.max(8,median(tokens.map(function(token){return boxHeight(token.bbox)}))*0.70);
+
+  var tolerance=Math.max(
+    8,
+    median(tokens.map(function(token){return boxHeight(token.bbox)}))*0.70
+  );
   var clusters=[];
   tokens.sort(function(a,b){return centerY(a.bbox)-centerY(b.bbox)}).forEach(function(token){
     var y=centerY(token.bbox),best=null,bestDistance=Infinity;
@@ -198,8 +205,12 @@ function parseGeometry(blocks){
     if(best&&bestDistance<=tolerance)best.push(token);
     else clusters.push([token]);
   });
+
   return mergeRows(clusters.map(function(cluster){
-    return parseTokenRow(cluster.sort(function(a,b){return centerX(a.bbox)-centerX(b.bbox)}),geometry);
+    return parseTokenRow(
+      cluster.sort(function(a,b){return centerX(a.bbox)-centerX(b.bbox)}),
+      geometry
+    );
   }).filter(Boolean));
 }
 async function prepareImage(file){
@@ -234,7 +245,9 @@ async function getWorker(onProgress){
   workerPromise=(async function(){
     var mod=await import("https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.esm.min.js");
     return mod.createWorker(["hrv","eng"],1,{logger:function(message){
-      if(onProgress&&message&&typeof message.progress==="number")onProgress(message.progress,message.status||"");
+      if(onProgress&&message&&typeof message.progress==="number"){
+        onProgress(message.progress,message.status||"");
+      }
     }});
   })();
   try{return await workerPromise}catch(error){workerPromise=null;throw error}
