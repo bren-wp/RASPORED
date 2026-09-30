@@ -155,9 +155,20 @@ internal object ScheduleTableDetector {
             .filter { it in 7..80 }
         if (gaps.size < 6) return null
 
-        val spacingSeeds = gaps.distinct().flatMap { gap ->
-            listOf(gap - 1.0, gap.toDouble(), gap + 1.0)
-        }.filter { it in 7.0..80.0 }
+        val frequencies = gaps.groupingBy { it }.eachCount()
+        val dominantGap = frequencies.keys
+            .filter { it >= 10 }
+            .maxWithOrNull(
+                compareBy<Int> { candidate ->
+                    frequencies.entries.sumOf { (gap, count) ->
+                        if (abs(gap - candidate) <= 2) count else 0
+                    }
+                }.thenBy { frequencies[it] ?: 0 }
+            )
+            ?: return null
+        val spacingSeeds = (dominantGap - 2..dominantGap + 2)
+            .map(Int::toDouble)
+            .filter { it in 8.0..80.0 }
 
         var best: GridFit? = null
         spacingSeeds.forEach { spacing ->
