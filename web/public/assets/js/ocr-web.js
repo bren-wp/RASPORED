@@ -541,10 +541,10 @@ async function prepareImage(file,strong){
   }
 }
 async function prepareStripe(tableSource,startRatio,endRatio){
-  if(typeof createImageBitmap!=="function")return file;
+  if(typeof createImageBitmap!=="function")return tableSource;
   var bitmap;
   try{
-    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
     var top=Math.max(0,Math.floor(bitmap.height*startRatio));
     var bottom=Math.min(bitmap.height,Math.ceil(bitmap.height*endRatio));
     var cropHeight=Math.max(1,bottom-top);
@@ -555,7 +555,7 @@ async function prepareStripe(tableSource,startRatio,endRatio){
     canvas.width=Math.max(1,Math.round(bitmap.width*scale));
     canvas.height=Math.max(1,Math.round(cropHeight*scale));
     var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
-    if(!context)return file;
+    if(!context)return tableSource;
     context.fillStyle="#fff";
     context.fillRect(0,0,canvas.width,canvas.height);
     context.filter="grayscale(1) contrast(1.40)";
@@ -566,19 +566,19 @@ async function prepareStripe(tableSource,startRatio,endRatio){
     );
     context.filter="none";
     return await new Promise(function(resolve){
-      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.96);
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.96);
     });
   }catch(error){
-    return file;
+    return tableSource;
   }finally{
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
 async function prepareDayBandComposite(tableSource,startRatio,endRatio){
-  if(typeof createImageBitmap!=="function")return file;
+  if(typeof createImageBitmap!=="function")return tableSource;
   var bitmap;
   try{
-    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
     var rosterWidth=Math.max(1,Math.round(bitmap.width*.28));
     var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*startRatio)));
     var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*endRatio)));
@@ -592,7 +592,7 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
     canvas.height=Math.max(1,Math.round(bitmap.height*scale));
     var rosterOutWidth=Math.max(1,Math.min(canvas.width,Math.round(rosterWidth*scale)));
     var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
-    if(!context)return file;
+    if(!context)return tableSource;
     context.fillStyle="#fff";
     context.fillRect(0,0,canvas.width,canvas.height);
     context.filter="grayscale(1) contrast(1.50)";
@@ -608,19 +608,19 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
     );
     context.filter="none";
     return await new Promise(function(resolve){
-      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.97);
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.97);
     });
   }catch(error){
-    return file;
+    return tableSource;
   }finally{
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
 async function prepareRosterBand(tableSource,startRatio,endRatio){
-  if(typeof createImageBitmap!=="function")return file;
+  if(typeof createImageBitmap!=="function")return tableSource;
   var bitmap;
   try{
-    bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
     var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
     var top=Math.max(0,Math.min(bitmap.height-1,Math.round(bitmap.height*startRatio)));
     var bottom=Math.max(top+1,Math.min(bitmap.height,Math.round(bitmap.height*endRatio)));
@@ -632,7 +632,7 @@ async function prepareRosterBand(tableSource,startRatio,endRatio){
     canvas.width=Math.max(1,Math.round(cropWidth*scale));
     canvas.height=Math.max(1,Math.round(cropHeight*scale));
     var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
-    if(!context)return file;
+    if(!context)return tableSource;
     context.fillStyle="#fff";
     context.fillRect(0,0,canvas.width,canvas.height);
     context.filter="grayscale(1) contrast(1.48)";
@@ -643,10 +643,10 @@ async function prepareRosterBand(tableSource,startRatio,endRatio){
     );
     context.filter="none";
     return await new Promise(function(resolve){
-      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",.97);
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.97);
     });
   }catch(error){
-    return file;
+    return tableSource;
   }finally{
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
