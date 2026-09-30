@@ -376,7 +376,7 @@ internal fun OcrScanScreen(
         item {
             Surface(
                 shape = RoundedCornerShape(RasporedTokens.RadiusLarge),
-                color = Color(0xFF755E49),
+                color = RasporedTokens.Navy,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp)) {
@@ -386,7 +386,7 @@ internal fun OcrScanScreen(
                             .heightIn(min = 220.dp, max = 430.dp)
                             .aspectRatio(previewAspect)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFE7EAEE)),
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         if (bitmap != null) {
@@ -401,11 +401,11 @@ internal fun OcrScanScreen(
                                 Icon(
                                     Icons.Outlined.DocumentScanner,
                                     contentDescription = null,
-                                    tint = RasporedTokens.Navy,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(54.dp)
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                Text("Raspored nije učitan", color = RasporedTokens.Navy)
+                                Text("Raspored nije učitan", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         ScanFrame()
@@ -579,11 +579,11 @@ internal fun OcrScanScreen(
                         if (editedShifts.isNotEmpty()) {
                             Surface(
                                 shape = RoundedCornerShape(999.dp),
-                                color = Color(0xFFD9F9EC)
+                                color = MaterialTheme.colorScheme.secondaryContainer
                             ) {
                                 Text(
                                     "✓ " + editedShifts.size + " oznaka",
-                                    color = Color(0xFF07865F),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
