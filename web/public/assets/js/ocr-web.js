@@ -482,13 +482,15 @@ function parseRosterRows(blocks){
   var rows=clusterByY(tokens,tolerance).map(function(cluster){
     var ordered=cluster.slice().sort(function(a,b){return centerX(a.bbox)-centerX(b.bbox)});
     if(!ordered.length)return null;
-    var row=Number(normalize(ordered[0].text).replace(/[.)]+$/,""));
-    if(!Number.isInteger(row)||row<1||row>100)return null;
     var text=ordered.map(function(token){return token.text}).join(" ").replace(/\s+/g," ").trim();
+    var rowMatch=text.match(/^\s*(\d{1,3})[.)]?\s*/);
+    var row=rowMatch?Number(rowMatch[1]):NaN;
+    if(!Number.isInteger(row)||row<1||row>100)return null;
     var name=cleanName(text);
-    var words=name.split(/\s+/).filter(function(word){return /\p{L}/u.test(word)});
     var yearNoise=/\b20\d{2}\b|\d{4,}/.test(name);
-    if(!validName(name)||words.length<2||yearNoise)return null;
+    // Keep a numbered roster row even if one name token was missed. Other OCR
+    // passes merge a more complete name by row number instead of losing a person.
+    if(!validName(name)||yearNoise)return null;
     return {row:row,name:name,dayShifts:{}};
   }).filter(Boolean);
   return mergeRows(rows);
