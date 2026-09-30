@@ -8,7 +8,7 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('X-Frame-Options: DENY');
 
-const RASPORED_SCHEMA_VERSION = 1;
+const RASPORED_SCHEMA_VERSION = 2;
 const RASPORED_MAX_BODY_BYTES = 524288;
 
 function default_state(): array
@@ -22,6 +22,14 @@ function default_state(): array
         'colleagues' => [],
         'settings' => ['theme' => 'light', 'reducedMotion' => false, 'notificationReadKey' => ''],
         'scanSession' => ['people' => [], 'selected' => -1, 'month' => null],
+        'payroll' => [
+            'roleId' => 'kbc-transport-nss',
+            'coefficient' => 1.15,
+            'yearsService' => 0,
+            'extraPercent' => 0.0,
+            'secondShift' => false,
+            'customBase' => null,
+        ],
         'updatedAt' => null,
     ];
 }
@@ -197,6 +205,7 @@ function clean_state(mixed $raw, int $revision): array
     $settings = is_array($raw['settings'] ?? null) ? $raw['settings'] : [];
     $profile = is_array($raw['profile'] ?? null) ? $raw['profile'] : [];
     $scan = is_array($raw['scanSession'] ?? null) ? $raw['scanSession'] : [];
+    $payroll = is_array($raw['payroll'] ?? null) ? $raw['payroll'] : [];
     $month = is_array($scan['month'] ?? null) ? $scan['month'] : null;
     $cleanMonth = null;
     if ($month !== null) {
@@ -226,6 +235,16 @@ function clean_state(mixed $raw, int $revision): array
             'notificationReadKey' => clean_text($settings['notificationReadKey'] ?? '', 120),
         ],
         'scanSession' => ['people' => $people, 'selected' => $selected, 'month' => $cleanMonth],
+        'payroll' => [
+            'roleId' => clean_text($payroll['roleId'] ?? 'kbc-transport-nss', 80) ?: 'kbc-transport-nss',
+            'coefficient' => max(1.0, min(8.0, is_numeric($payroll['coefficient'] ?? null) ? (float) $payroll['coefficient'] : 1.15)),
+            'yearsService' => max(0, min(60, is_numeric($payroll['yearsService'] ?? null) ? (int) $payroll['yearsService'] : 0)),
+            'extraPercent' => max(0.0, min(100.0, is_numeric($payroll['extraPercent'] ?? null) ? (float) $payroll['extraPercent'] : 0.0)),
+            'secondShift' => (bool) ($payroll['secondShift'] ?? false),
+            'customBase' => is_numeric($payroll['customBase'] ?? null)
+                ? max(0.0, min(10000.0, (float) $payroll['customBase']))
+                : null,
+        ],
         'updatedAt' => gmdate('c'),
     ];
 }
