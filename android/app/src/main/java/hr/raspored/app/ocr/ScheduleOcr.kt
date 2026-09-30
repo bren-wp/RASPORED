@@ -72,7 +72,7 @@ object ScheduleOcrParser {
             .replace('Đ', 'D')
 
     private fun canonicalShift(raw: String): String? = when (
-        raw.trim().trim('.', ',', ';', ':').uppercase(Locale.ROOT)
+        raw.trim().trim('.', ',', ';', ':', '|', '[', ']', '(', ')', '{', '}', '_', '-').uppercase(Locale.ROOT)
     ) {
         "D" -> "D"
         "N" -> "N"
@@ -1305,9 +1305,9 @@ object ScheduleOcrEngine {
         val width = (rawWidth * scale).roundToInt().coerceAtLeast(1)
         val height = (rawHeight * scale).roundToInt().coerceAtLeast(1)
         val rosterOut = (rosterWidth * scale).roundToInt()
-            .coerceIn(1, width - 1)
+            .coerceIn(1, maxOf(1, width - 1))
         val headerOut = (headerHeight * scale).roundToInt()
-            .coerceIn(1, height - 1)
+            .coerceIn(1, maxOf(1, height - 1))
 
         val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val grayscale = ColorMatrix().apply { setSaturation(0f) }
