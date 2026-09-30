@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},demo:new URLSearchParams(location.search).get("demo")==="1",scanPeople:[],scanSelected:-1};
+var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,editRecognition:false};
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
 
@@ -14,17 +14,18 @@ function icon(name,extra){
 function configureProfile(){
   var saved="";
   try{saved=(localStorage.getItem("raspored.profile.name")||"").trim().slice(0,80)}catch(e){}
-  var name=state.demo?"Marko Marković":saved;
+  var name=saved;
   var display=name||"Korisnik";
   var parts=display.split(/\s+/).filter(Boolean);
   var initials=parts.slice(0,2).map(function(x){return x.charAt(0).toUpperCase()}).join("")||"K";
-  var nameEl=document.getElementById("profileName"),initialEl=document.getElementById("profileInitials"),welcome=document.getElementById("welcomeTitle");
+  var nameEl=document.getElementById("profileName"),initialEl=document.getElementById("profileInitials"),welcome=document.getElementById("welcomeTitle"),input=document.getElementById("profileNameInput");
   if(nameEl)nameEl.textContent=display;
   if(initialEl)initialEl.textContent=initials;
   if(welcome){
     if(name&&name!=="Korisnik")welcome.textContent="Dobro došao, "+parts[0]+"!";
     else welcome.textContent="Dobro došao!";
   }
+  if(input&&document.activeElement!==input)input.value=name;
 }
 function loadColleagues(){
   try{
@@ -79,16 +80,36 @@ function openSearch(){
   var match=routes.find(function(x){return normalized.indexOf(x[0])>=0});
   if(match)route(match[1]);else toast("Nema rezultata za „"+q.trim().slice(0,40)+"“.");
 }
-function buildDemoScanPeople(){
-  if(!state.demo)return;
-  var y=2026,m=9,base={},days=new Date(y,m+1,0).getDate();
-  for(var day=1;day<=days;day++){var code=state.schedule[iso(new Date(y,m,day))];if(code)base[day]=code}
-  state.scanPeople=[
-    {row:6,name:"MARIO EGIMOVIĆ",dayShifts:base},
-    {row:7,name:"ADEMI DENI",dayShifts:{1:"GO",4:"D",8:"N",12:"GO",16:"D",22:"N",29:"D"}},
-    {row:8,name:"VUČETA ZLATKO",dayShifts:{2:"N",6:"D",10:"D",14:"GO",19:"N",24:"D",30:"BO"}}
-  ];
-  state.scanSelected=0;
+function saveScanSession(){
+  try{
+    sessionStorage.setItem("raspored.scan.v1",JSON.stringify({
+      people:state.scanPeople,
+      selected:state.scanSelected,
+      month:state.scanMonth
+    }));
+  }catch(e){}
+}
+function loadScanSession(){
+  try{
+    var raw=JSON.parse(sessionStorage.getItem("raspored.scan.v1")||"null");
+    if(raw&&Array.isArray(raw.people)){
+      state.scanPeople=raw.people.slice(0,100);
+      state.scanSelected=Number.isInteger(raw.selected)?raw.selected:-1;
+      state.scanMonth=raw.month&&Number.isInteger(raw.month.year)&&Number.isInteger(raw.month.month)?raw.month:null;
+    }
+  }catch(e){}
+}
+function clearScanSession(){
+  state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.editRecognition=false;
+  try{sessionStorage.removeItem("raspored.scan.v1")}catch(e){}
+}
+function scanTargetMonth(){
+  if(state.scanMonth)return new Date(state.scanMonth.year,state.scanMonth.month-1,1);
+  return new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
+}
+function cycleScanCode(code){
+  var order=["","D","N","GO","BO"],index=order.indexOf(code);
+  return order[(index<0?0:index+1)%order.length];
 }
 function scanPerson(){
   return state.scanSelected>=0?state.scanPeople[state.scanSelected]||null:null;
@@ -102,7 +123,7 @@ function renderScanPersonPicker(){
   menu.innerHTML=state.scanPeople.map(function(item,index){
     return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'"><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>Samo ovaj raspored bit će uvezen</small></button>';
   }).join("");
-  if(status)status.textContent=person?"✓ Odabrana 1 osoba":"Odaberi osobu";
+  if(status)status.textContent=person?"✓ Odabrana 1 osoba":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
   if(saveBtn)saveBtn.disabled=!person;
 }
 function selectedScanSchedule(){
@@ -111,22 +132,22 @@ function selectedScanSchedule(){
 function importSelectedScanSchedule(){
   var person=scanPerson();
   if(!person){toast("Odaberi ime i prezime jedne osobe čiji raspored želiš uvesti.");return}
-  var y=state.cursor.getFullYear(),m=state.cursor.getMonth(),days=new Date(y,m+1,0).getDate();
+  var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   for(var day=1;day<=days;day++)delete state.schedule[iso(new Date(y,m,day))];
-  Object.keys(person.dayShifts).forEach(function(day){
+  Object.keys(person.dayShifts||{}).forEach(function(day){
     var n=Number(day),code=person.dayShifts[day];
     if(n>=1&&n<=days&&["D","N","GO","BO"].indexOf(code)>=0)state.schedule[iso(new Date(y,m,n))]=code;
   });
-  save();renderAll();toast("Uvezen je samo raspored za "+person.name+".");route("calendar");
+  state.cursor=new Date(y,m,1);state.selected=new Date(y,m,1);
+  save();clearScanSession();renderAll();toast("Uvezen je samo raspored za "+person.name+".");route("calendar");
 }
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,da=((h+l-7*m+114)%31)+1;return new Date(y,mo,da)}
 function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x}
 function holidays(y){var map={};function add(m,d,n){map[y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0")]=n}add(1,1,"Nova godina");add(1,6,"Bogojavljenje");add(5,1,"Praznik rada");add(5,30,"Dan državnosti");add(6,22,"Dan antifašističke borbe");add(8,5,"Dan pobjede i domovinske zahvalnosti i Dan hrvatskih branitelja");add(8,15,"Velika Gospa");add(11,1,"Svi sveti");add(11,18,"Dan sjećanja na žrtve Domovinskog rata");add(12,25,"Božić");add(12,26,"Sveti Stjepan");var e=easter(y);map[iso(e)]="Uskrs";map[iso(addDays(e,1))]="Uskrsni ponedjeljak";map[iso(addDays(e,60))]="Tijelovo";return map}
-function demoSchedule(year,month){var s={},pattern=["D","N","D",null,null,"D","D","GO","D","N",null,null,"D","GO","D","D","N",null,null,"D",null,"N",null,"D",null,null,"BO",null,null,null,null];var days=new Date(year,month+1,0).getDate();for(var i=1;i<=days;i++){var code=pattern[(i-1)%pattern.length];if(code)s[iso(new Date(year,month,i))]=code}if(year===2026&&month===9){s["2026-10-16"]="D";s["2026-10-17"]="N"}return s}
-function loadSchedule(){try{state.schedule=JSON.parse(localStorage.getItem("raspored.schedule")||"{}")}catch(e){state.schedule={}}if(state.demo&&Object.keys(state.schedule).length===0){state.schedule=demoSchedule(2026,9);state.cursor=new Date(2026,9,1);state.selected=new Date(2026,9,16)}}
+function loadSchedule(){try{state.schedule=JSON.parse(localStorage.getItem("raspored.schedule")||"{}")}catch(e){state.schedule={}}}
 function save(){localStorage.setItem("raspored.schedule",JSON.stringify(state.schedule))}
-function appNow(){return state.demo?new Date(2026,9,16,9,0,0):new Date()}
+function appNow(){return new Date()}
 function loadTimeEntries(){try{var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");return Array.isArray(raw)?raw.filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")}):[]}catch(e){return []}}
 function saveTimeEntries(entries){localStorage.setItem("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
 function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
@@ -194,22 +215,6 @@ function monthData(y,m){
     else out.weeks[wi].o+=mins/60;
   });
 
-  if(state.demo&&entries.length===0){
-    out.workedMinutes=out.planned*60;
-    out.dayMinutes=out.counts.D*12*60;
-    out.nightMinutes=out.counts.N*12*60;
-    for(day=1;day<=days;day++){
-      date=new Date(y,m,day);key=iso(date);code=state.schedule[key];
-      if(code!=="D"&&code!=="N")continue;
-      var mins=12*60;
-      if(date.getDay()===6)out.satMinutes+=mins;
-      if(date.getDay()===0)out.sunMinutes+=mins;
-      if(hm[key])out.holidayMinutes+=mins;
-      wi=Math.min(4,Math.floor((day-1)/7));
-      if(code==="D")out.weeks[wi].d+=12;
-      else out.weeks[wi].n+=12;
-    }
-  }
 
   out.worked=out.workedMinutes/60;
   out.night=out.nightMinutes/60;
@@ -258,7 +263,7 @@ function renderSummary(){
   ].map(function(x){return '<div class="month-strip-item"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>'}).join("");
 }
 function renderMobileHome(){
-  var date=state.demo?new Date(2026,9,16):new Date(),key=iso(date),code=state.schedule[key]||null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
+  var date=appNow(),key=iso(date),code=state.schedule[key]||null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
   var title=document.getElementById("mobileTodayTitle");
   if(title){var dateText=date.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)+"."}
   var currentEl=document.getElementById("mobileCurrentShift");
@@ -270,18 +275,22 @@ function renderMobileHome(){
   var metrics=document.getElementById("mobileMetricGrid");
   if(metrics){var weekendMinutes=data.satMinutes+data.sunMinutes+data.holidayMinutes,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""],["moon","Noćni sati",hoursText(data.nightMinutes),"Ovaj mjesec","night"],["holiday","Vikendi i blagdani",hoursText(weekendMinutes),"Ovaj mjesec","weekend"]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
 }
-function nextShifts(){var list=[],start=state.demo?new Date(2026,9,16):new Date();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c&&c!=="GO"&&c!=="BO")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<div class="next-shift"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
-function renderSelected(){var el=document.getElementById("selectedDayCard");if(!el)return;var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(new Date()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+d.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'.</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}
+function nextShifts(){var list=[],start=appNow();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c&&c!=="GO"&&c!=="BO")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<div class="next-shift"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
+function renderSelected(){var el=document.getElementById("selectedDayCard");if(!el)return;var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+d.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'.</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'}
 function renderRecognition(){
   var el=document.getElementById("recognitionDays");if(!el)return;
-  var y=state.cursor.getFullYear(),m=state.cursor.getMonth(),days=new Date(y,m+1,0).getDate(),selected=selectedScanSchedule();
+  var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate(),selected=selectedScanSchedule();
   el.innerHTML="";
   for(var i=1;i<=days;i++){
-    var code=selected?(selected[i]||""):(state.demo?state.schedule[iso(new Date(y,m,i))]||"":"");
-    var x=document.createElement("div");x.className="recognition-day";
+    var code=selected?(selected[i]||""):"",x=document.createElement("button");
+    x.type="button";x.className="recognition-day"+(state.editRecognition?" is-editing":"");
+    x.dataset.scanDay=String(i);x.disabled=!selected||!state.editRecognition;
+    x.setAttribute("aria-label",String(i)+". "+months[m]+" "+y+". "+(code?shiftMeta(code).name:"Slobodan dan"));
     x.innerHTML="<b>"+String(i).padStart(2,"0")+"."+String(m+1).padStart(2,"0")+".</b><small>"+weekdays[new Date(y,m,i).getDay()].toLowerCase()+"</small>"+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">slobodno</i>');
     el.appendChild(x);
   }
+  var edit=document.getElementById("editRecognitionBtn");
+  if(edit){edit.disabled=!selected;edit.classList.toggle("is-active",state.editRecognition);edit.lastChild.nodeValue=state.editRecognition?" Završi uređivanje":" Uredi";}
 }
 function renderStats(){
   var d=statsForCursor(),worked=document.getElementById("workedTotal");
@@ -439,5 +448,5 @@ function bind(){
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
   var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
 }
-loadSchedule();buildDemoScanPeople();document.body.dataset.demo=state.demo?"true":"false";configureProfile();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((window.RASPORED_BASE||"")+"/sw.js").catch(function(){})})}
+loadSchedule();loadScanSession();configureProfile();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((window.RASPORED_BASE||"")+"/sw.js").catch(function(){})})}
 })();
