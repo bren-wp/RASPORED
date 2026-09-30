@@ -158,6 +158,9 @@ function evidenceForMonth(year,monthIndex){
   result.workedDays=Object.keys(result.workedDates).length;
   return result;
 }
+function isPlaceholderInstitution(item){
+  return !!(item&&(item.county==="*"||item.city==="*"));
+}
 function currentInstitution(){
   var select=qs("payrollInstitution");if(!select)return null;
   var sector=qs("payrollSector")?qs("payrollSector").value:"";
@@ -228,9 +231,12 @@ function populateInstitutions(selectedName,preferredRegime){
   var found=list.findIndex(function(item){return item.name===selectedName||(preferredRegime&&item.regime===preferredRegime&&item.name.indexOf("ručni")<0)});
   el.value=found>=0?String(found):(list.length?String(0):OTHER);
   var customWrap=qs("payrollInstitutionCustomWrap"),custom=qs("payrollInstitutionCustom");
-  var manual=el.value===OTHER;
+  var selectedItem=el.value===OTHER?null:list[Number(el.value)]||null;
+  var manual=el.value===OTHER||isPlaceholderInstitution(selectedItem);
   if(customWrap)customWrap.hidden=!manual;
-  if(custom&&manual&&selectedName&&found<0)custom.value=selectedName;
+  if(custom&&manual){
+    custom.value=(selectedName&&(!selectedItem||selectedName!==selectedItem.name))?selectedName:"";
+  }
 }
 function effectiveRegimeId(){
   var institution=currentInstitution();
@@ -270,7 +276,9 @@ function persist(){
     taxLower:numeric("payrollTaxLower",20,0,50),
     taxHigher:numeric("payrollTaxHigher",30,0,50),
     sector:text(qs("payrollSector").value,100),
-    institution:institution?institution.name:text(custom&&custom.value||"Druga javna ustanova",160),
+    institution:institution&&!isPlaceholderInstitution(institution)
+      ?institution.name
+      :text(custom&&custom.value||institution&&institution.name||"Druga javna ustanova",160),
     regimeId:effectiveRegimeId(),
     roleId:text(qs("payrollRole").value,80),
     coefficient:numeric("payrollCoefficient",1,0.1,10),
@@ -369,7 +377,9 @@ function render(){
   var dayCount=evidence.workedDays||standardDays;
   var dailyGross=gross/dayCount,dailyNet=net.net/dayCount;
   var institution=currentInstitution();
-  var institutionName=institution?institution.name:text(qs("payrollInstitutionCustom").value||"Druga javna ustanova",160);
+  var institutionName=institution&&!isPlaceholderInstitution(institution)
+    ?institution.name
+    :text(qs("payrollInstitutionCustom").value||institution&&institution.name||"Druga javna ustanova",160);
 
   qs("payrollGross").textContent=base>0?money(gross):"Unesi osnovicu";
   qs("payrollNet").textContent=base>0?money(net.net):"—";
@@ -458,8 +468,10 @@ function bind(){
   });
   qs("payrollSector").addEventListener("change",function(){refreshInstitutionAndRole();persist()});
   qs("payrollInstitution").addEventListener("change",function(){
-    var manual=this.value===OTHER;
+    var institution=currentInstitution();
+    var manual=this.value===OTHER||isPlaceholderInstitution(institution);
     qs("payrollInstitutionCustomWrap").hidden=!manual;
+    if(manual&&qs("payrollInstitutionCustom"))qs("payrollInstitutionCustom").value="";
     populateRoles("");
     syncRoleCoefficient(true);syncBaseInput();syncWorkPatternControls();persist();render();
   });
