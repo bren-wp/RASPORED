@@ -41,6 +41,9 @@ import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
 import hr.raspored.app.data.ProfileStore
 import hr.raspored.app.data.ReportExporter
+import hr.raspored.app.data.RemoteAccount
+import hr.raspored.app.data.RemoteAccountClient
+import hr.raspored.app.data.RemoteAccountStore
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -81,6 +84,9 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val evidenceStore = remember(context) { TimeEvidenceStore(context) }
     val profileStore = remember(context) { ProfileStore(context) }
     val teamStore = remember(context) { TeamStore(context) }
+    val remoteAccountStore = remember(context) { RemoteAccountStore(context) }
+    var remoteAccount by remember { mutableStateOf(remoteAccountStore.account) }
+    var remoteToken by remember { mutableStateOf(remoteAccountStore.token) }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
@@ -171,6 +177,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     Screen.Scan->OcrScanScreen(
                         defaultMonth=YearMonth.from(appDate()),
                         allowTeamImport=true,
+                        remoteAccountToken=remoteToken,
                         onSaveTeamSchedules={month,rows->
                             teamStore.saveRecognizedMonth(
                                 month,
@@ -205,6 +212,16 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         profileName=profileName,
                         scheduleCodes=scheduleCodes,
                         evidenceEntries=evidenceEntries,
+                        remoteAccount=remoteAccount,
+                        onRemoteSessionChange={account,token->
+                            remoteAccount=account
+                            remoteToken=token
+                            if(account==null||token==null) remoteAccountStore.clear()
+                            else {
+                                remoteAccountStore.account=account
+                                remoteAccountStore.token=token
+                            }
+                        },
                         onProfileNameChange={
                             profileName=it
                             profileStore.fullName=it
