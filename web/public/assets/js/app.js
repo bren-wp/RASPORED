@@ -77,6 +77,21 @@ function loadTeamMembers(){
 }
 function saveTeamMembers(items){return storageSet("raspored.team.v1",JSON.stringify(items.slice(0,100)))}
 function isManagerAccount(){return !!(window.RasporedAuth&&window.RasporedAuth.isManager&&window.RasporedAuth.isManager())}
+function authSnapshot(){return window.RasporedAuth&&window.RasporedAuth.snapshot?window.RasporedAuth.snapshot():{authenticated:false,account:null}}
+function normalizePersonName(value){
+  return String(value||"").toLocaleUpperCase("hr-HR").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/Đ/g,"D").replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim()
+    .split(" ").filter(Boolean).sort().join(" ");
+}
+function individualAccountName(){
+  var auth=authSnapshot();
+  if(!auth.authenticated||!auth.account||auth.account.accountType==="manager")return "";
+  return ((auth.account.firstName||"")+" "+(auth.account.lastName||"")).trim();
+}
+function scanPersonAllowed(person){
+  var expected=individualAccountName();
+  return !expected||normalizePersonName(expected)===normalizePersonName(person&&person.name);
+}
 function renderTeamMembers(){
   var card=document.getElementById("teamSchedulesCard"),list=document.getElementById("teamMembersList");
   if(!card||!list)return;
@@ -226,18 +241,28 @@ function scanPerson(){
 function renderScanPersonPicker(){
   var button=document.getElementById("scanPersonButton"),label=document.getElementById("scanPersonLabel"),menu=document.getElementById("scanPersonMenu"),status=document.getElementById("recognitionStatus"),saveBtn=document.getElementById("saveSchedule"),monthLabel=document.getElementById("scanMonthLabel");
   if(!button||!label||!menu)return;
+  var expectedName=individualAccountName();
+  if(expectedName){
+    var matched=state.scanPeople.findIndex(function(item){return scanPersonAllowed(item)});
+    if(matched>=0&&(!scanPerson()||!scanPersonAllowed(scanPerson())))state.scanSelected=matched;
+    if(matched<0)state.scanSelected=-1;
+  }
   var person=scanPerson();
   label.textContent=person?((person.row?person.row+". ":"")+person.name):"Odaberi ime i prezime";
   button.disabled=state.scanPeople.length===0;
   menu.innerHTML=state.scanPeople.map(function(item,index){
-    return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'"><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>Samo ovaj raspored bit će uvezen</small></button>';
+    var allowed=scanPersonAllowed(item);
+    return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'" '+(allowed?'':'disabled')+'><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>'+(allowed?'Samo ovaj raspored bit će uvezen':'Račun dopušta uvoz samo vlastitog rasporeda')+'</small></button>';
   }).join("");
-  if(status)status.textContent=person?"✓ Odabrana 1 osoba":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
+  if(status){
+    if(expectedName&&!person&&state.scanPeople.length)status.textContent="Ime s računa nije pouzdano pronađeno u skeniranom rasporedu.";
+    else status.textContent=person?"✓ Odabrana 1 osoba":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
+  }
   if(monthLabel){
     var target=scanTargetMonth();
     monthLabel.textContent=months[target.getMonth()]+" "+target.getFullYear()+".";
   }
-  if(saveBtn)saveBtn.disabled=!person;
+  if(saveBtn)saveBtn.disabled=!person||!scanPersonAllowed(person);
   var teamBtn=document.getElementById("saveTeamSchedules"),teamNote=document.getElementById("teamImportNote");
   var manager=isManagerAccount();
   if(teamBtn){teamBtn.hidden=!(manager&&state.scanPeople.length>0);teamBtn.disabled=state.scanPeople.length===0}
@@ -249,6 +274,7 @@ function selectedScanSchedule(){
 function importSelectedScanSchedule(){
   var person=scanPerson();
   if(!person){toast("Odaberi ime i prezime jedne osobe čiji raspored želiš uvesti.");return}
+  if(!scanPersonAllowed(person)){toast("Ovaj račun može uvesti samo vlastiti raspored.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   for(var day=1;day<=days;day++)delete state.schedule[iso(new Date(y,m,day))];
   Object.keys(person.dayShifts||{}).forEach(function(day){
