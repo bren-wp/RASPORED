@@ -1028,7 +1028,7 @@ internal fun mergeForAiReview(
     )
     return AiMergeResult(
         schedule = RecognizedSchedule(
-            month = ai.month ?: local.month,
+            month = local.month ?: ai.month,
             rows = rows,
             rawText = local.rawText,
             expectedRowCount = listOfNotNull(local.expectedRowCount, ai.expectedRowCount).maxOrNull()
