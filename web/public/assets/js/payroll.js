@@ -428,7 +428,10 @@ function bind(){
     applyTaxLocality();persist();render();
   });
   if(qs("payrollResidenceCustom"))qs("payrollResidenceCustom").addEventListener("change",function(){persist();render()});
-  ["payrollTaxLower","payrollTaxHigher"].forEach(function(id){qs(id).addEventListener("input",render);qs(id).addEventListener("change",persist)});
+  ["payrollTaxLower","payrollTaxHigher"].forEach(function(id){
+    qs(id).addEventListener("input",function(){render();persist()});
+    qs(id).addEventListener("change",persist);
+  });
   qs("payrollSector").addEventListener("change",function(){refreshInstitutionAndRole();persist()});
   qs("payrollInstitution").addEventListener("change",function(){
     var manual=this.value===OTHER;
