@@ -316,3 +316,14 @@ test("app remains usable when localStorage is unavailable", async ({browser}) =>
   expect(pageErrors).toEqual([]);
   await context.close();
 });
+
+
+test("dynamic assets honor a subdirectory deployment base", async ({page}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    document.body.dataset.base="/raspored";
+    (document.getElementById("searchBtn") as HTMLElement)?.click();
+  });
+  await expect(page.locator("#searchDialog")).toBeVisible();
+  await expect(page.locator("#searchResults use").first()).toHaveAttribute("href",/^\/raspored\/assets\/brand\/icons\.svg#icon-/);
+});
