@@ -178,7 +178,7 @@ function detectGridBounds(bitmap){
   }
 
   var mask=Array.from(support,function(value){return value>=.22});
-  bridgeMask(mask,Math.max(6,Math.round(spacing*.55)));
+  bridgeMask(mask,Math.max(8,Math.round(spacing*1.65)));
   var runs=trueRuns(mask);
   if(!runs.length)return null;
   runs.sort(function(a,b){return (b[1]-b[0])-(a[1]-a[0])});
