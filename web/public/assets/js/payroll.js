@@ -119,7 +119,7 @@ function interval(entry){
 }
 function evidenceForMonth(year,monthIndex){
   var data=snapshot(),entries=Array.isArray(data.evidence)?data.evidence:[],holidays=holidayMap(year);
-  var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,goDays:0,boDays:0,pdDays:0,sdDays:0,compensated:0,active:false,workedDates:{}};
+  var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,goDays:0,boDays:0,pdDays:0,sdDays:0,compensated:0,absenceCompensated:0,holidayCompensated:0,holidayCompensatedDays:0,active:false,workedDates:{}};
   entries.forEach(function(entry){
     var span=interval(entry);if(!span)return;
     if(!entry.out&&entry.endedAt==null)result.active=true;
@@ -154,12 +154,30 @@ function evidenceForMonth(year,monthIndex){
     else if(code==="PD")result.pdDays++;
     else if(code==="SD")result.sdDays++;
   });
-  var compensatedDays=0;
+  var compensatedDates={};
+  var absenceDates={};
   Object.keys(schedule).forEach(function(dateKey){
     var code=schedule[dateKey];
-    if((code==="GO"||code==="BO"||code==="PD")&&!result.workedDates[dateKey])compensatedDays++;
+    var d=new Date(dateKey+"T12:00:00");
+    if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
+    if((code==="GO"||code==="BO"||code==="PD")&&!result.workedDates[dateKey]){
+      compensatedDates[dateKey]=true;
+      absenceDates[dateKey]=true;
+    }
   });
-  result.compensated=compensatedDays*8*60;
+  var holidayCompensatedDates={};
+  Object.keys(holidays).forEach(function(dateKey){
+    var d=new Date(dateKey+"T12:00:00");
+    if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
+    if(d.getDay()!==0&&d.getDay()!==6&&!result.workedDates[dateKey]){
+      compensatedDates[dateKey]=true;
+      holidayCompensatedDates[dateKey]=true;
+    }
+  });
+  result.absenceCompensated=Object.keys(absenceDates).length*8*60;
+  result.holidayCompensated=Object.keys(holidayCompensatedDates).length*8*60;
+  result.holidayCompensatedDays=Object.keys(holidayCompensatedDates).length;
+  result.compensated=Object.keys(compensatedDates).length*8*60;
   result.workedDays=Object.keys(result.workedDates).length;
   return result;
 }
@@ -418,7 +436,15 @@ function render(){
   if(evidence.goDays||evidence.boDays||evidence.pdDays||evidence.sdDays){
     rows.push({
       label:"Planirani izostanci: GO "+evidence.goDays+" · BO "+evidence.boDays+" · PD "+evidence.pdDays+" · SD "+evidence.sdDays,
-      minutes:evidence.compensated,
+      minutes:evidence.absenceCompensated,
+      value:null,
+      rate:null
+    });
+  }
+  if(evidence.holidayCompensatedDays){
+    rows.push({
+      label:"Blagdan / neradni dan bez evidentiranog rada",
+      minutes:evidence.holidayCompensated,
       value:null,
       rate:null
     });
@@ -446,7 +472,7 @@ function render(){
   });
   qs("payrollLegalText").textContent=(regime?regime.label:"Ručni obračun")+" — osnovna bruto plaća računa se kao osnovica × koeficijent + 0,5% za svaku navršenu godinu staža. "+
     (autoRates.length?"Automatski obračunski postoci u ovom presetu: "+autoRates.join(", ")+". ":"Dodaci nisu automatski pretpostavljeni za ovaj režim. ")+
-    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. GO, BO i PD iz kalendara koriste se samo kao 8-satna ekvivalencija za procjenu mjesečnog fonda i prekovremenih sati; naknada po prosjeku se ne izmišlja. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
+    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. GO, BO i PD te radni dan koji pada na blagdan bez evidentiranog rada koriste se samo kao 8-satna ekvivalencija pri provjeri mjesečnog fonda; to nije izmišljena smjena niti dodatak za rad blagdanom. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
 }
 function refreshInstitutionAndRole(preferredRole){
   populateInstitutions("",null);
