@@ -307,6 +307,12 @@ test("Android bearer account API stores schedule state in storage data", async (
     ...headers,
     "Authorization":"Bearer "+auth.token
   };
+  const missingRevision=await request.put("/api/state.php",{
+    headers:mobileHeaders,
+    data:{patch:true,state:{schedule:{"2026-10-01":"D"}}}
+  });
+  expect(missingRevision.status()).toBe(428);
+
   const saved=await request.put("/api/state.php",{
     headers:mobileHeaders,
     data:{
