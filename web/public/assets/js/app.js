@@ -13,13 +13,13 @@ function icon(name,extra){
 }
 
 function storageGet(key){
-  try{return localStorage.getItem(key)}catch(e){return null}
+  return window.RasporedDataStore?window.RasporedDataStore.get(key):null;
 }
 function storageSet(key,value){
-  try{localStorage.setItem(key,value);return true}catch(e){return false}
+  return window.RasporedDataStore?window.RasporedDataStore.set(key,value):false;
 }
 function storageRemove(key){
-  try{localStorage.removeItem(key);return true}catch(e){return false}
+  return window.RasporedDataStore?window.RasporedDataStore.remove(key):false;
 }
 function sanitizeSchedule(raw){
   var clean={};
@@ -47,7 +47,7 @@ function sanitizeScanPeople(items){
 }
 function configureProfile(){
   var saved="";
-  try{saved=(localStorage.getItem("raspored.profile.name")||"").trim().slice(0,80)}catch(e){}
+  saved=(storageGet("raspored.profile.name")||"").trim().slice(0,80);
   var name=saved;
   var display=name||"Korisnik";
   var parts=display.split(/\s+/).filter(Boolean);
@@ -63,7 +63,7 @@ function configureProfile(){
 }
 function loadColleagues(){
   try{
-    var raw=JSON.parse(localStorage.getItem("raspored.colleagues.v1")||"[]");
+    var raw=JSON.parse(storageGet("raspored.colleagues.v1")||"[]");
     return Array.isArray(raw)?raw.filter(function(x){return x&&typeof x.name==="string"}).slice(0,30):[];
   }catch(e){return []}
 }
@@ -95,7 +95,7 @@ function submitColleague(){
   var items=loadColleagues();
   if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return false}
   items.push({name:name,note:note||"Raspored kolege"});
-  if(!saveColleagues(items)){toast("Podatke nije moguće spremiti u pregledniku.");return false}
+  if(!saveColleagues(items)){toast("Podatke nije moguće spremiti u storage/data.");return false}
   renderColleagues();if(dialog)dialog.close();toast("Kolega je dodan.");return true;
 }
 function yearMonthKey(y,m){return y+"-"+String(m+1).padStart(2,"0")}
@@ -133,17 +133,15 @@ function openSearch(){
   setTimeout(function(){if(input)input.focus()},0);
 }
 function saveScanSession(){
-  try{
-    sessionStorage.setItem("raspored.scan.v1",JSON.stringify({
-      people:state.scanPeople,
-      selected:state.scanSelected,
-      month:state.scanMonth
-    }));
-  }catch(e){}
+  storageSet("raspored.scan.v1",JSON.stringify({
+    people:state.scanPeople,
+    selected:state.scanSelected,
+    month:state.scanMonth
+  }));
 }
 function loadScanSession(){
   try{
-    var raw=JSON.parse(sessionStorage.getItem("raspored.scan.v1")||"null");
+    var raw=JSON.parse(storageGet("raspored.scan.v1")||"null");
     if(raw&&Array.isArray(raw.people)){
       state.scanPeople=sanitizeScanPeople(raw.people);
       state.scanSelected=Number.isInteger(raw.selected)?raw.selected:-1;
@@ -164,7 +162,7 @@ function clearScanSession(){
   state.scanGeneration++;
   state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.editRecognition=false;
   releaseScanPreview();
-  try{sessionStorage.removeItem("raspored.scan.v1")}catch(e){}
+  storageRemove("raspored.scan.v1");
 }
 function scanTargetMonth(){
   if(state.scanMonth)return new Date(state.scanMonth.year,state.scanMonth.month-1,1);
@@ -206,14 +204,14 @@ function importSelectedScanSchedule(){
     if(n>=1&&n<=days&&["D","N","GO","BO"].indexOf(code)>=0)state.schedule[iso(new Date(y,m,n))]=code;
   });
   state.cursor=new Date(y,m,1);state.selected=new Date(y,m,1);
-  if(!save()){loadSchedule();renderAll();toast("Raspored nije spremljen. Provjeri dopuštenja preglednika.");return}
+  if(!save()){loadSchedule();renderAll();toast("Raspored nije spremljen u storage/data.");return}
   clearScanSession();renderAll();toast("Uvezen je samo raspored za "+person.name+".");route("calendar");
 }
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,da=((h+l-7*m+114)%31)+1;return new Date(y,mo,da)}
 function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x}
 function holidays(y){var map={};function add(m,d,n){map[y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0")]=n}add(1,1,"Nova godina");add(1,6,"Bogojavljenje");add(5,1,"Praznik rada");add(5,30,"Dan državnosti");add(6,22,"Dan antifašističke borbe");add(8,5,"Dan pobjede i domovinske zahvalnosti i Dan hrvatskih branitelja");add(8,15,"Velika Gospa");add(11,1,"Svi sveti");add(11,18,"Dan sjećanja na žrtve Domovinskog rata");add(12,25,"Božić");add(12,26,"Sveti Stjepan");var e=easter(y);map[iso(e)]="Uskrs";map[iso(addDays(e,1))]="Uskrsni ponedjeljak";map[iso(addDays(e,60))]="Tijelovo";return map}
-function loadSchedule(){try{state.schedule=sanitizeSchedule(JSON.parse(localStorage.getItem("raspored.schedule")||"{}"))}catch(e){state.schedule={}}}
+function loadSchedule(){try{state.schedule=sanitizeSchedule(JSON.parse(storageGet("raspored.schedule")||"{}"))}catch(e){state.schedule={}}}
 function save(){return storageSet("raspored.schedule",JSON.stringify(state.schedule))}
 function appNow(){return new Date()}
 function punctuatedDate(date,options){
@@ -221,7 +219,7 @@ function punctuatedDate(date,options){
 }
 function loadTimeEntries(){
   try{
-    var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");
+    var raw=JSON.parse(storageGet("raspored.timeEntries.v1")||"[]");
     if(!Array.isArray(raw))return [];
     return raw.filter(function(x){
       return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")&&
@@ -397,12 +395,12 @@ function renderNotifications(){
   var meta=shiftMeta(item.code),dateLabel=item.date.toLocaleDateString("hr-HR",{weekday:"long",day:"numeric",month:"long"});
   textEl.textContent="Sljedeća smjena: "+dateLabel+" · "+meta.name+" · "+meta.time+".";
   var readKey="";
-  try{readKey=localStorage.getItem("raspored.notifications.readKey")||""}catch(e){}
+  readKey=storageGet("raspored.notifications.readKey")||"";
   dot.hidden=readKey===item.key;
 }
 function markNotificationsRead(){
   var item=upcomingShiftNotification();
-  if(item){try{localStorage.setItem("raspored.notifications.readKey",item.key)}catch(e){}}
+  if(item)storageSet("raspored.notifications.readKey",item.key);
   renderNotifications();
 }
 function renderMobileHome(){
@@ -506,7 +504,7 @@ function clockIn(){
   var entries=loadTimeEntries(),now=appNow(),today=iso(now);
   if(activeTimeEntry(entries)){toast("Ulaz je već evidentiran.");return}
   entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:"",startedAt:now.getTime(),endedAt:null});
-  if(!saveTimeEntries(entries)){toast("Ulaz nije spremljen. Provjeri dopuštenja preglednika.");return}
+  if(!saveTimeEntries(entries)){toast("Ulaz nije spremljen u storage/data.");return}
   renderAll();toast("Ulaz je evidentiran.")
 }
 function clockOut(){
@@ -514,7 +512,7 @@ function clockOut(){
   if(!active){toast("Nema aktivne evidencije za izlaz.");return}
   active.out=hhmm(now);active.endedAt=now.getTime();
   var note=document.getElementById("hoursNote");active.note=note?note.value.trim().slice(0,500):active.note||"";
-  if(!saveTimeEntries(entries)){toast("Izlaz nije spremljen. Provjeri dopuštenja preglednika.");return}
+  if(!saveTimeEntries(entries)){toast("Izlaz nije spremljen u storage/data.");return}
   renderAll();toast("Izlaz je evidentiran.")
 }
 function saveHoursNote(){
@@ -683,7 +681,7 @@ function bind(){
       var value=profileInput.value.trim().replace(/\s+/g," ").slice(0,80);
       if(value.length>0&&value.length<2){toast("Unesi valjano ime i prezime.");return}
       var stored=value?storageSet("raspored.profile.name",value):storageRemove("raspored.profile.name");
-      if(!stored){toast("Profil nije moguće spremiti u pregledniku.");return}
+      if(!stored){toast("Profil nije moguće spremiti u storage/data.");return}
       configureProfile();toast("Profil je spremljen.");
     });
   }
@@ -703,5 +701,19 @@ function bind(){
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
   var th=storageGet("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
 }
-loadSchedule();loadScanSession();configureProfile();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
+async function initApp(){
+  if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
+  await window.RasporedDataStore.init();
+  loadSchedule();loadScanSession();configureProfile();bind();
+  window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
+  document.body.dataset.routeCurrent=state.route;
+  renderAll();
+  setInterval(function(){if(state.route==="hours")renderHours()},60000);
+  if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
+}
+initApp().catch(function(){
+  document.body.dataset.routeCurrent=state.route;
+  bind();renderAll();
+  toast("Podatkovni sloj nije dostupan. Aplikacija radi samo u memoriji.");
+});
 })();
