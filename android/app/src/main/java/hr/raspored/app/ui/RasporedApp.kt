@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
@@ -41,6 +42,9 @@ import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
 import hr.raspored.app.data.ProfileStore
 import hr.raspored.app.data.ReportExporter
+import hr.raspored.app.data.RemoteAccount
+import hr.raspored.app.data.RemoteAccountClient
+import hr.raspored.app.data.RemoteAccountStore
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -48,7 +52,9 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Navy=RasporedTokens.Navy
 private val Cyan=RasporedTokens.Cyan
@@ -81,6 +87,9 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val evidenceStore = remember(context) { TimeEvidenceStore(context) }
     val profileStore = remember(context) { ProfileStore(context) }
     val teamStore = remember(context) { TeamStore(context) }
+    val remoteAccountStore = remember(context) { RemoteAccountStore(context) }
+    var remoteAccount by remember { mutableStateOf(remoteAccountStore.account) }
+    var remoteToken by remember { mutableStateOf(remoteAccountStore.token) }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
@@ -171,6 +180,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     Screen.Scan->OcrScanScreen(
                         defaultMonth=YearMonth.from(appDate()),
                         allowTeamImport=true,
+                        remoteAccountToken=remoteToken,
                         onSaveTeamSchedules={month,rows->
                             teamStore.saveRecognizedMonth(
                                 month,
@@ -205,6 +215,16 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         profileName=profileName,
                         scheduleCodes=scheduleCodes,
                         evidenceEntries=evidenceEntries,
+                        remoteAccount=remoteAccount,
+                        onRemoteSessionChange={account,token->
+                            remoteAccount=account
+                            remoteToken=token
+                            if(account==null||token==null) remoteAccountStore.clear()
+                            else {
+                                remoteAccountStore.account=account
+                                remoteAccountStore.token=token
+                            }
+                        },
                         onProfileNameChange={
                             profileName=it
                             profileStore.fullName=it
@@ -1422,6 +1442,8 @@ private fun largeMinutesLabel(minutes:Long):String {
     profileName:String,
     scheduleCodes:Map<String,String>,
     evidenceEntries:List<TimeEvidenceEntry>,
+    remoteAccount:RemoteAccount?,
+    onRemoteSessionChange:(RemoteAccount?,String?)->Unit,
     onProfileNameChange:(String)->Unit,
     onDarkModeChange:(Boolean)->Unit,
     onReducedMotionChange:(Boolean)->Unit
@@ -1429,6 +1451,19 @@ private fun largeMinutesLabel(minutes:Long):String {
     val context=LocalContext.current
     var exportStatus by remember { mutableStateOf("") }
     var exportMonth by remember { mutableStateOf(YearMonth.from(appDate())) }
+    val accountScope=rememberCoroutineScope()
+    var loginOpen by remember { mutableStateOf(false) }
+    var registerOpen by remember { mutableStateOf(false) }
+    var accountBusy by remember { mutableStateOf(false) }
+    var accountError by remember { mutableStateOf("") }
+    var loginEmail by remember { mutableStateOf("") }
+    var loginPassword by remember { mutableStateOf("") }
+    var registerFirstName by remember { mutableStateOf("") }
+    var registerLastName by remember { mutableStateOf("") }
+    var registerEmail by remember { mutableStateOf("") }
+    var registerPhone by remember { mutableStateOf("") }
+    var registerPassword by remember { mutableStateOf("") }
+    var registerManager by remember { mutableStateOf(false) }
 
     fun openExternal(uri:String){
         runCatching{
@@ -1470,19 +1505,73 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                    Text("Lokalni profil",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text("Profil i račun",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Android aplikacija nema korisnički račun ni prijavu. Raspored, evidencija, OCR i obračun rade lokalno na uređaju bez registracije. Ime je neobavezno i koristi se samo u izvozu.",
+                        "Kalendar, raspored, evidencija sati i lokalni OCR rade bez registracije. Račun omogućuje prijavljeni identitet i opcionalnu AI provjeru cijelog rasporeda preko sigurnog poslužitelja.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
                     OutlinedTextField(
                         value=profileName,
                         onValueChange={onProfileNameChange(it.take(80))},
-                        label={Text("Ime i prezime · neobavezno")},
+                        label={Text("Ime i prezime · neobavezno za lokalni rad")},
                         singleLine=true,
                         modifier=Modifier.fillMaxWidth()
                     )
+                    if(remoteAccount!=null){
+                        Surface(
+                            shape=RoundedCornerShape(14.dp),
+                            color=MaterialTheme.colorScheme.surfaceVariant,
+                            modifier=Modifier.fillMaxWidth()
+                        ){
+                            Column(Modifier.padding(14.dp)){
+                                Text(remoteAccount.fullName,fontWeight=FontWeight.Bold)
+                                Text(remoteAccount.email,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    if(remoteAccount.accountType=="manager") "Voditelj tima" else "Djelatnik / osobni raspored",
+                                    fontSize=11.sp,
+                                    color=Cyan,
+                                    fontWeight=FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        OutlinedButton(
+                            onClick={
+                                accountBusy=true
+                                accountError=""
+                                accountScope.launch{
+                                    runCatching{
+                                        val token=RemoteAccountStore(context.applicationContext).token
+                                        if(token!=null){
+                                            withContext(Dispatchers.IO){RemoteAccountClient.logout(token)}
+                                        }
+                                    }
+                                    RemoteAccountStore(context.applicationContext).clear()
+                                    onRemoteSessionChange(null,null)
+                                    accountBusy=false
+                                }
+                            },
+                            enabled=!accountBusy,
+                            modifier=Modifier.fillMaxWidth()
+                        ){Text("Odjavi račun")}
+                    }else{
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement=Arrangement.spacedBy(8.dp)
+                        ){
+                            Button(
+                                onClick={accountError="";loginOpen=true},
+                                modifier=Modifier.weight(1f)
+                            ){Text("Prijava")}
+                            OutlinedButton(
+                                onClick={accountError="";registerOpen=true},
+                                modifier=Modifier.weight(1f)
+                            ){Text("Registracija")}
+                        }
+                    }
+                    if(accountError.isNotBlank()){
+                        Text(accountError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
+                    }
                 }
             }
         }
@@ -1575,6 +1664,133 @@ private fun largeMinutesLabel(minutes:Long):String {
                 }
             }
         }
+    }
+
+    if(loginOpen){
+        AlertDialog(
+            onDismissRequest={if(!accountBusy)loginOpen=false},
+            title={Text("Prijava u RASPORED")},
+            text={
+                Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    OutlinedTextField(
+                        value=loginEmail,
+                        onValueChange={loginEmail=it.take(160)},
+                        label={Text("E-mail")},
+                        singleLine=true,
+                        modifier=Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value=loginPassword,
+                        onValueChange={loginPassword=it.take(128)},
+                        label={Text("Lozinka")},
+                        visualTransformation=PasswordVisualTransformation(),
+                        singleLine=true,
+                        modifier=Modifier.fillMaxWidth()
+                    )
+                    if(accountError.isNotBlank())Text(accountError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
+                }
+            },
+            confirmButton={
+                Button(
+                    enabled=!accountBusy&&loginEmail.isNotBlank()&&loginPassword.isNotBlank(),
+                    onClick={
+                        accountBusy=true
+                        accountError=""
+                        accountScope.launch{
+                            runCatching{
+                                withContext(Dispatchers.IO){
+                                    RemoteAccountClient.login(loginEmail,loginPassword)
+                                }
+                            }.onSuccess{session->
+                                RemoteAccountStore(context.applicationContext).save(session)
+                                onRemoteSessionChange(session.account,session.token)
+                                onProfileNameChange(session.account.fullName.take(80))
+                                loginPassword=""
+                                loginOpen=false
+                            }.onFailure{error->
+                                accountError=error.message?:"Prijava nije uspjela."
+                            }
+                            accountBusy=false
+                        }
+                    }
+                ){Text(if(accountBusy)"Prijava..." else "Prijavi se")}
+            },
+            dismissButton={TextButton(onClick={loginOpen=false},enabled=!accountBusy){Text("Odustani")}}
+        )
+    }
+
+    if(registerOpen){
+        AlertDialog(
+            onDismissRequest={if(!accountBusy)registerOpen=false},
+            title={Text("Novi RASPORED račun")},
+            text={
+                Column(
+                    verticalArrangement=Arrangement.spacedBy(8.dp),
+                    modifier=Modifier.heightIn(max=520.dp)
+                ){
+                    OutlinedTextField(registerFirstName,{registerFirstName=it.take(60)},label={Text("Ime")},singleLine=true)
+                    OutlinedTextField(registerLastName,{registerLastName=it.take(60)},label={Text("Prezime")},singleLine=true)
+                    OutlinedTextField(registerEmail,{registerEmail=it.take(160)},label={Text("E-mail")},singleLine=true)
+                    OutlinedTextField(registerPhone,{registerPhone=it.take(40)},label={Text("Broj telefona")},singleLine=true)
+                    OutlinedTextField(
+                        value=registerPassword,
+                        onValueChange={registerPassword=it.take(128)},
+                        label={Text("Lozinka · najmanje 10 znakova, slovo i broj")},
+                        visualTransformation=PasswordVisualTransformation(),
+                        singleLine=true
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().clickable{registerManager=!registerManager},
+                        verticalAlignment=Alignment.CenterVertically
+                    ){
+                        Checkbox(checked=registerManager,onCheckedChange={registerManager=it})
+                        Column{
+                            Text("Voditelj tima",fontWeight=FontWeight.SemiBold)
+                            Text("Za odvojene rasporede više djelatnika.",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Text(
+                        "API ključ za AI nikada se ne sprema u aplikaciju. AI provjera ide preko RASPORED poslužitelja.",
+                        fontSize=11.sp,
+                        color=MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if(accountError.isNotBlank())Text(accountError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
+                }
+            },
+            confirmButton={
+                Button(
+                    enabled=!accountBusy&&registerFirstName.isNotBlank()&&registerLastName.isNotBlank()&&registerEmail.isNotBlank()&&registerPhone.isNotBlank()&&registerPassword.length>=10,
+                    onClick={
+                        accountBusy=true
+                        accountError=""
+                        accountScope.launch{
+                            runCatching{
+                                withContext(Dispatchers.IO){
+                                    RemoteAccountClient.register(
+                                        registerFirstName,
+                                        registerLastName,
+                                        registerEmail,
+                                        registerPhone,
+                                        registerPassword,
+                                        registerManager
+                                    )
+                                }
+                            }.onSuccess{session->
+                                RemoteAccountStore(context.applicationContext).save(session)
+                                onRemoteSessionChange(session.account,session.token)
+                                onProfileNameChange(session.account.fullName.take(80))
+                                registerPassword=""
+                                registerOpen=false
+                            }.onFailure{error->
+                                accountError=error.message?:"Registracija nije uspjela."
+                            }
+                            accountBusy=false
+                        }
+                    }
+                ){Text(if(accountBusy)"Registracija..." else "Kreiraj račun")}
+            },
+            dismissButton={TextButton(onClick={registerOpen=false},enabled=!accountBusy){Text("Odustani")}}
+        )
     }
 }
 

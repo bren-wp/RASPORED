@@ -78,7 +78,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
 | **Okvirna plaća** | Android i Web/PWA koriste provjerljive 2026 parametre gdje postoje; lokalno uređeni i privatni sektor imaju ručni način bez izmišljanja osnovice, koeficijenta ili dodataka. |
-| **Web korisnički račun** | Web/PWA može raditi bez registracije, a račun je opcionalan za trajni pristup web podacima. Android nema korisnički račun i sve glavne funkcije radi lokalno bez registracije. |
+| **Korisnički račun** | Web/PWA i Android mogu raditi bez registracije. Opcionalni račun služi za napredne usluge poput sigurnog pristupa web podacima, voditeljskog načina i opt-in AI provjere skenirane tablice. |
 | **Izvoz** | Android generira stvarni mjesečni PDF; Web/PWA podržava JSON sigurnosnu kopiju i pregled za ispis / spremanje kao PDF. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
 
@@ -87,11 +87,19 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
 3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. U dokazanoj ćeliji kalendarske mreže čuva i kratke oznake specifične radnom mjestu (npr. **J, S, P1, 1, 2, 3**) bez izmišljanja njihova značenja. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
-4. U osobni kalendar uvozi se **točno jedna odabrana osoba**. Android za to ne traži račun. Ako je puni raspored gust, OCR koristi broj retka kao primarni identitet i dodatne roster prolaze za ime kako ne bi stvarao duplikate ili gubio smjene.
-5. Android bez registracije može iz istog skeniranja spremiti više prepoznatih djelatnika kao **odvojene lokalne rasporede tima**. Web zadržava opcionalni korisnički račun i voditeljski način. Rasporedi se nikada ne spajaju među osobama.
+4. U osobni kalendar uvozi se **točno jedna odabrana osoba**. Za lokalni OCR nije potreban račun. Ako je puni raspored gust, OCR koristi broj retka kao primarni identitet i dodatne roster prolaze za ime kako ne bi stvarao duplikate ili gubio smjene.
+5. Android bez registracije može iz istog skeniranja spremiti više prepoznatih djelatnika kao **odvojene lokalne rasporede tima**. Registrirani korisnik može dodatno pokrenuti **AI provjeru cijelog rasporeda**; AI rezultat samo dopunjava prazne ćelije, a sukobi s lokalnim OCR-om ostaju za ručnu provjeru. Rasporedi se nikada ne spajaju među osobama.
 6. Prije spremanja moguće je ručno ispraviti svaki dan i oznaku; bez pouzdane geometrije stupaca aplikacija traži ponovno skeniranje umjesto tihog pomicanja dana ulijevo ili udesno.
 
 Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Fotografija se obrađuje u pregledniku, a potvrđeni raspored i evidencija spremaju se kroz isti-origin PHP API u per-instalacijski JSON pod `storage/data`.
+
+### Opcionalna AI provjera rasporeda
+
+AI provjera je **drugi, opt-in sloj**, a ne zamjena za lokalni OCR i korisnički review. Aktivira se samo za prijavljenog korisnika. Web i Android šalju odabranu fotografiju na `/api/ai-ocr.php`; backend čita `OPENAI_API_KEY` iz environmenta i koristi OpenAI Responses API s image inputom i strukturiranim JSON izlazom. Ključ se nikada ne šalje pregledniku niti se ugrađuje u APK.
+
+Za guste tablice AI mora pokušati vratiti sve numerirane redove i točne stupce dana 1–31. Standardne oznake D/N/GO/BO/PD/SD normaliziraju se, a kratke ustanovne oznake (npr. J, S, P1 ili 1/2/3) čuvaju se bez izmišljanja značenja. Lokalni OCR i AI rezultat uspoređuju se; AI popunjava nedostajuće ćelije, ali konfliktne ćelije se ne prepisuju automatski nego ostaju za ručnu provjeru.
+
+Produkcijski server konfigurira `OPENAI_API_KEY` i opcionalno `OPENAI_RASPORED_MODEL`; bez ključa aplikacija nastavlja normalno raditi lokalnim OCR-om.
 
 ## Evidencija sati je odvojena od plana
 
@@ -206,15 +214,15 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 
 ## Privatnost i podaci
 
-- **Android:** nema korisničkog računa ni prijave. Kalendar, raspored, OCR, evidencija, statistika, procjena plaće i PDF izvoz rade lokalno bez registracije; aplikacija nema nepotrebnu Internet dozvolu.
+- **Android:** kalendar, raspored, ML Kit OCR, evidencija, statistika, procjena plaće i PDF izvoz rade lokalno bez registracije. Internet dozvola koristi se samo za opcionalni RASPORED račun i opt-in AI provjeru; lokalne funkcije ne ovise o mreži.
 - **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
 - **Računi:** lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify`, HttpOnly/SameSite session cookie, same-origin provjeru i ograničenje pokušaja prijave.
 - **Zaštita Web spremišta:** runtime prvenstveno sprema JSON u privatni direktorij izvan document root-a; put se može eksplicitno zadati s `RASPORED_STORAGE_DIR`. `storage/.htaccess` ostaje kompatibilni fallback za Apache. Zapis ide kroz API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
-- **Android OCR:** obrada teksta preko ML Kit modela na uređaju.
-- **Web OCR:** fotografija se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`.
+- **Android OCR:** primarno lokalna obrada teksta preko ML Kit modela na uređaju. Ako prijavljeni korisnik izričito pokrene AI provjeru, fotografija se šalje preko RASPORED HTTPS backenda OpenAI Responses API-ju; OpenAI API ključ nije ugrađen u APK.
+- **Web OCR:** primarno se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`. Registrirani korisnik može izričito pokrenuti AI provjeru preko server-side endpointa koji čita `OPENAI_API_KEY` iz okoline, validira MIME/veličinu, ograničava broj zahtjeva i šalje `store:false`.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
-Registracija nije potrebna za osnovni rad. Android nema korisnički račun i sve glavne funkcije radi lokalno. Web/PWA može raditi bez registracije, a opcionalni račun služi samo web pristupu i web voditeljskom načinu.
+Registracija nije potrebna za osnovni rad. Android i Web/PWA zadržavaju lokalne/osnovne funkcije bez računa. Opcionalni račun otključava napredne mrežne funkcije; nijedan API ključ ne smije biti hardkodiran u JavaScript, APK, repozitorij ili release artefakt.
 
 ## QA koji mora proći
 
@@ -266,7 +274,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED je pripremljen kao **v1.0.11** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
+RASPORED je pripremljen kao **v1.0.12** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 

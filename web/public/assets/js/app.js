@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0};
+var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanLocalRawText:""};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -264,7 +264,7 @@ function releaseScanPreview(){
 }
 function clearScanSession(){
   state.scanGeneration++;
-  state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;
+  state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;state.scanSourceFile=null;state.scanLocalRawText="";
   releaseScanPreview();
   storageRemove("raspored.scan.v1");
 }
@@ -278,6 +278,105 @@ function cycleScanCode(code){
 }
 function scanPerson(){
   return state.scanSelected>=0?state.scanPeople[state.scanSelected]||null:null;
+}
+function normalizePersonKey(person){
+  if(person&&Number.isInteger(Number(person.row))&&Number(person.row)>0)return "row:"+Number(person.row);
+  return "name:"+String(person&&person.name||"").trim().toLocaleUpperCase("hr-HR");
+}
+function mergeScanPeople(localPeople,aiPeople){
+  var map=new Map();
+  sanitizeScanPeople(localPeople).forEach(function(person){
+    map.set(normalizePersonKey(person),{
+      row:person.row,
+      name:person.name,
+      dayShifts:Object.assign({},person.dayShifts),
+      conflicts:[]
+    });
+  });
+  sanitizeScanPeople(aiPeople).forEach(function(person){
+    var key=normalizePersonKey(person),existing=map.get(key);
+    if(!existing){
+      map.set(key,{row:person.row,name:person.name,dayShifts:Object.assign({},person.dayShifts),conflicts:[]});
+      return;
+    }
+    if((existing.name||"").length<(person.name||"").length)existing.name=person.name;
+    Object.keys(person.dayShifts||{}).forEach(function(day){
+      var aiCode=normalizeScheduleCode(person.dayShifts[day]),localCode=normalizeScheduleCode(existing.dayShifts[day]);
+      if(!localCode&&aiCode)existing.dayShifts[day]=aiCode;
+      else if(localCode&&aiCode&&localCode!==aiCode)existing.conflicts.push(Number(day));
+    });
+  });
+  var conflicts=0;
+  var people=Array.from(map.values()).map(function(person){
+    conflicts+=person.conflicts.length;
+    delete person.conflicts;
+    return person;
+  }).sort(function(a,b){
+    var ar=Number.isInteger(Number(a.row))?Number(a.row):9999;
+    var br=Number.isInteger(Number(b.row))?Number(b.row):9999;
+    return ar-br||a.name.localeCompare(b.name,"hr");
+  });
+  return {people:people,conflicts:conflicts};
+}
+async function runAiScanVerification(){
+  var button=document.getElementById("scanAiVerifyBtn"),panel=document.getElementById("scanAiPanel");
+  var status=document.getElementById("scanStatus");
+  if(!state.scanSourceFile){toast("Najprije skeniraj ili učitaj fotografiju rasporeda.");return}
+  if(!window.RasporedAuth||!window.RasporedAuth.isAuthenticated||!window.RasporedAuth.isAuthenticated()){
+    toast("AI provjera dostupna je prijavljenim korisnicima.");return
+  }
+  if(button)button.disabled=true;
+  if(status){
+    status.classList.remove("is-success","is-error");
+    status.classList.add("is-scanning");
+    status.querySelector("span").textContent="AI provjera cijele tablice...";
+  }
+  try{
+    var data=new FormData();
+    data.append("image",state.scanSourceFile,state.scanSourceFile.name||"raspored.jpg");
+    if(state.scanMonth)data.append("monthHint",state.scanMonth.year+"-"+String(state.scanMonth.month).padStart(2,"0"));
+    if(state.scanLocalRawText)data.append("localOcr",state.scanLocalRawText.slice(0,12000));
+    var base=document.body&&document.body.dataset?document.body.dataset.base||"":"";
+    var response=await fetch(base+"/api/ai-ocr.php",{
+      method:"POST",
+      credentials:"same-origin",
+      headers:{"X-Raspored-Request":"1","Accept":"application/json"},
+      body:data
+    });
+    var payload={};
+    try{payload=await response.json()}catch(error){}
+    if(!response.ok||payload.ok!==true||!payload.result)throw new Error(payload.error||"AI provjera nije uspjela.");
+    var merged=mergeScanPeople(state.scanPeople,payload.result.people||[]);
+    state.scanPeople=merged.people;
+    if(payload.result.month)state.scanMonth=payload.result.month;
+    state.scanExpectedRows=Math.max(
+      state.scanExpectedRows||0,
+      Math.max(0,Number(payload.result.expectedRows)||0)
+    );
+    state.scanIncomplete=state.scanExpectedRows>=8&&state.scanPeople.length*100<state.scanExpectedRows*65;
+    state.scanSelected=state.scanPeople.length===1?0:-1;
+    saveScanSession();
+    renderScanPersonPicker();renderRecognition();
+    if(status){
+      status.classList.remove("is-scanning");
+      status.classList.add(state.scanIncomplete?"is-error":"is-success");
+      status.querySelector("span").textContent=
+        "AI provjera završena: "+state.scanPeople.length+" osoba. "+
+        (merged.conflicts
+          ?merged.conflicts+" ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru. "
+          :"Nisu pronađeni sukobi s lokalnim OCR-om. ")+
+        (payload.result.notes||"");
+    }
+  }catch(error){
+    if(status){
+      status.classList.remove("is-scanning");
+      status.classList.add("is-error");
+      status.querySelector("span").textContent=error&&error.message?error.message:"AI provjera nije uspjela.";
+    }
+  }finally{
+    if(button)button.disabled=false;
+    if(panel)panel.hidden=!(window.RasporedAuth&&window.RasporedAuth.isAuthenticated&&window.RasporedAuth.isAuthenticated());
+  }
 }
 function renderScanPersonPicker(){
   var button=document.getElementById("scanPersonButton"),label=document.getElementById("scanPersonLabel"),menu=document.getElementById("scanPersonMenu"),status=document.getElementById("recognitionStatus"),saveBtn=document.getElementById("saveSchedule"),monthLabel=document.getElementById("scanMonthLabel");
@@ -731,6 +830,7 @@ async function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
   if(file.size>10*1024*1024){toast("Slika je prevelika. Najveća dopuštena veličina je 10 MB.");return}
   clearScanSession();
+  state.scanSourceFile=file;
   var generation=++state.scanGeneration;
   var preview=document.getElementById("scanPreview"),img=document.getElementById("scanPreviewImage"),status=document.getElementById("scanStatus"),progress=status.querySelector(".scan-progress i");
   var url=URL.createObjectURL(file);img.dataset.objectUrl=url;img.src=url;preview.classList.add("has-image");
@@ -745,6 +845,7 @@ async function handleScanFile(file){
     });
     if(generation!==state.scanGeneration)return;
     state.scanPeople=sanitizeScanPeople(result.people);
+    state.scanLocalRawText=typeof result.rawText==="string"?result.rawText.slice(0,12000):"";
     state.scanMonth=result.month||null;
     state.scanExpectedRows=Math.max(0,Number(result.expectedRows)||0);
     state.scanSelected=state.scanPeople.length===1?0:-1;
@@ -887,10 +988,12 @@ function bind(){
   if(motion){
     motion.addEventListener("change",function(){if(!storageSet("raspored.reducedMotion",this.checked?"1":"0"))toast("Postavku animacija nije moguće spremiti.");document.body.dataset.reducedMotion=this.checked?"true":"false"});
   }
+  var aiVerify=document.getElementById("scanAiVerifyBtn");
+  if(aiVerify)aiVerify.addEventListener("click",runAiScanVerification);
   document.getElementById("saveSchedule").addEventListener("click",importSelectedScanSchedule);
   var saveTeamSchedules=document.getElementById("saveTeamSchedules");
   if(saveTeamSchedules)saveTeamSchedules.addEventListener("click",importScannedTeamSchedules);
-  window.addEventListener("raspored:auth-ready",function(){syncAuthenticatedProfile();renderScanPersonPicker();renderTeamMembers()});
+  window.addEventListener("raspored:auth-ready",function(){syncAuthenticatedProfile();renderScanPersonPicker();renderTeamMembers();var panel=document.getElementById("scanAiPanel");if(panel)panel.hidden=!(window.RasporedAuth&&window.RasporedAuth.isAuthenticated&&window.RasporedAuth.isAuthenticated())});
   document.getElementById("clockInBtn").addEventListener("click",clockIn);
   document.getElementById("clockOutBtn").addEventListener("click",clockOut);
   document.getElementById("hoursNote").addEventListener("change",saveHoursNote);

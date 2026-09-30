@@ -455,3 +455,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .manual-custom-code input:focus{outline:2px solid rgba(0,194,255,.20);border-color:#00AEEF}
 .manual-custom-help{display:block;margin-top:6px;color:var(--muted);font-size:10px;line-height:1.4}
 @media(max-width:540px){.manual-custom-code{grid-template-columns:1fr}.manual-custom-code .secondary-btn{width:100%}}
+
+.scan-ai-panel{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+.scan-ai-panel p{margin:8px 2px 0;color:var(--muted);font-size:11px;line-height:1.45}
+.scan-ai-panel[hidden]{display:none!important}
