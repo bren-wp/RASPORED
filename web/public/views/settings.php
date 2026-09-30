@@ -23,7 +23,11 @@
       </section>
       <section class="card settings-card">
         <h2>Izvoz podataka</h2>
-        <p class="settings-help">Preuzmi sigurnosnu kopiju u JSON-u ili otvori mjesečni izvještaj za ispis / spremanje kao PDF u pregledniku.</p>
+        <p class="settings-help">Preuzmi sigurnosnu kopiju svih spremljenih podataka u JSON-u ili odaberi bilo koji spremljeni mjesec za mjesečni izvještaj i ispis / spremanje kao PDF u pregledniku.</p>
+        <label class="setting-field report-month-field">
+          <span><b>Mjesec izvještaja</b><small>Prošli mjeseci ostaju dostupni dok su spremljeni u RASPORED-u.</small></span>
+          <input type="month" id="reportMonth" min="2000-01" max="2100-12">
+        </label>
         <div class="account-actions">
           <button class="secondary-btn" id="exportJsonBtn" type="button">Preuzmi JSON</button>
           <button class="primary-btn" id="printPdfBtn" type="button">Ispis / spremi kao PDF</button>
