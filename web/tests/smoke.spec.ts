@@ -37,7 +37,7 @@ test("scan performs OCR and exposes multiple invented employees", async ({page})
     mimeType:"image/png",
     buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
-  await expect(page.locator("#scanStatus")).toContainText("Prepoznato je 3 osoba");
+  await expect(page.locator("#scanStatus")).toContainText("Prepoznate su 3 osobe");
   await expect(page.locator("#scanPersonMenu [data-scan-person]")).toHaveCount(3);
   await expect(page.locator("#saveSchedule")).toBeDisabled();
 });
