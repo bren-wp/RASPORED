@@ -268,6 +268,36 @@ if ($base === '.') { $base = ''; }
   <div class="floating-panel-head"><b>Profil</b><button class="icon-btn" id="closeProfileBtn" aria-label="Zatvori">×</button></div>
   <button class="panel-action" data-route="settings">Uredi profil i postavke</button>
 </div>
+
+<dialog class="app-dialog" id="searchDialog">
+  <form class="dialog-card" method="dialog">
+    <div class="dialog-head">
+      <div><h2>Pretraži RASPORED</h2><p>Brzo otvori željeni dio aplikacije.</p></div>
+      <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
+    </div>
+    <label class="dialog-field">
+      <span>Pretraživanje</span>
+      <input id="searchInput" type="search" autocomplete="off" placeholder="Npr. kalendar, statistika, evidencija sati">
+    </label>
+    <div class="search-results" id="searchResults"></div>
+  </form>
+</dialog>
+
+<dialog class="app-dialog" id="colleagueDialog">
+  <form class="dialog-card" id="colleagueForm">
+    <div class="dialog-head">
+      <div><h2>Dodaj kolegu</h2><p>Spremi ime i kratku napomenu lokalno u ovoj instalaciji.</p></div>
+      <button class="icon-btn" type="button" id="closeColleagueDialog" aria-label="Zatvori">×</button>
+    </div>
+    <label class="dialog-field"><span>Ime i prezime</span><input id="colleagueNameInput" maxlength="80" autocomplete="name" required></label>
+    <label class="dialog-field"><span>Napomena</span><input id="colleagueNoteInput" maxlength="120" placeholder="Npr. Odjel B"></label>
+    <div class="dialog-actions">
+      <button class="secondary-btn" type="button" id="cancelColleagueBtn">Odustani</button>
+      <button class="primary-btn" type="submit">Spremi kolegu</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="connectivity-banner" id="connectivityBanner" role="status" aria-live="polite">Nema internetske veze. Spremljeni raspored ostaje dostupan.</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>window.RASPORED_BASE = <?= json_encode($base, JSON_UNESCAPED_SLASHES) ?>;</script>
