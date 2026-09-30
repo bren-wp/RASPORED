@@ -33,7 +33,10 @@ import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
@@ -231,7 +234,39 @@ private fun sampleSchedule(month:YearMonth):Map<Int,Shift>{
         if(month==YearMonth.of(2026,10)){this[16]=D;this[17]=N}
     }
 }
-private fun appDate():LocalDate = if(BuildConfig.DEBUG) LocalDate.of(2026,10,16) else LocalDate.now()
+private fun appDateTime():LocalDateTime =
+    if(BuildConfig.DEBUG) LocalDateTime.of(2026,10,16,4,40) else LocalDateTime.now()
+private fun appDate():LocalDate = appDateTime().toLocalDate()
+
+private fun shiftStatusLabel(shift:Shift):String {
+    if(shift.code!="D"&&shift.code!="N")return "Danas"
+    val now=appDateTime()
+    val start=when(shift.code){
+        "D"->now.toLocalDate().atTime(LocalTime.of(7,0))
+        else->now.toLocalDate().atTime(LocalTime.of(19,0))
+    }
+    val end=when(shift.code){
+        "D"->now.toLocalDate().atTime(LocalTime.of(19,0))
+        else->now.toLocalDate().plusDays(1).atTime(LocalTime.of(7,0))
+    }
+    return when{
+        now.isBefore(start)->{
+            val minutes=Duration.between(now,start).toMinutes().coerceAtLeast(0)
+            "Za "+(minutes/60)+"h "+(minutes%60).toString().padStart(2,'0')+"min"
+        }
+        now.isBefore(end)->"U tijeku"
+        else->"Završeno"
+    }
+}
+
+private fun nextShiftStatus(today:LocalDate,day:Int,shift:Shift):String {
+    val start=today.withDayOfMonth(day)
+    val end=if(shift.code=="N") start.plusDays(1) else start
+    val prefix=if(day==today.dayOfMonth+1)"Sutra" else start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+    return if(shift.code=="N") {
+        prefix+"\n"+start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))+" → "+end.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
+    } else prefix
+}
 private fun shiftFromCode(code:String):Shift?=when(code){"D"->D;"N"->N;"GO"->GO;"BO"->BO;else->null}
 private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>{
     val persisted=(1..month.lengthOfMonth()).mapNotNull { day ->
@@ -299,8 +334,8 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground)
             Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item{ShiftCard("Današnja smjena",current,true,onHours={go(Screen.Hours)})}
-        item{ShiftCard("Sljedeća smjena",next,false,onHours=null)}
+        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(current),onHours={go(Screen.Hours)})}
+        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onHours=null)}
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                 listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
@@ -332,7 +367,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 }
 
-@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,onHours:(()->Unit)?){
+@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,statusText:String?,onHours:(()->Unit)?){
     Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth()){
         Column(Modifier.padding(18.dp)){
             Row(verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null,tint=MaterialTheme.colorScheme.onSurface)}
@@ -341,7 +376,10 @@ private fun largeMinutesLabel(minutes:Long):String {
                 ShiftBadge(shift,72.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)){Text(shift.name,fontSize=20.sp,fontWeight=FontWeight.Bold);Text(shift.time,color=Slate,fontSize=16.sp)}
-                if(today) AssistChip(onClick={},label={Text("Za 2h 20min")})
+                if(!statusText.isNullOrBlank()) AssistChip(
+                    onClick={},
+                    label={Text(statusText,fontSize=11.sp,lineHeight=13.sp)}
+                )
             }
             if(today){
                 Divider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5))
