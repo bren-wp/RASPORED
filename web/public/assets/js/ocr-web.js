@@ -939,14 +939,14 @@ async function recognizeScheduleNow(file,onProgress){
     var mappedAfterBands=(merged.people||[]).reduce(function(sum,row){
       return sum+Object.keys(row.dayShifts||{}).length;
     },0);
-    var minimumMapped=Math.max(12,(merged.people||[]).length*2);
+    var minimumMapped=Math.max(24,(merged.people||[]).length*8);
     if((merged.people||[]).length>=4&&mappedAfterBands<minimumMapped){
       // Extremely dense photographed schedules can yield the roster but almost
       // no one-letter cell codes. Cross-tiling both axes is slower, so it is
       // reserved for this failure mode. Each pass keeps the header + roster and
       // enlarges only one row band and one day band.
-      var rowBands=[[.12,.44],[.36,.70],[.62,1]];
-      var focusedDayBands=[[.18,.62],[.56,1]];
+      var rowBands=[[.10,.36],[.30,.58],[.52,.80],[.74,1]];
+      var focusedDayBands=[[.16,.48],[.42,.74],[.68,1]];
       var pass=0,totalPasses=rowBands.length*focusedDayBands.length;
       for(var rb=0;rb<rowBands.length;rb++){
         for(var db=0;db<focusedDayBands.length;db++){
