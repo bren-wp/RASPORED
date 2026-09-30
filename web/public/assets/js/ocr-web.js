@@ -18,7 +18,7 @@ function normalizeAscii(value){
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/Đ/g,"D");
 }
 function canonicalShift(raw){
-  var value=normalize(raw).toUpperCase().replace(/[.,;:|]+$/,"");
+  var value=normalize(raw).toUpperCase().replace(/^[.,;:|\[\](){}_\-]+|[.,;:|\[\](){}_\-]+$/g,"");
   if(value==="G0")return "GO";
   if(value==="B0")return "BO";
   return VALID.has(value)?value:null;
