@@ -34,7 +34,7 @@ function sanitizeSchedule(raw){
 }
 function sanitizeEvidence(raw){
   if(!Array.isArray(raw))return [];
-  return raw.slice(-366).filter(function(x){
+  return raw.slice(-3000).filter(function(x){
     return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")&&(!x.out||/^\d{2}:\d{2}$/.test(x.out));
   }).map(function(x){
     return {
