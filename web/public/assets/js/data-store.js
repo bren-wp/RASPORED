@@ -188,6 +188,7 @@ function setKey(key,value){
       var p=JSON.parse(value||"{}");
       current.payroll=sanitize({payroll:p}).payroll;
     }else return false;
+    localGeneration++;
     queueWrite();
     return true;
   }catch(e){return false}
