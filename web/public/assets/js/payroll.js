@@ -17,7 +17,10 @@ function monthValue(){
 }
 function defaultMonth(){
   var input=qs("payrollMonth");if(!input||input.value)return;
-  var now=new Date();input.value=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+  var now=new Date(),year=now.getFullYear(),month=now.getMonth()+1;
+  if(year<2026){year=2026;month=1}
+  if(year>2026){year=2026;month=12}
+  input.value=year+"-"+String(month).padStart(2,"0");
 }
 function store(){
   return window.RasporedDataStore?window.RasporedDataStore.snapshot():{evidence:[],payroll:{}};
@@ -150,7 +153,7 @@ function render(){
     {label:"Rad blagdanom / neradnim danom",minutes:evidence.holiday,rate:config.additions.holiday},
     {label:"Prekovremeni rad iznad mjesečnog fonda",minutes:overtime,rate:config.additions.overtime}
   ];
-  if(qs("payrollSecondShift")&&qs("payrollSecondShift").checked)components.push({label:"Druga smjena / turnus 14:00–22:00",minutes:evidence.secondShift,rate:config.additions.secondShift});
+  if(qs("payrollSecondShift")&&qs("payrollSecondShift").checked)components.push({label:"Druga smjena 14:00–22:00",minutes:evidence.secondShift,rate:config.additions.secondShift});
   var additions=components.reduce(function(sum,item){return sum+hourly*(item.minutes/60)*item.rate},0);
   var customAddition=basicGross*(extraPercent/100);
   var estimate=basicGross+additions+customAddition;
@@ -175,7 +178,7 @@ function render(){
       return '<div class="payroll-breakdown-row"><span><b>'+escapeHtml(item.label)+'</b><small>'+(item.minutes==null?"Osnovna bruto baza":hours(item.minutes))+(item.rate==null?"":" · +"+Math.round(item.rate*100)+"%")+'</small></span><strong>'+(value==null?"—":money(value))+'</strong></div>';
     }).join("");
   }
-  if(qs("payrollLegalText"))qs("payrollLegalText").textContent="Osnovna bruto plaća računa se kao osnovica × koeficijent, uz +0,5% za svaku navršenu godinu staža. Cijena sata temelji se na mjesečnom fondu, a noćni, subotnji, nedjeljni, blagdanski i prekovremeni dodaci procjenjuju se iz stvarne Evidencije sati. Posebne dodatke koji ovise o konkretnom rješenju ili radnom mjestu aplikacija ne pretpostavlja automatski.";
+  if(qs("payrollLegalText"))qs("payrollLegalText").textContent="Osnovna bruto plaća računa se kao osnovica × koeficijent, uz +0,5% za svaku navršenu godinu staža. Cijena sata temelji se na mjesečnom fondu, a noćni, subotnji, nedjeljni, blagdanski i prekovremeni dodaci procjenjuju se iz stvarne Evidencije sati. Posebne dodatke koji ovise o konkretnom rješenju ili radnom mjestu aplikacija ne pretpostavlja automatski. Važeći javni sustav koristi koeficijent radnog mjesta, a ne jedinstveni bod koji pojedina bolnica proizvoljno određuje.";
 }
 function bind(){
   if(bound||!qs("view-payroll"))return;bound=true;
