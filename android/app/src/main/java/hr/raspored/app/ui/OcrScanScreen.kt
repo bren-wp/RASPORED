@@ -254,6 +254,56 @@ internal fun OcrScanScreen(
 
     val activeRow = result?.rows?.getOrNull(selectedRow)
     val recognizedMonth = selectedMonth
+    val unresolvedConflicts = reviewCells.count { it.conflict && !it.manuallyConfirmed }
+
+    fun rowMatchesConflict(row: RecognizedScheduleRow, conflict: RecognitionCellReview): Boolean =
+        conflict.employeeRow?.let { row.rowNumber == it }
+            ?: row.name.trim().equals(conflict.employeeName.trim(), ignoreCase = true)
+
+    fun resolveConflict(selected: String?) {
+        val index = reviewConflictIndex
+        val conflict = reviewCells.getOrNull(index) ?: return
+        val normalized = selected?.takeIf { it.isNotBlank() }?.let { ScheduleStore.normalizeCode(it) }
+        if (!selected.isNullOrBlank() && normalized == null) {
+            message = "Oznaka nije valjana. Koristi 1–8 slova ili brojki bez razmaka."
+            return
+        }
+
+        reviewCells[index] = conflict.copy(
+            selectedCode = normalized,
+            source = "manual",
+            conflict = false,
+            manuallyConfirmed = true
+        )
+
+        result = result?.let { current ->
+            current.copy(
+                rows = current.rows.map { row ->
+                    if (!rowMatchesConflict(row, conflict)) {
+                        row
+                    } else {
+                        val shifts = row.dayShifts.toMutableMap()
+                        if (normalized == null) shifts.remove(conflict.day) else shifts[conflict.day] = normalized
+                        row.copy(dayShifts = shifts.toSortedMap())
+                    }
+                }
+            )
+        }
+
+        result?.rows?.getOrNull(selectedRow)?.takeIf { rowMatchesConflict(it, conflict) }?.let { row ->
+            editedShifts.clear()
+            editedShifts.putAll(row.dayShifts)
+        }
+
+        reviewConflictIndex = reviewCells.indexOfFirst { it.conflict && !it.manuallyConfirmed }
+        customConflictCode = ""
+        val remaining = reviewCells.count { it.conflict && !it.manuallyConfirmed }
+        message = if (remaining == 0) {
+            "Raspored je spreman za uvoz. Svi AI/OCR konflikti su ručno potvrđeni."
+        } else {
+            "Za provjeru je ostalo " + remaining + " nejasnih stavki."
+        }
+    }
     val previewAspect = bitmap
         ?.takeIf { !it.isRecycled && it.height > 0 }
         ?.let { it.width.toFloat() / it.height.toFloat() }
@@ -583,9 +633,13 @@ internal fun OcrScanScreen(
                                     }
                                     outcome.onSuccess { ai ->
                                         val mergedResult = mergeForAiReview(local, ai)
-                                        applyResult(mergedResult.schedule)
-                                        val conflictText = if (mergedResult.conflicts > 0) {
-                                            " " + mergedResult.conflicts + " ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru."
+                                        applyResult(mergedResult.schedule, keepReviewCells = true)
+                                        reviewCells.clear()
+                                        reviewCells.addAll(mergedResult.cells)
+                                        reviewConflictIndex = -1
+                                        val conflictCount = mergedResult.cells.count { it.conflict }
+                                        val conflictText = if (conflictCount > 0) {
+                                            " " + conflictCount + " ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru."
                                         } else {
                                             " Nisu pronađeni sukobi s lokalnim OCR-om."
                                         }
@@ -611,6 +665,27 @@ internal fun OcrScanScreen(
                             color = RasporedTokens.Slate,
                             fontSize = 10.sp
                         )
+                        if (unresolvedConflicts > 0) {
+                            Text(
+                                "Za provjeru: ⚠ " + unresolvedConflicts + " nejasnih ćelija",
+                                modifier = Modifier.padding(top = 10.dp),
+                                color = RasporedTokens.Amber,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                            FilledTonalButton(
+                                onClick = {
+                                    reviewConflictIndex = reviewCells.indexOfFirst {
+                                        it.conflict && !it.manuallyConfirmed
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                            ) {
+                                Icon(Icons.Outlined.RateReview, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Pregledaj " + unresolvedConflicts + " nejasne stavke")
+                            }
+                        }
                     }
                 }
             }
@@ -653,6 +728,63 @@ internal fun OcrScanScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (reviewConflictIndex >= 0) {
+        val conflict = reviewCells.getOrNull(reviewConflictIndex)
+        if (conflict != null) {
+            AlertDialog(
+                onDismissRequest = { reviewConflictIndex = -1 },
+                icon = { Icon(Icons.Outlined.WarningAmber, null, tint = RasporedTokens.Amber) },
+                title = { Text("Nejasna OCR stavka") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            (conflict.employeeRow?.let { it.toString() + ". " } ?: "") +
+                                conflict.employeeName + " · dan " + conflict.day,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Lokalni OCR: " + (conflict.localCode ?: "prazno") +
+                                " · AI: " + (conflict.aiCode ?: "prazno"),
+                            color = RasporedTokens.Slate
+                        )
+                        conflict.localCode?.let { code ->
+                            Button(
+                                onClick = { resolveConflict(code) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Zadrži lokalno: " + code) }
+                        }
+                        conflict.aiCode?.let { code ->
+                            OutlinedButton(
+                                onClick = { resolveConflict(code) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Odaberi AI: " + code) }
+                        }
+                        OutlinedButton(
+                            onClick = { resolveConflict(null) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Ostavi prazno") }
+                        OutlinedTextField(
+                            value = customConflictCode,
+                            onValueChange = { customConflictCode = it.take(8) },
+                            label = { Text("Druga oznaka") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = ScheduleStore.normalizeCode(customConflictCode) != null,
+                        onClick = { resolveConflict(customConflictCode) }
+                    ) { Text("Primijeni oznaku") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { reviewConflictIndex = -1 }) { Text("Kasnije") }
+                }
+            )
         }
     }
 
