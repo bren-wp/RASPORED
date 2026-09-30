@@ -717,6 +717,7 @@ test("state API rejects writes without the application request header", async ({
 
 test("queued JSON writes preserve edits made while an earlier PUT is in flight", async ({page}) => {
   await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     store.set("raspored.theme","dark");
