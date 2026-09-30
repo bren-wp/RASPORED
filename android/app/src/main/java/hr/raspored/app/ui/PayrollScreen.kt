@@ -534,14 +534,20 @@ internal fun PayrollScreen(
                     if (secondShift && regime.rates.secondShift != null) {
                         PayrollLine(
                             "Druga smjena 14:00–22:00",
-                            minutesLabelPayroll(estimate.evidence.secondShiftMinutes),
+                            minutesLabelPayroll(estimate.secondShiftPaidMinutes),
                             estimate.secondShiftAddition
                         )
                     }
                     if (estimate.evidence.turnusMinutes > 0L) {
                         PayrollLine(
                             if (turnus && regime.rates.turnus != null) "Rad u turnusu" else "Turnus — evidentirano",
-                            minutesLabelPayroll(estimate.evidence.turnusMinutes),
+                            minutesLabelPayroll(
+                                if (turnus && regime.rates.turnus != null) {
+                                    estimate.turnusPaidMinutes
+                                } else {
+                                    estimate.evidence.turnusMinutes
+                                }
+                            ),
                             if (turnus && regime.rates.turnus != null) estimate.turnusAddition else null
                         )
                     }
