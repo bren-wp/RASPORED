@@ -188,7 +188,11 @@ internal fun TimeEvidenceScreen(
 
                     OutlinedTextField(
                         value = note,
-                        onValueChange = { note = it.take(500) },
+                        onValueChange = {
+                            val next = it.take(500)
+                            note = next
+                            active?.let { entry -> store.updateNote(entry.id, next) }
+                        },
                         label = { Text("Bilješka") },
                         minLines = 2,
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)

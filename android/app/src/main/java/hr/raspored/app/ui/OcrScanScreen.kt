@@ -31,6 +31,9 @@ import hr.raspored.app.ocr.RecognizedSchedule
 import hr.raspored.app.ocr.ScheduleOcrEngine
 import hr.raspored.app.ocr.createOcrCaptureUri
 import hr.raspored.app.ocr.loadBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.YearMonth
 
 private enum class OcrPhase { Idle, Processing, Success, Error }
@@ -41,6 +44,7 @@ internal fun OcrScanScreen(
     onSaveSchedule: (YearMonth, Map<Int, String>) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var result by remember { mutableStateOf<RecognizedSchedule?>(null) }
@@ -82,9 +86,11 @@ internal fun OcrScanScreen(
         }
     }
 
-    fun process(source: Bitmap) {
-        val generation = ocrGeneration + 1
-        ocrGeneration = generation
+    fun process(source: Bitmap, generation: Int) {
+        if (ocrGeneration != generation) {
+            source.recycle()
+            return
+        }
         bitmap = source
         result = null
         selectedRow = -1
@@ -107,17 +113,43 @@ internal fun OcrScanScreen(
         )
     }
 
+    fun loadAndProcess(uri: android.net.Uri, errorMessage: String) {
+        val generation = ocrGeneration + 1
+        ocrGeneration = generation
+        result = null
+        selectedRow = -1
+        editedShifts.clear()
+        editMode = false
+        employeeMenu = false
+        phase = OcrPhase.Processing
+        message = "Učitavanje fotografije..."
+        scope.launch {
+            val loaded = withContext(Dispatchers.IO) { loadBitmap(context, uri) }
+            if (ocrGeneration != generation) {
+                loaded?.recycle()
+                return@launch
+            }
+            if (loaded != null) {
+                process(loaded, generation)
+            } else {
+                phase = OcrPhase.Error
+                message = errorMessage
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            ocrGeneration += 1
+        }
+    }
+
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
         val uri = cameraUri
         if (success && uri != null) {
-            val loaded = loadBitmap(context, uri)
-            if (loaded != null) process(loaded)
-            else {
-                phase = OcrPhase.Error
-                message = "Snimljenu fotografiju nije moguće otvoriti."
-            }
+            loadAndProcess(uri, "Snimljenu fotografiju nije moguće otvoriti.")
         }
     }
 
@@ -137,12 +169,7 @@ internal fun OcrScanScreen(
         ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            val loaded = loadBitmap(context, uri)
-            if (loaded != null) process(loaded)
-            else {
-                phase = OcrPhase.Error
-                message = "Fotografiju nije moguće otvoriti."
-            }
+            loadAndProcess(uri, "Fotografiju nije moguće otvoriti.")
         }
     }
 

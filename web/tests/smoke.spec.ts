@@ -134,10 +134,10 @@ test("profile, notifications and colleagues controls work", async ({page}) => {
   await expect(page.locator("#profileNameInput")).toHaveValue("Sara Kovač");
 });
 
-test("no reference-person names or development labels ship in production UI", async ({page}) => {
+test("no demo or development labels ship in production UI", async ({page}) => {
   await page.goto("/");
-  await expect(page.locator("body")).not.toContainText("Marko Marković");
-  await expect(page.locator("body")).not.toContainText("MARIO EGIMOVIĆ");
+  await expect(page.locator("body")).not.toContainText("Demo korisnik");
+  await expect(page.locator("body")).not.toContainText("Lorem");
   await expect(page.locator("body")).not.toContainText("-dev");
 });
 
@@ -293,4 +293,37 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
       await expect(page.locator('[data-view="calendar"].is-active [data-date="'+target+'"].is-selected')).toHaveCount(1);
     }
   }
+});
+
+
+test("app remains usable when localStorage is unavailable", async ({browser}) => {
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  const page=await context.newPage();
+  const pageErrors:string[]=[];
+  page.on("pageerror",error=>pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    const blocked=()=>{throw new DOMException("Storage blocked","SecurityError")};
+    Storage.prototype.getItem=blocked;
+    Storage.prototype.setItem=blocked;
+    Storage.prototype.removeItem=blocked;
+  });
+  await page.goto("/");
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
+  await page.locator('[data-route="settings"]:visible').first().click();
+  await expect(page.locator('[data-view="settings"]')).toBeVisible();
+  await page.locator("#themeToggle").check();
+  await expect(page.locator("#toast")).toContainText("nije moguće spremiti");
+  expect(pageErrors).toEqual([]);
+  await context.close();
+});
+
+
+test("dynamic assets honor a subdirectory deployment base", async ({page}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    document.body.dataset.base="/raspored";
+    (document.getElementById("searchBtn") as HTMLElement)?.click();
+  });
+  await expect(page.locator("#searchDialog")).toBeVisible();
+  await expect(page.locator("#searchResults use").first()).toHaveAttribute("href",/^\/raspored\/assets\/brand\/icons\.svg#icon-/);
 });

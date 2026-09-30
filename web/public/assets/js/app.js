@@ -7,10 +7,14 @@ state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
 
 function icon(name,extra){
-  var base=(window.RASPORED_BASE||"")+"/assets/brand/icons.svg#icon-"+name;
+  var appBase=document.body&&document.body.dataset?document.body.dataset.base||"":"";
+  var base=appBase+"/assets/brand/icons.svg#icon-"+name;
   return '<svg class="ui-icon '+(extra||"")+'" aria-hidden="true"><use href="'+base+'"></use></svg>';
 }
 
+function storageGet(key){
+  try{return localStorage.getItem(key)}catch(e){return null}
+}
 function storageSet(key,value){
   try{localStorage.setItem(key,value);return true}catch(e){return false}
 }
@@ -147,8 +151,19 @@ function loadScanSession(){
     }
   }catch(e){}
 }
+function releaseScanPreview(){
+  var img=document.getElementById("scanPreviewImage"),preview=document.getElementById("scanPreview");
+  if(img&&img.dataset.objectUrl){
+    URL.revokeObjectURL(img.dataset.objectUrl);
+    delete img.dataset.objectUrl;
+  }
+  if(img)img.removeAttribute("src");
+  if(preview)preview.classList.remove("has-image");
+}
 function clearScanSession(){
+  state.scanGeneration++;
   state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.editRecognition=false;
+  releaseScanPreview();
   try{sessionStorage.removeItem("raspored.scan.v1")}catch(e){}
 }
 function scanTargetMonth(){
@@ -510,11 +525,11 @@ function saveHoursNote(){
 async function handleScanFile(file){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
   if(file.size>10*1024*1024){toast("Slika je prevelika. Najveća dopuštena veličina je 10 MB.");return}
+  clearScanSession();
   var generation=++state.scanGeneration;
   var preview=document.getElementById("scanPreview"),img=document.getElementById("scanPreviewImage"),status=document.getElementById("scanStatus"),progress=status.querySelector(".scan-progress i");
-  if(img.dataset.objectUrl)URL.revokeObjectURL(img.dataset.objectUrl);
   var url=URL.createObjectURL(file);img.dataset.objectUrl=url;img.src=url;preview.classList.add("has-image");
-  clearScanSession();renderScanPersonPicker();renderRecognition();
+  renderScanPersonPicker();renderRecognition();
   status.classList.remove("is-success","is-error");status.classList.add("is-scanning");
   status.querySelector("span").textContent="Automatsko prepoznavanje rasporeda...";
   if(progress)progress.style.width="4%";
@@ -551,6 +566,15 @@ async function handleScanFile(file){
   renderScanPersonPicker();renderRecognition();
 }
 function route(name){
+  if(state.route==="scan"&&name!=="scan"){
+    state.scanGeneration++;
+    var scanStatus=document.getElementById("scanStatus"),scanProgress=scanStatus&&scanStatus.querySelector(".scan-progress i");
+    if(scanStatus&&scanStatus.classList.contains("is-scanning")){
+      scanStatus.classList.remove("is-scanning");
+      scanStatus.querySelector("span").textContent="Skeniranje je prekinuto. Pokreni ga ponovno kad se vratiš.";
+      if(scanProgress)scanProgress.style.width="0";
+    }
+  }
   state.route=name;document.body.dataset.routeCurrent=name;
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
   document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===name)});
@@ -583,7 +607,7 @@ function bind(){
   document.getElementById("themeToggle").addEventListener("change",function(){document.documentElement.dataset.theme=this.checked?"dark":"light";if(!storageSet("raspored.theme",document.documentElement.dataset.theme))toast("Postavku izgleda nije moguće spremiti.")});
   var motion=document.getElementById("motionToggle");
   if(motion){
-    motion.checked=localStorage.getItem("raspored.reducedMotion")==="1";
+    motion.checked=storageGet("raspored.reducedMotion")==="1";
     document.body.dataset.reducedMotion=motion.checked?"true":"false";
     motion.addEventListener("change",function(){if(!storageSet("raspored.reducedMotion",this.checked?"1":"0"))toast("Postavku animacija nije moguće spremiti.");document.body.dataset.reducedMotion=this.checked?"true":"false"});
   }
@@ -677,7 +701,7 @@ function bind(){
   });
   function connectivity(){var b=document.getElementById("connectivityBanner");b.classList.toggle("show",!navigator.onLine)}
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
-  var th=localStorage.getItem("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
+  var th=storageGet("raspored.theme");if(th){document.documentElement.dataset.theme=th;document.getElementById("themeToggle").checked=th==="dark"}
 }
 loadSchedule();loadScanSession();configureProfile();bind();document.body.dataset.routeCurrent=state.route;renderAll();setInterval(function(){if(state.route==="hours")renderHours()},60000);if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
 })();
