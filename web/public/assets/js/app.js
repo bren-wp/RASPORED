@@ -67,8 +67,10 @@ function sanitizeScanReviewCells(items){
     var aiCode=normalizeScheduleCode(item.aiCode||"")||null;
     var selectedCode=normalizeScheduleCode(item.selectedCode||"")||null;
     var source=["local","ai","local+ai","manual"].includes(item.source)?item.source:"local";
+    var employeeRow=Number(item.employeeRow);
+    employeeRow=item.employeeRow!==null&&item.employeeRow!==""&&Number.isInteger(employeeRow)&&employeeRow>=1&&employeeRow<=100?employeeRow:null;
     return {
-      employeeRow:Number.isInteger(Number(item.employeeRow))?Number(item.employeeRow):null,
+      employeeRow:employeeRow,
       employeeName:employeeName,
       day:day,
       localCode:localCode,
