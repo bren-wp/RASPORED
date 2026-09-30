@@ -239,3 +239,32 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   body:not([data-route-current="home"]) .brand--mobile small{display:none}
   .notification span[hidden]{display:none}
 }
+
+@media(max-width:540px){
+  #view-home{padding-top:14px}
+  #view-home .mobile-home-dashboard{gap:8px}
+  .mobile-greeting{padding:0 2px}
+  .mobile-greeting h1{font-size:25px;line-height:1.05}
+  .mobile-greeting p{font-size:17px;margin-top:2px}
+  .mobile-shift-card{padding:12px}
+  .mobile-shift-card-head h2{font-size:19px}
+  .mobile-shift-card-head .ui-icon{width:18px;height:18px}
+  .mobile-shift-card-body{grid-template-columns:56px minmax(0,1fr) auto;gap:10px;margin-top:8px}
+  .mobile-shift-card-body .shift{width:56px;height:54px;border-radius:13px;font-size:22px}
+  .mobile-shift-copy b{font-size:17px;line-height:1.05}
+  .mobile-shift-copy small{font-size:12px;margin-top:2px;white-space:nowrap}
+  .shift-countdown{grid-column:auto;justify-self:end;margin-top:0;padding:6px 8px;font-size:10px}
+  .mobile-shift-info{margin-top:9px;padding-top:6px}
+  .mobile-shift-info div,.mobile-shift-info-action{min-height:27px;font-size:12px;grid-template-columns:18px 1fr auto;gap:7px}
+  .mobile-shift-info .ui-icon{width:17px;height:17px}
+  .mobile-shift-chips{gap:7px}
+  .mobile-shift-chips .shift{height:34px;border-radius:9px;font-size:11px}
+  .mobile-shift-chips>span{gap:2px;font-size:8px}
+  .mobile-metric-grid{gap:8px}
+  .mobile-metric-card{min-height:78px;padding:9px;grid-template-columns:36px minmax(0,1fr);gap:8px;border-radius:15px}
+  .mobile-metric-card .metric-icon{width:36px;height:36px;border-radius:10px}
+  .mobile-metric-card .metric-icon .ui-icon{width:23px;height:23px}
+  .mobile-metric-card small{font-size:9px;line-height:1.1}
+  .mobile-metric-card b{font-size:20px;margin:2px 0}
+  .mobile-scan-cta{height:50px;border-radius:14px;font-size:16px}
+}
