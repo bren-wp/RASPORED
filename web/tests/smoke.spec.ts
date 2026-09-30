@@ -394,6 +394,16 @@ test("Web OCR geometry recovers all people and all 31 day columns from a fragmen
   }
 });
 
+test("Web OCR merges reordered names from separate recovery passes", async ({page}) => {
+  await page.goto("/");
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    return api.parseText("ANA HORVAT 1 D\nHORVAT ANA 20 N");
+  });
+  expect(rows).toHaveLength(1);
+  expect(rows[0].dayShifts).toEqual({"1":"D","20":"N"});
+});
+
 test("Web OCR late-month recovery band keeps roster names and exact days", async ({page}) => {
   await page.goto("/");
   const parsed=await page.evaluate(() => {
