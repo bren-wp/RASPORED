@@ -62,8 +62,8 @@ function sanitizePeople(raw){
     if(name.length<2)return null;
     var shifts={};
     Object.keys(item.dayShifts&&typeof item.dayShifts==="object"?item.dayShifts:{}).forEach(function(day){
-      var n=Number(day),code=item.dayShifts[day];
-      if(Number.isInteger(n)&&n>=1&&n<=31&&["D","N","GO","BO","PD","SD"].indexOf(code)>=0)shifts[n]=code;
+      var n=Number(day),code=normalizeScheduleCode(item.dayShifts[day]);
+      if(Number.isInteger(n)&&n>=1&&n<=31&&code)shifts[n]=code;
     });
     return {row:Number.isInteger(item.row)?item.row:null,name:name,dayShifts:shifts};
   }).filter(Boolean);
