@@ -27,6 +27,50 @@ test("OCR text fallback accepts table-border separators without shifting days", 
   });
 });
 
+test("OCR geometry preserves workplace-specific short cell labels", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const parsed=await page.evaluate(() => {
+    function word(text:string,x:number,y:number,w=18,h=12){
+      return {text,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}};
+    }
+    function line(words:any[],y:number){
+      return {
+        text:words.map(w=>w.text).join(" "),
+        bbox:{
+          x0:Math.min(...words.map(w=>w.bbox.x0)),
+          y0:y,
+          x1:Math.max(...words.map(w=>w.bbox.x1)),
+          y1:y+14
+        },
+        words
+      };
+    }
+    const header=[] as any[];
+    for(let day=1;day<=31;day++)header.push(word(String(day),320+(day-1)*24,80,14));
+    const employee=line([
+      word("1",20,145,12),
+      word("ANA",55,145,42),
+      word("HORVAT",104,145,62),
+      word("J",320,147,12),
+      word("S",320+5*24,147,12),
+      word("P1",320+12*24,147,18),
+      word("3",320+20*24,147,12),
+      word("GO",320+30*24,147,20)
+    ],145);
+    return (window as any).RasporedWebOcr.parseGeometry(
+      [{paragraphs:[{lines:[line(header,80),employee]}]}],
+      31
+    );
+  });
+
+  expect(parsed).toHaveLength(1);
+  expect(parsed[0].dayShifts).toEqual({
+    "1":"J","6":"S","13":"P1","21":"3","31":"GO"
+  });
+});
+
 test("OCR geometry reconstructs fragmented day header and all employee rows", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
