@@ -182,6 +182,15 @@ class PublicSectorPayrollTest {
     }
 
     @Test
+    fun privateSectorUsesManualParametersInsteadOfInventedNationalValues() {
+        val regime = PublicSectorPayroll.defaultRegimeForSector("Privatni sektor")
+        assertEquals("private-manual", regime.id)
+        assertEquals("manual", regime.baseType)
+        assertEquals(0.0, PublicSectorPayroll.baseFor(YearMonth.of(2026, 10), regime.baseType), 0.001)
+        assertTrue(PublicSectorPayroll.rolesFor(regime.id).any { it.id == "manual" })
+    }
+
+    @Test
     fun manualLocalRegimeRequiresCustomBaseForNonZeroEstimate() {
         val withoutBase = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
