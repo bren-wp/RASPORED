@@ -75,8 +75,11 @@ function nameFingerprint(value){
 function mergeRows(rows){
   var merged=[];
   (rows||[]).forEach(function(row){
-    if(!row||!validName(row.name||""))return;
-    var key=nameFingerprint(row.name);
+    if(!row)return;
+    var numbered=Number.isInteger(Number(row.row))&&Number(row.row)>=1&&Number(row.row)<=100;
+    var valid=validName(row.name||"");
+    if(!valid&&!numbered)return;
+    var key=valid?nameFingerprint(row.name):("__ROW__"+Number(row.row));
     var index=merged.findIndex(function(existing){
       var sameRow=row.row!=null&&existing.row!=null&&Number(row.row)===Number(existing.row);
       var conflictingRows=row.row!=null&&existing.row!=null&&Number(row.row)!==Number(existing.row);
@@ -780,6 +783,12 @@ function sparseResult(parsed){
   var expected=Math.min(daysInMonth(parsed.month),12);
   return mapped<Math.max(18,rows.length*expected);
 }
+function hasAnonymousNumberedRows(parsed){
+  var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
+  return rows.some(function(row){
+    return Number.isInteger(Number(row.row))&&!validName(row.name||"");
+  });
+}
 function missingNumberedRows(parsed){
   var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
   var numbers=Array.from(new Set(rows.map(function(row){return Number(row.row)}).filter(function(value){
@@ -809,7 +818,7 @@ async function recognizeScheduleNow(file,onProgress){
       ?await window.RasporedOcrTableCrop.cropScheduleTable(file)
       :file;
     var forceDenseRecovery=tableSource!==file;
-    var needsDeep=forceDenseRecovery||sparseResult(first)||missingNumberedRows(first)||(first.people||[]).length<16;
+    var needsDeep=forceDenseRecovery||sparseResult(first)||missingNumberedRows(first)||hasAnonymousNumberedRows(first)||(first.people||[]).length<16;
     if(!needsDeep)return first;
 
     if(onProgress)onProgress(.78,"recovery");
@@ -898,6 +907,7 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
     }
+    merged.people=(merged.people||[]).filter(function(row){return validName(row.name||"")});
     return merged;
   }finally{
     activeProgressCallback=null;
