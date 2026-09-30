@@ -252,7 +252,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
 @Composable private fun RowScope.NavItem(current:Screen,target:Screen,label:String,icon:ImageVector,onSelect:(Screen)->Unit,emphasis:Boolean=false){
     NavigationBarItem(modifier=Modifier.testTag("nav-"+target.name.lowercase()),selected=current==target,onClick={onSelect(target)},icon={
         Surface(shape=RoundedCornerShape(if(emphasis)22.dp else 12.dp),color=if(emphasis) Cyan else Color.Transparent){
-            Icon(icon,null,modifier=Modifier.padding(if(emphasis)10.dp else 4.dp).size(if(emphasis)28.dp else 24.dp),tint=if(emphasis) Color.White else if(current==target) Cyan else Navy)
+            Icon(icon,null,modifier=Modifier.padding(if(emphasis)10.dp else 4.dp).size(if(emphasis)28.dp else 24.dp),tint=if(emphasis) Color.White else if(current==target) Cyan else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     },label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedTextColor=Cyan,unselectedTextColor=Slate,indicatorColor=Color.Transparent))
 }
@@ -432,7 +432,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                 }
             }
             if(today){
-                HorizontalDivider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5))
+                HorizontalDivider(Modifier.padding(vertical=13.dp),color=MaterialTheme.colorScheme.outlineVariant)
                 InfoLine(Icons.Outlined.Schedule,"Radno vrijeme",if(shift.hours>0)shift.hours.toString()+"h" else "—")
                 InfoLine(Icons.Outlined.Checklist,"Evidentiraj ulaz/izlaz","›",onHours)
                 InfoLine(Icons.AutoMirrored.Outlined.Notes,"Bilješka","›",onHours)
@@ -835,7 +835,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         Canvas(Modifier.fillMaxSize()){
             val stroke=18.dp.toPx()
             drawArc(
-                color=Color(0xFFE6EDF5),
+                color=MaterialTheme.colorScheme.outlineVariant,
                 startAngle=-90f,
                 sweepAngle=360f,
                 useCenter=false,
