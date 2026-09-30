@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.ocr.RecognizedSchedule
 import hr.raspored.app.ocr.ScheduleOcrEngine
+import hr.raspored.app.ocr.createOcrCaptureUri
 import hr.raspored.app.ocr.loadBitmap
 import java.time.YearMonth
 
@@ -39,6 +40,7 @@ internal fun OcrScanScreen(
 ) {
     val context = LocalContext.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var result by remember { mutableStateOf<RecognizedSchedule?>(null) }
     var phase by remember { mutableStateOf(OcrPhase.Idle) }
     var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
@@ -84,8 +86,30 @@ internal fun OcrScanScreen(
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.TakePicturePreview()
-    ) { captured -> captured?.let(::process) }
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = cameraUri
+        if (success && uri != null) {
+            val loaded = loadBitmap(context, uri)
+            if (loaded != null) process(loaded)
+            else {
+                phase = OcrPhase.Error
+                message = "Snimljenu fotografiju nije moguće otvoriti."
+            }
+        }
+    }
+
+    fun launchCamera() {
+        runCatching { createOcrCaptureUri(context) }
+            .onSuccess { uri ->
+                cameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+            .onFailure {
+                phase = OcrPhase.Error
+                message = "Kameru nije moguće pripremiti. Pokušaj ponovno."
+            }
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -158,7 +182,7 @@ internal fun OcrScanScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         TextButton(
-                            onClick = { cameraLauncher.launch(null) },
+                            onClick = { launchCamera() },
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Outlined.PhotoCamera, null, tint = Color.White)
@@ -338,7 +362,7 @@ internal fun OcrScanScreen(
                             Text("Uredi")
                         }
                         OutlinedButton(
-                            onClick = { cameraLauncher.launch(null) },
+                            onClick = { launchCamera() },
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Outlined.DocumentScanner, null)
