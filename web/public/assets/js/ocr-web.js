@@ -1117,6 +1117,25 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
     }
+
+    var finalMapped=(merged.people||[]).reduce(function(sum,row){
+      return sum+Object.keys(row.dayShifts||{}).length;
+    },0);
+    var finalRows=(merged.people||[]).length;
+    var needsLastMile=finalRows<8||missingNumberedRows(merged)||finalMapped<finalRows*10;
+    if(needsLastMile&&window.RasporedOcrTableCrop&&typeof window.RasporedOcrTableCrop.detectEmployeeRowBands==="function"){
+      var singleBands=await window.RasporedOcrTableCrop.detectEmployeeRowBands(tableSource,1);
+      for(var sb=0;sb<singleBands.length;sb++){
+        if(onProgress)onProgress(.985+(sb/Math.max(1,singleBands.length))*.014,"single-row-"+(sb+1));
+        var singleSource=await prepareExactRowBand(tableSource,singleBands[sb]);
+        var singleParsed=parsedResult(
+          await worker.recognize(singleSource,{}, {text:true,blocks:true}),
+          merged.month
+        );
+        merged=mergeRecognized(merged,singleParsed);
+      }
+    }
+
     merged.people=finalizeRows(merged.people||[]).filter(function(row){return validName(row.name||"")});
     return merged;
   }finally{
