@@ -26,7 +26,7 @@ class RasporedSmokeTest {
 
         composeRule.onNodeWithTag("nav-hours").performClick()
         composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
-        composeRule.onNodeWithContentDescription("Natrag").performClick()
+        composeRule.onNodeWithText("‹ Natrag").performClick()
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-calendar").performClick()
