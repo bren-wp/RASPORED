@@ -25,6 +25,11 @@
             </label>
           </div>
 
+          <label class="payroll-field payroll-custom-residence" id="payrollResidenceCustomWrap" hidden>
+            <span>Grad/općina prebivališta</span>
+            <input id="payrollResidenceCustom" type="text" maxlength="100" autocomplete="address-level2" placeholder="Upiši grad ili općinu">
+          </label>
+
           <div class="payroll-two payroll-tax-row">
             <label class="payroll-field"><span>Niža porezna stopa (%)</span><input id="payrollTaxLower" type="number" min="0" max="50" step="0.1" inputmode="decimal"></label>
             <label class="payroll-field"><span>Viša porezna stopa (%)</span><input id="payrollTaxHigher" type="number" min="0" max="50" step="0.1" inputmode="decimal"></label>
