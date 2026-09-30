@@ -107,6 +107,14 @@ RASPORED zato odvojeno vodi:
 
 Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno odrađeno vrijeme vode se odvojeno.
 
+## Okvirna plaća za javno zdravstvo
+
+Android i Web/PWA imaju zaseban kalkulator **okvirne bruto plaće**. Kalkulator ne koristi jedan izmišljeni “bod bolnice”, nego važeći model javnih službi: službenu osnovicu, koeficijent konkretnog radnog mjesta, staž i stvarno evidentirane sate.
+
+Za 2026. ugrađene su službene osnovice po razdobljima iz NN 11/2026 te koeficijenti iz NN 22/2024. Dodaci za noćni rad, subotu, nedjelju, blagdan i prekovremeni rad temelje se na TKU-u NN 29/2024. KBC Rijeka preset nazivi mapiraju korisničke nazive poput transportnog radnika / nosača bolesnika, portira i prvostupnika fizioterapije na službene nazive iz sistematizacije i natječaja.
+
+Procjena se namjerno prikazuje kao **bruto**. Neto iznos se ne izmišlja jer ovisi o osobnom odbitku, poreznim parametrima i drugim individualnim podacima. Posebni dodaci koji ovise o konkretnom rješenju, ugovoru, dežurstvu ili pripravnosti ne uključuju se automatski bez provjerljivog pravila.
+
 ## Brand
 
 <table>
