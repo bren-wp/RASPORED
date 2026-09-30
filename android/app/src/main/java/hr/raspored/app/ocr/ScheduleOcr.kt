@@ -1103,10 +1103,13 @@ object ScheduleOcrEngine {
     }
 
     private fun dayBands(): List<DayBand> = listOf(
-        DayBand(0.29f, 0.50f),
-        DayBand(0.47f, 0.68f),
-        DayBand(0.65f, 0.86f),
-        DayBand(0.83f, 1.00f)
+        // Nakon automatskog izrezivanja tablice stupac imena obično zauzima
+        // oko 15–30% širine. Pojasevi zato počinju ranije i preklapaju se
+        // dovoljno da dani uz oba ruba ne nestanu zbog perspektive.
+        DayBand(0.15f, 0.39f),
+        DayBand(0.36f, 0.60f),
+        DayBand(0.57f, 0.81f),
+        DayBand(0.78f, 1.00f)
     )
 
     private fun createEnhancedDayBandComposite(
@@ -1114,7 +1117,7 @@ object ScheduleOcrEngine {
         startRatio: Float,
         endRatio: Float
     ): Bitmap {
-        val rosterWidth = (source.width * 0.30f).roundToInt()
+        val rosterWidth = (source.width * 0.28f).roundToInt()
             .coerceIn(1, source.width)
         val gridStart = (source.width * startRatio).roundToInt()
             .coerceIn(0, source.width - 1)
