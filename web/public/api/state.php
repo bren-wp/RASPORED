@@ -318,6 +318,25 @@ function clean_state(mixed $raw, int $revision): array
     ];
 }
 
+function enforce_account_scope(array $state, ?array $account): array
+{
+    if ($account === null || (($account['accountType'] ?? 'individual') !== 'manager')) {
+        $state['teamMembers'] = [];
+    }
+
+    if ($account !== null) {
+        $fullName = clean_text(
+            trim((string) ($account['firstName'] ?? '') . ' ' . (string) ($account['lastName'] ?? '')),
+            80
+        );
+        if ($fullName !== '') {
+            $state['profile']['name'] = $fullName;
+        }
+    }
+
+    return $state;
+}
+
 function read_state(string $file): array
 {
     if (!is_file($file)) {
@@ -359,6 +378,7 @@ function write_state(string $file, array $state): array
     try {
         $current = read_state($file);
         $next = clean_state($state, ((int) ($current['revision'] ?? 0)) + 1);
+        $next = enforce_account_scope($next, raspored_current_account());
         $json = json_encode($next, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         if ($json === false) {
             fail_json(500, 'Podatke nije moguće kodirati.');
@@ -386,13 +406,8 @@ $token = client_token();
 $file = storage_file($token);
 
 if ($method === 'GET') {
-    $state = read_state($file);
     $account = raspored_current_account();
-    if ($account !== null && empty($state['profile']['name'])) {
-        $state['profile']['name'] = trim(
-            (string) ($account['firstName'] ?? '') . ' ' . (string) ($account['lastName'] ?? '')
-        );
-    }
+    $state = enforce_account_scope(read_state($file), $account);
     echo json_encode([
         'ok' => true,
         'state' => $state,
