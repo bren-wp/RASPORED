@@ -153,8 +153,7 @@ object ScheduleOcrParser {
 
     internal fun parseRow(line: String): RecognizedScheduleRow? {
         val shifts = shiftRegex.findAll(line)
-            .map { it.value.uppercase(Locale.ROOT) }
-            .filter { it in setOf("D", "N", "GO", "BO") }
+            .mapNotNull { canonicalShift(it.value) }
             .toList()
         if (shifts.isEmpty()) return null
 
