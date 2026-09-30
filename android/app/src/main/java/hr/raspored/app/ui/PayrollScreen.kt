@@ -54,6 +54,13 @@ internal fun PayrollScreen(
     }
     var county by remember { mutableStateOf(initial.county) }
     var residence by remember { mutableStateOf(initial.residence) }
+    var customResidenceText by remember {
+        mutableStateOf(
+            initial.residence.takeIf { saved ->
+                PublicSectorPayroll.taxLocalities.none { it.name == saved } && saved != "Drugo"
+            }.orEmpty()
+        )
+    }
     var taxLowerText by remember { mutableStateOf(decimalText(initial.taxLower)) }
     var taxHigherText by remember { mutableStateOf(decimalText(initial.taxHigher)) }
     var sector by remember { mutableStateOf(initial.sector) }
@@ -115,14 +122,18 @@ internal fun PayrollScreen(
     }
 
     LaunchedEffect(
-        county, residence, taxLower, taxHigher, sector, institutionName, manualInstitution,
+        county, residence, customResidenceText, taxLower, taxHigher, sector, institutionName, manualInstitution,
         customInstitutionText, regimeId, roleId, coefficient, years, personalAllowance,
         extra, secondShift, turnus, customBase
     ) {
         settingsStore.save(
             PayrollSettings(
                 county = county,
-                residence = residence,
+                residence = if (taxLocality == null) {
+                    customResidenceText.trim().ifBlank { "Drugo" }
+                } else {
+                    residence
+                },
                 taxLower = taxLower,
                 taxHigher = taxHigher,
                 sector = sector,
@@ -228,10 +239,22 @@ internal fun PayrollScreen(
                             selected.startsWith(it.name + " ·")
                         }
                         residence = chosen?.name ?: "Drugo"
-                        chosen?.let {
-                            taxLowerText = decimalText(it.lowerRate)
-                            taxHigherText = decimalText(it.higherRate)
+                        if (chosen != null) {
+                            customResidenceText = ""
+                            taxLowerText = decimalText(chosen.lowerRate)
+                            taxHigherText = decimalText(chosen.higherRate)
                         }
+                    }
+
+                    if (taxLocality == null) {
+                        OutlinedTextField(
+                            value = customResidenceText,
+                            onValueChange = { customResidenceText = it.take(100) },
+                            label = { Text("Grad/općina prebivališta") },
+                            placeholder = { Text("Upiši grad ili općinu") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        )
                     }
 
                     Row(
