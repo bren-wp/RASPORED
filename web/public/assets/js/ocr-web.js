@@ -101,6 +101,29 @@ function parseGeometry(blocks){
   }).filter(Boolean);
   return dedupe(rows);
 }
+async function prepareImage(file){
+  if(typeof createImageBitmap!=="function")return file;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(file);
+    var largest=Math.max(bitmap.width,bitmap.height);
+    if(largest<=2400)return file;
+    var scale=2400/largest;
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+    canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+    var context=canvas.getContext("2d",{alpha:false});
+    if(!context)return file;
+    context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||file)},"image/jpeg",0.9);
+    });
+  }catch(error){
+    return file;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
 async function getWorker(onProgress){
   if(workerPromise)return workerPromise;
   workerPromise=(async function(){
@@ -113,7 +136,8 @@ async function getWorker(onProgress){
 }
 async function recognizeSchedule(file,onProgress){
   var worker=await getWorker(onProgress);
-  var result=await worker.recognize(file,{}, {text:true,blocks:true});
+  var source=await prepareImage(file);
+  var result=await worker.recognize(source,{}, {text:true,blocks:true});
   var text=result&&result.data?result.data.text:"";
   var rows=parseGeometry(result&&result.data?result.data.blocks:null);
   if(!rows.length)rows=parseText(text);
