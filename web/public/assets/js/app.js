@@ -362,6 +362,28 @@ function largeHoursText(minutes){
   var mins=Math.max(0,Math.round(minutes||0));
   return Math.floor(mins/60)+":"+String(mins%60).padStart(2,"0")+" h";
 }
+function completedEvidenceInterval(entry){
+  if(!entry||(!entry.out&&entry.endedAt==null))return null;
+  var start=entry.startedAt==null?NaN:Number(entry.startedAt);
+  if(!Number.isFinite(start)&&entry.date&&entry.in)start=new Date(entry.date+"T"+entry.in+":00").getTime();
+  if(!Number.isFinite(start))return null;
+  var end=entry.endedAt==null?NaN:Number(entry.endedAt);
+  if(!Number.isFinite(end)&&entry.out&&entry.date){
+    end=new Date(entry.date+"T"+entry.out+":00").getTime();
+    if(end<=start)end+=24*60*60*1000;
+  }
+  if(!Number.isFinite(end)||end<=start)return null;
+  return {start:start,end:Math.min(end,start+36*60*60*1000)};
+}
+function overlapMinutes(start,end,windowStart,windowEnd){
+  var clippedStart=Math.max(start,windowStart),clippedEnd=Math.min(end,windowEnd);
+  return clippedEnd>clippedStart?Math.round((clippedEnd-clippedStart)/60000):0;
+}
+function nightMinutesForDaySegment(start,end,dayDate){
+  var y=dayDate.getFullYear(),m=dayDate.getMonth(),d=dayDate.getDate();
+  return overlapMinutes(start,end,new Date(y,m,d,0,0,0).getTime(),new Date(y,m,d,6,0,0).getTime())+
+    overlapMinutes(start,end,new Date(y,m,d,22,0,0).getTime(),new Date(y,m,d+1,0,0,0).getTime());
+}
 function monthData(y,m){
   var out={
     worked:0,workedMinutes:0,dayMinutes:0,night:0,nightMinutes:0,otherMinutes:0,
@@ -386,27 +408,38 @@ function monthData(y,m){
     else if(code==="SD")out.sd=(out.sd||0)+1;
   }
 
-  var prefix=y+"-"+String(m+1).padStart(2,"0")+"-";
-  var entries=loadTimeEntries().filter(function(x){return x.out&&x.date.indexOf(prefix)===0});
-  entries.forEach(function(entry){
-    var mins=durationMinutes(entry,appNow());
-    var ed=new Date(entry.date+"T12:00:00");
-    var ecode=state.schedule[entry.date]||"";
-    out.workedMinutes+=mins;
-    if(ecode==="D")out.dayMinutes+=mins;
-    else if(ecode==="N")out.nightMinutes+=mins;
-    else out.otherMinutes+=mins;
-    if(ed.getDay()===6)out.satMinutes+=mins;
-    if(ed.getDay()===0)out.sunMinutes+=mins;
-    if(hm[entry.date])out.holidayMinutes+=mins;
-    if(ed.getDay()===0||ed.getDay()===6||hm[entry.date])out.weekendHolidayMinutes+=mins;
-    wi=Math.min(4,Math.floor((ed.getDate()-1)/7));
-    if(ecode==="D")out.weeks[wi].d+=mins/60;
-    else if(ecode==="N")out.weeks[wi].n+=mins/60;
-    else out.weeks[wi].o+=mins/60;
+  var monthStart=new Date(y,m,1,0,0,0).getTime(),monthEnd=new Date(y,m+1,1,0,0,0).getTime();
+  loadTimeEntries().forEach(function(entry){
+    var span=completedEvidenceInterval(entry);
+    if(!span||span.start>=monthEnd||span.end<=monthStart)return;
+    var cursor=Math.max(span.start,monthStart),end=Math.min(span.end,monthEnd);
+    while(cursor<end){
+      var current=new Date(cursor),segmentDate=new Date(current.getFullYear(),current.getMonth(),current.getDate(),0,0,0);
+      var nextDay=new Date(segmentDate.getFullYear(),segmentDate.getMonth(),segmentDate.getDate()+1,0,0,0).getTime();
+      var segmentEnd=Math.min(end,nextDay);
+      var mins=Math.round((segmentEnd-cursor)/60000);
+      if(mins<=0){cursor=segmentEnd;continue}
+
+      var nightMins=nightMinutesForDaySegment(cursor,segmentEnd,segmentDate);
+      var dayMins=Math.max(0,mins-nightMins);
+      var dateKey=iso(segmentDate);
+
+      out.workedMinutes+=mins;
+      out.dayMinutes+=dayMins;
+      out.nightMinutes+=nightMins;
+      if(segmentDate.getDay()===6)out.satMinutes+=mins;
+      if(segmentDate.getDay()===0)out.sunMinutes+=mins;
+      if(hm[dateKey])out.holidayMinutes+=mins;
+      if(segmentDate.getDay()===0||segmentDate.getDay()===6||hm[dateKey])out.weekendHolidayMinutes+=mins;
+
+      wi=Math.min(4,Math.floor((segmentDate.getDate()-1)/7));
+      out.weeks[wi].d+=dayMins/60;
+      out.weeks[wi].n+=nightMins/60;
+      cursor=segmentEnd;
+    }
   });
 
-
+  out.otherMinutes=Math.max(0,out.workedMinutes-out.dayMinutes-out.nightMinutes);
   out.worked=out.workedMinutes/60;
   out.night=out.nightMinutes/60;
   out.balanceMinutes=out.workedMinutes-out.planned*60;
