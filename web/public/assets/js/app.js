@@ -27,6 +27,9 @@ function normalizeScheduleCode(raw){
   var value=raw.trim().toLocaleUpperCase("hr-HR").replace(/\s+/g,"");
   return /^[\p{L}\p{N}]{1,8}$/u.test(value)?value:"";
 }
+function scheduleCodeClass(code){
+  return ["D","N","GO","BO","PD","SD"].indexOf(code)>=0?String(code).toLowerCase():"custom";
+}
 function sanitizeSchedule(raw){
   var clean={};
   if(!raw||typeof raw!=="object"||Array.isArray(raw))return clean;
@@ -480,7 +483,7 @@ function renderCalendar(targetId){
     else if(num>days){date=new Date(y,m+1,num-days);inside=false}
     else date=new Date(y,m,num);
     var key=iso(date),code=state.schedule[key]||"",btn=document.createElement("button");
-    btn.className="day-cell"+(inside?"":" outside")+(code?" "+code.toLowerCase():"")+(date.getDay()===0||date.getDay()===6?" weekend":"")+(hm[key]?" holiday":"")+(key===today?" is-today":"")+(key===iso(state.selected)?" is-selected":"");
+    btn.className="day-cell"+(inside?"":" outside")+(code?" "+scheduleCodeClass(code):"")+(date.getDay()===0||date.getDay()===6?" weekend":"")+(hm[key]?" holiday":"")+(key===today?" is-today":"")+(key===iso(state.selected)?" is-selected":"");
     btn.dataset.date=key;btn.setAttribute("role","gridcell");
     btn.setAttribute("aria-label",date.toLocaleDateString("hr-HR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+(code?", "+shiftMeta(code).name:"")+(hm[key]?", "+hm[key]:""));
     btn.innerHTML='<span class="num">'+date.getDate()+'</span>'+(code?'<span class="code">'+code+'</span>':(hm[key]?'<span class="code">✣</span>':""));
@@ -560,7 +563,7 @@ function renderMobileHome(){
   var title=document.getElementById("mobileTodayTitle");
   if(title){var dateText=punctuatedDate(date,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)}
   var currentEl=document.getElementById("mobileCurrentShift");
-  if(currentEl){currentEl.innerHTML='<button type="button" class="mobile-shift-card-head mobile-shift-card-head--button" data-route-dynamic="calendar"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</button><div class="mobile-shift-card-body">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code?'<span class="shift-countdown">'+shiftStatus(entry?entry.date:date,code)+'</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("check")+'<span>Evidentiraj ulaz/izlaz</span>'+icon("chevron-right")+'</button><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("note")+'<span>Bilješka</span>'+icon("chevron-right")+'</button></div>'}
+  if(currentEl){currentEl.innerHTML='<button type="button" class="mobile-shift-card-head mobile-shift-card-head--button" data-route-dynamic="calendar"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</button><div class="mobile-shift-card-body">'+(code?'<i class="shift '+scheduleCodeClass(code)+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code?'<span class="shift-countdown">'+shiftStatus(entry?entry.date:date,code)+'</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("check")+'<span>Evidentiraj ulaz/izlaz</span>'+icon("chevron-right")+'</button><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("note")+'<span>Bilješka</span>'+icon("chevron-right")+'</button></div>'}
   var next=null;
   for(var i=1;i<=62&&!next;i++){var nd=addDays(date,i),nc=state.schedule[iso(nd)];if(nc==="D"||nc==="N")next={date:nd,code:nc}}
   var nextEl=document.getElementById("mobileNextShift");
@@ -579,7 +582,7 @@ function renderSelected(){
       return '<button type="button" class="manual-shift-btn '+(code===item?'is-selected ':'')+item.toLowerCase()+'" data-manual-shift="'+item+'" aria-pressed="'+(code===item?'true':'false')+'"><i class="shift '+item.toLowerCase()+'">'+item+'</i></button>';
     }).join('')+
     '</div><div class="manual-custom-code"><label><span>Vlastita oznaka</span><input id="calendarCustomCode" type="text" maxlength="8" autocomplete="off" inputmode="text" value="'+customValue+'" placeholder="npr. J, P1, EDU" aria-label="Vlastita oznaka rasporeda"></label><button type="button" class="secondary-btn" data-save-custom-shift>Spremi</button></div><small class="manual-custom-help">Do 8 slova ili brojeva. D/N/GO/BO/PD/SD zadržavaju posebno značenje u statistici.</small><button type="button" class="link-btn manual-shift-clear" data-manual-shift="clear" '+(!code?'disabled':'')+'>Očisti oznaku</button></div>';
-  el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'+editor;
+  el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+scheduleCodeClass(code)+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'+editor;
 }
 function renderRecognition(){
   var el=document.getElementById("recognitionDays");if(!el)return;
