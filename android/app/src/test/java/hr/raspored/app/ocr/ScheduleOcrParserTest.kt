@@ -169,6 +169,35 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun mergesPartialDayBandsByRosterRowNumber() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = 1,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(1 to "D", 2 to "N")
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 1,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(15 to "GO", 31 to "SD")
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 2,
+                    name = "LUKA BABIĆ",
+                    dayShifts = mapOf(1 to "N")
+                )
+            )
+        )
+
+        assertEquals(2, merged.size)
+        assertEquals(
+            mapOf(1 to "D", 2 to "N", 15 to "GO", 31 to "SD"),
+            merged.first { it.rowNumber == 1 }.dayShifts
+        )
+    }
+
+    @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
         assertEquals(YearMonth.of(2027, 1), result.month)
