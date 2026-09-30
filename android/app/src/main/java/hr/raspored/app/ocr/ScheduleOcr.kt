@@ -923,11 +923,25 @@ object ScheduleOcrEngine {
         return mapped < maxOf(18, rows.size * expectedPerRow)
     }
 
+    private fun hasMissingNumberedRows(schedule: RecognizedSchedule): Boolean {
+        val numbers = schedule.rows
+            .mapNotNull { it.rowNumber }
+            .filter { it in 1..100 }
+            .distinct()
+            .sorted()
+        if (numbers.size < 5) return false
+        val first = numbers.first()
+        val last = numbers.last()
+        if (first > 3 || last - first + 1 < 8) return false
+        val expected = last - first + 1
+        return numbers.size * 100 < expected * 88
+    }
+
     private fun needsDeepRecovery(
         schedule: RecognizedSchedule,
         source: Bitmap
     ): Boolean {
-        if (needsRecoveryPass(schedule)) return true
+        if (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule)) return true
         return source.width >= 1600 &&
             source.height >= 1000 &&
             schedule.rows.size in 1..15
@@ -938,7 +952,7 @@ object ScheduleOcrEngine {
         source: Bitmap
     ): Boolean = source.width >= 1600 &&
         source.height >= 1000 &&
-        (needsRecoveryPass(schedule) || schedule.rows.size in 1..15)
+        (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule) || schedule.rows.size in 1..15)
 
     private fun recognizeStripes(
         source: Bitmap,
