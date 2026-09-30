@@ -199,3 +199,35 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
     }
   }
 });
+
+
+test("calendar, scan help and settings controls are wired", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+
+  if(width>820){
+    const before=await page.locator("#monthTitle").textContent();
+    await page.locator("#nextMonth").click();
+    await expect(page.locator("#monthTitle")).not.toHaveText(before||"");
+    await page.locator("#prevMonth").click();
+    await page.locator("#todayBtn").click();
+  }else{
+    await page.locator('[data-route="calendar"]:visible').first().click();
+    const before=await page.locator("#mobileMonthTitle").textContent();
+    await page.locator("#calNext").click();
+    await expect(page.locator("#mobileMonthTitle")).not.toHaveText(before||"");
+    await page.locator("#calPrev").click();
+  }
+
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanHelpBtn").click();
+  await expect(page.locator("#scanHelpDialog")).toBeVisible();
+  await page.locator("#scanHelpDialog").getByRole("button",{name:"Zatvori"}).click();
+
+  await page.locator(".scan-header .back-btn").click();
+  await page.locator('[data-route="settings"]:visible').first().click();
+  await page.locator("#themeToggle").check();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
+  await page.locator("#motionToggle").check();
+  await expect(page.locator("body")).toHaveAttribute("data-reduced-motion","true");
+});
