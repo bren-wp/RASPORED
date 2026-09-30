@@ -9,7 +9,7 @@ header("Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src
 $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 if ($base === '.') { $base = ''; }
 $version = trim((string) @file_get_contents(__DIR__ . '/version.txt'));
-if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.0'; }
+if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.1'; }
 ?>
 <!doctype html>
 <html lang="hr" data-theme="light">
@@ -107,10 +107,10 @@ if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.0'; }
       </div>
 
       <section class="quick-actions" aria-label="Brze akcije">
-        <button data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><b>Skeniraj raspored</b><small>OCR prepoznavanje iz slike ili PDF-a</small></button>
+        <button data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><b>Skeniraj raspored</b><small>OCR prepoznavanje iz fotografije</small></button>
         <button data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg><b>Evidencija sati</b><small>Pregledaj odrađene sate i smjene</small></button>
         <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><b>Statistika</b><small>Analize, saldo i izvještaji</small></button>
-        <button class="desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg><b>Kolege</b><small>Pogledaj rasporede kolega</small></button>
+        <button class="desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg><b>Kolege</b><small>Lokalni popis i bilješke</small></button>
         <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><b>Postavke</b><small>Prilagodi aplikaciju svojim potrebama</small></button>
       </section>
     </section>

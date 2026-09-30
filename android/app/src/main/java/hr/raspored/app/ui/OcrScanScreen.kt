@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +51,7 @@ internal fun OcrScanScreen(
     var employeeMenu by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
+    var ocrGeneration by remember { mutableIntStateOf(0) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
@@ -81,15 +83,26 @@ internal fun OcrScanScreen(
     }
 
     fun process(source: Bitmap) {
+        val generation = ocrGeneration + 1
+        ocrGeneration = generation
         bitmap = source
+        result = null
+        selectedRow = -1
+        editedShifts.clear()
+        editMode = false
+        employeeMenu = false
         phase = OcrPhase.Processing
         message = "Automatsko prepoznavanje..."
         ScheduleOcrEngine.recognize(
             bitmap = source,
-            onSuccess = ::applyResult,
+            onSuccess = { recognized ->
+                if (ocrGeneration == generation) applyResult(recognized)
+            },
             onError = {
-                phase = OcrPhase.Error
-                message = "Prepoznavanje nije uspjelo. Pokušaj ponovno ili odaberi drugu fotografiju."
+                if (ocrGeneration == generation) {
+                    phase = OcrPhase.Error
+                    message = "Prepoznavanje nije uspjelo. Pokušaj ponovno ili odaberi drugu fotografiju."
+                }
             }
         )
     }
@@ -151,7 +164,7 @@ internal fun OcrScanScreen(
                     )
                 }
                 IconButton(onClick = { helpOpen = true }) {
-                    Icon(Icons.Outlined.HelpOutline, "Pomoć za skeniranje", tint = RasporedTokens.Slate)
+                    Icon(Icons.AutoMirrored.Outlined.HelpOutline, "Pomoć za skeniranje", tint = RasporedTokens.Slate)
                 }
             }
         }
@@ -500,7 +513,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
     }
     Surface(
         shape = RoundedCornerShape(12.dp),
-        border = if (enabled) androidx.compose.foundation.BorderStroke(2.dp, RasporedTokens.Cyan) else ButtonDefaults.outlinedButtonBorder,
+        border = if (enabled) androidx.compose.foundation.BorderStroke(2.dp, RasporedTokens.Cyan) else ButtonDefaults.outlinedButtonBorder(enabled = enabled),
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.width(82.dp).clickable(enabled = enabled, onClick = onClick)
     ) {

@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -220,7 +222,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
             verticalAlignment=Alignment.CenterVertically
         ){
             IconButton(onClick=onBack){
-                Icon(Icons.Outlined.ArrowBack,"Natrag",tint=Color.White,modifier=Modifier.size(28.dp))
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack,"Natrag",tint=Color.White,modifier=Modifier.size(28.dp))
             }
             BrandMark()
             Spacer(Modifier.width(8.dp))
@@ -250,7 +252,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
 @Composable private fun RowScope.NavItem(current:Screen,target:Screen,label:String,icon:ImageVector,onSelect:(Screen)->Unit,emphasis:Boolean=false){
     NavigationBarItem(modifier=Modifier.testTag("nav-"+target.name.lowercase()),selected=current==target,onClick={onSelect(target)},icon={
         Surface(shape=RoundedCornerShape(if(emphasis)22.dp else 12.dp),color=if(emphasis) Cyan else Color.Transparent){
-            Icon(icon,null,modifier=Modifier.padding(if(emphasis)10.dp else 4.dp).size(if(emphasis)28.dp else 24.dp),tint=if(emphasis) Color.White else if(current==target) Cyan else Navy)
+            Icon(icon,null,modifier=Modifier.padding(if(emphasis)10.dp else 4.dp).size(if(emphasis)28.dp else 24.dp),tint=if(emphasis) Color.White else if(current==target) Cyan else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     },label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedTextColor=Cyan,unselectedTextColor=Slate,indicatorColor=Color.Transparent))
 }
@@ -430,10 +432,10 @@ private fun largeMinutesLabel(minutes:Long):String {
                 }
             }
             if(today){
-                Divider(Modifier.padding(vertical=13.dp),color=Color(0xFFE6EDF5))
+                HorizontalDivider(Modifier.padding(vertical=13.dp),color=MaterialTheme.colorScheme.outlineVariant)
                 InfoLine(Icons.Outlined.Schedule,"Radno vrijeme",if(shift.hours>0)shift.hours.toString()+"h" else "—")
                 InfoLine(Icons.Outlined.Checklist,"Evidentiraj ulaz/izlaz","›",onHours)
-                InfoLine(Icons.Outlined.Notes,"Bilješka","›",onHours)
+                InfoLine(Icons.AutoMirrored.Outlined.Notes,"Bilješka","›",onHours)
             }
         }
     }
@@ -520,7 +522,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                             Text("▦ Blagdan\n"+selectedHoliday,color=Red,fontWeight=FontWeight.Bold,fontSize=12.sp)
                         }
                     }
-                    Divider(Modifier.padding(vertical=12.dp))
+                    HorizontalDivider(Modifier.padding(vertical=12.dp))
                     Row(verticalAlignment=Alignment.CenterVertically){
                         if(selectedShift!=null){
                             ShiftBadge(selectedShift,62.dp)
@@ -829,11 +831,12 @@ private fun largeMinutesLabel(minutes:Long):String {
     totalMinutes:Long
 ){
     val size=142.dp
+    val trackColor=MaterialTheme.colorScheme.outlineVariant
     Box(Modifier.size(size),contentAlignment=Alignment.Center){
         Canvas(Modifier.fillMaxSize()){
             val stroke=18.dp.toPx()
             drawArc(
-                color=Color(0xFFE6EDF5),
+                color=trackColor,
                 startAngle=-90f,
                 sweepAngle=360f,
                 useCenter=false,

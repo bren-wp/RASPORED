@@ -1,6 +1,7 @@
-const CACHE="raspored-v2";
+const CACHE="raspored-v1.0.1";
 const ASSETS=[
   "./",
+  "./version.txt",
   "./assets/css/app.css",
   "./assets/js/app.js",
   "./assets/js/ocr-web.js",
@@ -11,8 +12,13 @@ const ASSETS=[
 ];
 
 self.addEventListener("install",event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE)
+      .then(cache=>cache.addAll(ASSETS))
+      .then(()=>self.skipWaiting())
+  );
 });
+
 self.addEventListener("activate",event=>{
   event.waitUntil(
     caches.keys()
@@ -20,17 +26,36 @@ self.addEventListener("activate",event=>{
       .then(()=>self.clients.claim())
   );
 });
+
 self.addEventListener("fetch",event=>{
-  if(event.request.method!=="GET"||new URL(event.request.url).origin!==self.location.origin)return;
+  if(event.request.method!=="GET")return;
+  const url=new URL(event.request.url);
+  if(url.origin!==self.location.origin)return;
+
+  if(event.request.mode==="navigate"){
+    event.respondWith(
+      fetch(event.request)
+        .then(response=>{
+          if(response.ok)caches.open(CACHE).then(cache=>cache.put("./",response.clone()));
+          return response;
+        })
+        .catch(()=>caches.match("./"))
+    );
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request)
-      .then(response=>{
-        if(response.ok){
-          const clone=response.clone();
-          caches.open(CACHE).then(cache=>cache.put(event.request,clone));
-        }
-        return response;
-      })
-      .catch(()=>caches.match(event.request).then(cached=>cached||caches.match("./")))
+    caches.match(event.request).then(cached=>{
+      const network=fetch(event.request)
+        .then(response=>{
+          if(response.ok){
+            const clone=response.clone();
+            caches.open(CACHE).then(cache=>cache.put(event.request,clone));
+          }
+          return response;
+        })
+        .catch(()=>cached||new Response("",{status:503,statusText:"Offline"}));
+      return cached||network;
+    })
   );
 });
