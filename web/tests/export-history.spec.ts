@@ -25,3 +25,12 @@ test("guest storage cannot persist manager-only team schedules", async ({page}) 
   });
   expect(team).toEqual([]);
 });
+
+
+test("legacy evidence without millisecond timestamps keeps its worked duration", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-route="stats"]:visible').first().click();
+  await expect(page.locator("#workedTotal")).not.toHaveText("0:00 h");
+  await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.locator("#hoursHistory")).toContainText("12h 00min");
+});
