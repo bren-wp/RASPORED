@@ -58,6 +58,7 @@ private val D=Shift("D","Dnevna smjena","07:00 – 19:00 (12h)",12)
 private val N=Shift("N","Noćna smjena","19:00 – 07:00 (12h)",12)
 private val GO=Shift("GO","Slobodan dan","—",0)
 private val BO=Shift("BO","Bolovanje","—",0)
+private val NONE=Shift("","Nema planirane smjene","—",0)
 
 @Composable fun RasporedApp(){
     var screen by remember { mutableStateOf(Screen.Home) }
@@ -129,7 +130,7 @@ private val BO=Shift("BO","Bolovanje","—",0)
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
                     Screen.Home->HomeScreen(scheduleCodes,evidenceEntries){screen=it}
-                    Screen.Calendar->CalendarScreen(scheduleCodes)
+                    Screen.Calendar->CalendarScreen(scheduleCodes,evidenceEntries)
                     Screen.Scan->OcrScanScreen(YearMonth.from(appDate())) { month, shifts ->
                         store.saveMonth(month, shifts)
                         (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
@@ -321,11 +322,11 @@ private fun largeMinutesLabel(minutes:Long):String {
         scheduleCodes=codesForMonth(month,data),
         fallbackToPlanned=false
     )
-    val current=data[today.dayOfMonth] ?: GO
+    val current=data[today.dayOfMonth] ?: NONE
     val nextEntry=(today.dayOfMonth+1..month.lengthOfMonth()).firstNotNullOfOrNull{day->
         data[day]?.takeIf{it.code=="D"||it.code=="N"}?.let{day to it}
     }
-    val next=nextEntry?.second ?: GO
+    val next=nextEntry?.second ?: NONE
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
     val dateTitle=today.format(formatter).replaceFirstChar{
         if(it.isLowerCase())it.titlecase(Locale("hr","HR")) else it.toString()
@@ -407,14 +408,18 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
-@Composable private fun CalendarScreen(scheduleCodes:Map<String,String>){
+@Composable private fun CalendarScreen(scheduleCodes:Map<String,String>,evidenceEntries:List<TimeEvidenceEntry>){
     val today=appDate()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     var selected by remember { mutableStateOf(today) }
     val data=scheduleFor(month,scheduleCodes)
     val holidays=CroatianHolidays.forYear(month.year)
-    val worked=data.values.sumOf{it.hours}
-    val night=data.values.filter{it.code=="N"}.sumOf{it.hours}
+    val analytics=EvidenceAnalytics.summarize(
+        month=month,
+        entries=evidenceEntries,
+        scheduleCodes=codesForMonth(month,data),
+        fallbackToPlanned=false
+    )
     val selectedShift=if(YearMonth.from(selected)==month) data[selected.dayOfMonth] else null
     val selectedHoliday=holidays[selected]
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
@@ -511,10 +516,10 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Spacer(Modifier.height(12.dp))
                     Row{
                         listOf(
-                            "Planirano" to worked.toString()+"h",
-                            "Odrađeno" to worked.toString()+"h",
-                            "Saldo" to "0h",
-                            "Noćni sati" to night.toString()+"h"
+                            "Planirano" to minutesLabel(analytics.plannedMinutes),
+                            "Odrađeno" to minutesLabel(analytics.workedMinutes),
+                            "Saldo" to signedMinutesLabel(analytics.balanceMinutes),
+                            "Noćni sati" to minutesLabel(analytics.nightMinutes)
                         ).forEach{
                             Column(Modifier.weight(1f)){
                                 Text(it.first,fontSize=11.sp,color=Slate)
@@ -902,6 +907,6 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 
 @Composable private fun ShiftChip(s:Shift,modifier:Modifier){Surface(modifier=modifier.height(40.dp),shape=RoundedCornerShape(11.dp),color=shiftBg(s)){Box(contentAlignment=Alignment.Center){Text(s.code,fontWeight=FontWeight.ExtraBold,color=shiftFg(s),fontSize=13.sp)}}}
-@Composable private fun ShiftBadge(s:Shift,size:androidx.compose.ui.unit.Dp){Surface(shape=RoundedCornerShape(14.dp),color=shiftBg(s),modifier=Modifier.size(size)){Box(contentAlignment=Alignment.Center){Text(s.code,fontSize=if(size>50.dp)24.sp else 14.sp,fontWeight=FontWeight.ExtraBold,color=shiftFg(s))}}}
+@Composable private fun ShiftBadge(s:Shift,size:androidx.compose.ui.unit.Dp){Surface(shape=RoundedCornerShape(14.dp),color=shiftBg(s),modifier=Modifier.size(size)){Box(contentAlignment=Alignment.Center){Text(if(s.code.isBlank())"—" else s.code,fontSize=if(size>50.dp)24.sp else 14.sp,fontWeight=FontWeight.ExtraBold,color=shiftFg(s))}}}
 private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"GO"->GObg;"BO"->BObg;else->Color(0xFFF1F5F9)}
 private fun shiftFg(s:Shift)=when(s.code){"D"->Color(0xFF087BC9);"N"->Color.White;"GO"->Color(0xFF07865F);"BO"->Color(0xFFD22333);else->Slate}
