@@ -331,7 +331,8 @@ function saveTimeEntries(entries){return storageSet("raspored.timeEntries.v1",JS
 function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function durationMinutes(entry,now){
   if(!entry||!entry.in)return 0;
-  var startedAt=Number(entry.startedAt),endedAt=entry.endedAt==null?NaN:Number(entry.endedAt);
+  var startedAt=entry.startedAt==null?NaN:Number(entry.startedAt);
+  var endedAt=entry.endedAt==null?NaN:Number(entry.endedAt);
   if(Number.isFinite(startedAt)){
     var finish=Number.isFinite(endedAt)?endedAt:now.getTime();
     return Math.max(0,Math.round((finish-startedAt)/60000));
