@@ -58,6 +58,19 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun gridCodePreservesWorkplaceSpecificShortLabelsWithoutGuessingMeaning() {
+        assertEquals("J", ScheduleOcrParser.canonicalGridCode("J"))
+        assertEquals("S", ScheduleOcrParser.canonicalGridCode("s"))
+        assertEquals("P1", ScheduleOcrParser.canonicalGridCode("P1"))
+        assertEquals("1", ScheduleOcrParser.canonicalGridCode("1"))
+        assertEquals("GO", ScheduleOcrParser.canonicalGridCode("G0"))
+        assertNull(ScheduleOcrParser.canonicalGridCode("27"))
+        assertNull(ScheduleOcrParser.canonicalGridCode("RB"))
+        assertNull(ScheduleOcrParser.canonicalGridCode("PREVISE"))
+    }
+
+
+    @Test
     fun mergesShiftOnlyNumberedRowWithRecoveredRosterName() {
         val merged = ScheduleOcrParser.mergeRows(
             listOf(
