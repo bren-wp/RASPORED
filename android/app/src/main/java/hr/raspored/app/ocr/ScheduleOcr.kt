@@ -31,7 +31,8 @@ data class RecognizedScheduleRow(
 data class RecognizedSchedule(
     val month: YearMonth?,
     val rows: List<RecognizedScheduleRow>,
-    val rawText: String
+    val rawText: String,
+    val expectedRowCount: Int? = null
 )
 
 object ScheduleOcrParser {
@@ -1127,13 +1128,21 @@ object ScheduleOcrEngine {
                 val recoverySource = detectedTable ?: bitmap
                 val forceDenseRecovery = detectedTable != null
                 fun finish(schedule: RecognizedSchedule) {
+                    val detectedRows = ScheduleTableDetector
+                        .detectEmployeeRowBands(recoverySource, rowsPerBand = 1)
+                        .size
+                        .takeIf { it >= 3 }
                     recycleTemporary(recoverySource, bitmap)
                     onSuccess(
                         schedule.copy(
                             rows = ScheduleOcrParser.finalizeRows(schedule.rows)
                                 .filter { row ->
                                     row.name.count(Char::isLetter) >= 3
-                                }
+                                },
+                            expectedRowCount = listOfNotNull(
+                                schedule.expectedRowCount,
+                                detectedRows
+                            ).maxOrNull()
                         )
                     )
                 }
@@ -2027,7 +2036,11 @@ object ScheduleOcrEngine {
         return RecognizedSchedule(
             month = first.month ?: second.month,
             rows = rows,
-            rawText = rawText
+            rawText = rawText,
+            expectedRowCount = listOfNotNull(
+                first.expectedRowCount,
+                second.expectedRowCount
+            ).maxOrNull()
         )
     }
 
