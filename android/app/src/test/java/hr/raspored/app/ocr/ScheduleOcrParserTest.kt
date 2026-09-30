@@ -406,9 +406,9 @@ class ScheduleOcrParserTest {
         )
         val repeatedGhost = RecognizedScheduleRow(
             rowNumber = null,
-            name = "NASLOV TABLICE",
-            dayShifts = mapOf(2 to "D"),
-            supportCount = 3
+            name = "NAPOMENA GODISNJI",
+            dayShifts = mapOf(12 to "GO"),
+            supportCount = 8
         )
 
         val finalized = ScheduleOcrParser.finalizeRows(
