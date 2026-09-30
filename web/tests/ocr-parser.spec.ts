@@ -1,5 +1,44 @@
 import {test,expect} from "@playwright/test";
 
+test("OCR table detector keeps full width with fragmented photographed grid lines", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const bounds=await page.evaluate(() => {
+    const canvas=document.createElement("canvas");
+    canvas.width=1600;canvas.height=1200;
+    const ctx=canvas.getContext("2d")!;
+    ctx.fillStyle="rgb(242,242,242)";
+    ctx.fillRect(0,0,1600,1200);
+    ctx.strokeStyle="rgb(38,38,38)";
+    ctx.lineWidth=2;
+
+    const left=145,top=185,right=1515,bottom=835,nameWidth=235;
+    const verticals=[left,left+38,left+nameWidth];
+    for(let day=0;day<=31;day++){
+      verticals.push(left+nameWidth+(right-left-nameWidth)*day/31);
+    }
+
+    for(let row=0;row<=27;row++){
+      const y=top+(bottom-top)*row/27;
+      for(const x of verticals){
+        ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.stroke();
+      }
+    }
+    for(const x of verticals){
+      ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();
+    }
+    return (window as any).RasporedOcrTableCrop.detectGridBounds(canvas);
+  });
+
+  expect(bounds).not.toBeNull();
+  expect(bounds.left).toBeLessThanOrEqual(190);
+  expect(bounds.right).toBeGreaterThanOrEqual(1460);
+  expect(bounds.top).toBeLessThanOrEqual(220);
+  expect(bounds.bottom).toBeGreaterThanOrEqual(800);
+  expect((bounds.right-bounds.left)/1600).toBeGreaterThanOrEqual(.78);
+});
+
 test("OCR text fallback never compresses missing calendar days", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
