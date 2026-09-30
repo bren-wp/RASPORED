@@ -541,13 +541,13 @@ object PublicSectorPayroll {
                 "SD" -> sdDays++
             }
         }
-        val compensatedDates = mutableSetOf<java.time.LocalDate>()
+        val compensatedAbsenceDates = mutableSetOf<java.time.LocalDate>()
         scheduleCodes.forEach { (dateText, code) ->
             if (code !in setOf("GO", "BO", "PD")) return@forEach
             val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
                 ?: return@forEach
             if (YearMonth.from(date) == month && date !in workedDates) {
-                compensatedDates += date
+                compensatedAbsenceDates += date
             }
         }
 
@@ -556,15 +556,18 @@ object PublicSectorPayroll {
             .filter { date ->
                 date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
                     holidays.containsKey(date) &&
-                    date !in workedDates
+                    date !in workedDates &&
+                    date !in compensatedAbsenceDates
             }
             .toSet()
-        compensatedDates += holidayCompensatedDates
 
-        val compensatedAbsenceMinutes = compensatedDates.size * 8L * 60L
+        val compensatedAbsenceMinutes = compensatedAbsenceDates.size * 8L * 60L
         val holidayCompensatedMinutes = holidayCompensatedDates.size * 8L * 60L
         val overtime = (
-            worked + compensatedAbsenceMinutes - monthlyFundHours(month) * 60L
+            worked +
+                compensatedAbsenceMinutes +
+                holidayCompensatedMinutes -
+                monthlyFundHours(month) * 60L
         ).coerceAtLeast(0L)
         return PayrollEvidence(
             workedMinutes = worked,
