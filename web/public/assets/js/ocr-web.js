@@ -538,7 +538,7 @@ async function prepareImage(file,strong){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
-async function prepareStripe(file,startRatio,endRatio){
+async function prepareStripe(tableSource,startRatio,endRatio){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
   try{
@@ -572,7 +572,7 @@ async function prepareStripe(file,startRatio,endRatio){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
-async function prepareDayBandComposite(file,startRatio,endRatio){
+async function prepareDayBandComposite(tableSource,startRatio,endRatio){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
   try{
@@ -614,7 +614,7 @@ async function prepareDayBandComposite(file,startRatio,endRatio){
     if(bitmap&&typeof bitmap.close==="function")bitmap.close();
   }
 }
-async function prepareRosterBand(file,startRatio,endRatio){
+async function prepareRosterBand(tableSource,startRatio,endRatio){
   if(typeof createImageBitmap!=="function")return file;
   var bitmap;
   try{
@@ -733,8 +733,13 @@ async function recognizeScheduleNow(file,onProgress){
     var needsDeep=sparseResult(first)||missingNumberedRows(first)||(first.people||[]).length<16;
     if(!needsDeep)return first;
 
+    if(onProgress)onProgress(.76,"table-detection");
+    var tableSource=window.RasporedOcrTableCrop
+      ?await window.RasporedOcrTableCrop.cropScheduleTable(file)
+      :file;
+
     if(onProgress)onProgress(.78,"recovery");
-    var recoverySource=await prepareImage(file,true);
+    var recoverySource=await prepareImage(tableSource,true);
     var second=parsedResult(
       await worker.recognize(recoverySource,{}, {text:true,blocks:true}),
       first.month
@@ -745,7 +750,7 @@ async function recognizeScheduleNow(file,onProgress){
     var stripes=[[0,.46],[.27,.74],[.55,1]];
     for(var i=0;i<stripes.length;i++){
       if(onProgress)onProgress(.80+i*.025,"table-stripe-"+(i+1));
-      var stripeSource=await prepareStripe(file,stripes[i][0],stripes[i][1]);
+      var stripeSource=await prepareStripe(tableSource,stripes[i][0],stripes[i][1]);
       var stripe=parsedResult(
         await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
         merged.month
@@ -764,7 +769,7 @@ async function recognizeScheduleNow(file,onProgress){
       var dayBands=[[.29,.50],[.47,.68],[.65,.86],[.83,1]];
       for(var b=0;b<dayBands.length;b++){
         if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
-        var bandSource=await prepareDayBandComposite(file,dayBands[b][0],dayBands[b][1]);
+        var bandSource=await prepareDayBandComposite(tableSource,dayBands[b][0],dayBands[b][1]);
         var band=parsedResult(
           await worker.recognize(bandSource,{}, {text:true,blocks:true}),
           merged.month
@@ -774,7 +779,7 @@ async function recognizeScheduleNow(file,onProgress){
     }
 
     if(onProgress)onProgress(.97,"roster-column");
-    var rosterSource=await prepareRosterColumn(file);
+    var rosterSource=await prepareRosterColumn(tableSource);
     var rosterResult=await worker.recognize(rosterSource,{}, {text:true,blocks:true});
     var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
     merged.people=mergeRows((merged.people||[]).concat(rosterRows));
@@ -782,7 +787,7 @@ async function recognizeScheduleNow(file,onProgress){
     var rosterBands=[[0,.44],[.28,.73],[.57,1]];
     for(var r=0;r<rosterBands.length;r++){
       if(onProgress)onProgress(.98+r*.006,"roster-band-"+(r+1));
-      var rosterBandSource=await prepareRosterBand(file,rosterBands[r][0],rosterBands[r][1]);
+      var rosterBandSource=await prepareRosterBand(tableSource,rosterBands[r][0],rosterBands[r][1]);
       var rosterBandResult=await worker.recognize(rosterBandSource,{}, {text:true,blocks:true});
       var rosterBandRows=parseRosterRows(
         rosterBandResult&&rosterBandResult.data?rosterBandResult.data.blocks:null
