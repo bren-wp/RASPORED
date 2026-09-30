@@ -194,12 +194,31 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                             else scheduleCodes[date.toString()]=code
                         }
                     )
-                    Screen.Scan->OcrScanScreen(YearMonth.from(appDate())) { month, shifts ->
-                        store.saveMonth(month, shifts)
-                        (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
-                        shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
-                        screen = Screen.Calendar
-                    }
+                    Screen.Scan->OcrScanScreen(
+                        defaultMonth=YearMonth.from(appDate()),
+                        accountName=cloudAccount?.fullName,
+                        managerMode=cloudAccount?.isManager==true,
+                        onSaveTeamSchedules={month,rows->
+                            teamStore.saveRecognizedMonth(
+                                month,
+                                rows.map { row -> row.name to row.dayShifts }
+                            )
+                            cloudStatus="Spremljeno je "+rows.count{it.dayShifts.isNotEmpty()}+" odvojenih rasporeda tima. U Postavkama odaberi Spremi za sinkronizaciju s računom."
+                            scope.launch{
+                                snackbarHostState.showSnackbar("Rasporedi tima su spremljeni odvojeno.")
+                            }
+                            screen=Screen.Calendar
+                        },
+                        onSaveSchedule={month,shifts->
+                            store.saveMonth(month, shifts)
+                            (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
+                            shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
+                            if(cloudAccount!=null){
+                                cloudStatus="Raspored je spremljen na uređaj. U Postavkama odaberi Spremi za sinkronizaciju s računom."
+                            }
+                            screen = Screen.Calendar
+                        }
+                    )
                     Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries,onPayroll={screen=Screen.Payroll})
                     Screen.Payroll->PayrollScreen(evidenceEntries,scheduleCodes,onBack={screen=Screen.Stats})
                     Screen.Hours->{
