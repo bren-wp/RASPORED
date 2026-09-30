@@ -22,12 +22,29 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Functional and screenshot QA
         run: npx playwright test tests/capture.spec.ts tests/smoke.spec.ts
+      - name: Package Web/PWA
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < ../VERSION)"
+          mkdir -p ../dist
+          (
+            cd public
+            zip -r "../../dist/RASPORED-web-v${VERSION}.zip" . -x "*.DS_Store" -x "__MACOSX/*"
+          )
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: web-ui-captures
           path: web/test-results
           if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: RASPORED-web
+          path: dist/RASPORED-web-*.zip
+          if-no-files-found: error
 
   android:
     runs-on: ubuntu-latest
@@ -42,9 +59,16 @@ jobs:
           gradle-version: 8.11.1
       - name: Android debug build
         run: gradle -p android :app:assembleDebug :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug --stacktrace
+      - name: Prepare installable APK
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: android-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: RASPORED-apk
+          path: dist/RASPORED.apk
           if-no-files-found: error
