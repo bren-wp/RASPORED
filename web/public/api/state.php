@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/includes/auth-common.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, max-age=0');
 header('Pragma: no-cache');
@@ -90,7 +92,11 @@ function storage_directory(): string
 
 function storage_file(string $token): string
 {
-    return storage_directory() . '/client-' . hash('sha256', $token) . '.json';
+    $account = raspored_current_account();
+    if ($account !== null && isset($account['id'])) {
+        return raspored_account_state_path((string) $account['id']);
+    }
+    return raspored_guest_state_path($token);
 }
 
 function text_slice(string $value, int $max): string
@@ -354,7 +360,19 @@ $token = client_token();
 $file = storage_file($token);
 
 if ($method === 'GET') {
-    echo json_encode(['ok' => true, 'state' => read_state($file)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $state = read_state($file);
+    $account = raspored_current_account();
+    if ($account !== null && empty($state['profile']['name'])) {
+        $state['profile']['name'] = trim(
+            (string) ($account['firstName'] ?? '') . ' ' . (string) ($account['lastName'] ?? '')
+        );
+    }
+    echo json_encode([
+        'ok' => true,
+        'state' => $state,
+        'authenticated' => $account !== null,
+        'account' => raspored_public_account($account),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
