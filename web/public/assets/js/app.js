@@ -402,7 +402,7 @@ async function handleScanFile(file){
       status.classList.add("is-success");
       status.querySelector("span").textContent=state.scanPeople.length===1
         ?"Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
-        :"Prepoznato je "+state.scanPeople.length+" osoba. Odaberi ime i prezime osobe čiji raspored želiš uvesti.";
+        :"Prepoznate su "+state.scanPeople.length+" osobe. Odaberi ime i prezime osobe čiji raspored želiš uvesti.";
     }else{
       status.classList.add("is-error");
       status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO ili BO. Pokušaj s ravnijom i oštrijom fotografijom.";
