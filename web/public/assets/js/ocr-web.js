@@ -241,7 +241,9 @@ function findHeader(lines,maxDay){
   return {
     centers:inferred.centers,
     spacing:inferred.spacing,
-    minX:Math.min.apply(null,Object.values(inferred.centers)),
+    // Keep the roster boundary tied to the first actually observed day.
+    // Extrapolated day 1 can be far outside late-month recovery bands.
+    minX:Math.min.apply(null,Object.keys(observed).map(function(day){return observed[day]})),
     bottom:Math.max.apply(null,best.items.map(function(item){return Number(item.word.bbox.y1)}))+Math.max(2,Math.round(medianHeight*.35)),
     observedDays:Object.keys(observed).map(Number)
   };
@@ -356,7 +358,7 @@ function inferHeaderFromShiftColumns(lines,maxDay){
   return {
     centers:inferred.centers,
     spacing:inferred.spacing,
-    minX:Math.min.apply(null,Object.values(inferred.centers)),
+    minX:minShiftX,
     bottom:-Infinity,
     observedDays:[]
   };
