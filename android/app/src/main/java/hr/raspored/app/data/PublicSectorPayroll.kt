@@ -57,6 +57,13 @@ data class PayrollEvidence(
     val sundayMinutes: Long,
     val holidayMinutes: Long,
     val secondShiftMinutes: Long,
+    val shift1Minutes: Long,
+    val shift2Minutes: Long,
+    val shift3Minutes: Long,
+    val turnusMinutes: Long,
+    val dutyMinutes: Long,
+    val standbyMinutes: Long,
+    val calloutMinutes: Long,
     val overtimeMinutes: Long,
     val workedDays: Int,
     val hasActiveEntry: Boolean
@@ -363,9 +370,13 @@ object PublicSectorPayroll {
         fun add(minutes: Long, rate: Double?): Double =
             if (rate == null) 0.0 else hourly * (minutes / 60.0) * rate
 
-        val secondMinutes = if (secondShift && rates.secondShift != null) evidence.secondShiftMinutes else 0L
+        val secondMinutes = if (secondShift && rates.secondShift != null) {
+            evidence.shift2Minutes.takeIf { it > 0L } ?: evidence.secondShiftMinutes
+        } else {
+            0L
+        }
         val turnusMinutes =
-            if (turnus && rates.turnus != null) (evidence.workedMinutes - secondMinutes).coerceAtLeast(0L) else 0L
+            if (turnus && rates.turnus != null) evidence.turnusMinutes else 0L
         val custom = basicGross * (extraPercent.coerceIn(0.0, 100.0) / 100.0)
 
         val nightAddition = add(evidence.nightMinutes, rates.night)
@@ -425,6 +436,13 @@ object PublicSectorPayroll {
         var sunday = 0L
         var holiday = 0L
         var second = 0L
+        var shift1 = 0L
+        var shift2 = 0L
+        var shift3 = 0L
+        var turnus = 0L
+        var duty = 0L
+        var standby = 0L
+        var callout = 0L
         var hasActive = false
 
         entries.forEach { entry ->
@@ -444,6 +462,15 @@ object PublicSectorPayroll {
                     if (date.dayOfWeek == DayOfWeek.SUNDAY) sunday++
                     if (holidays.containsKey(date)) holiday++
                     if (hour in 14..21) second++
+                    when (WorkType.normalized(entry.workType)) {
+                        WorkType.SHIFT_1 -> shift1++
+                        WorkType.SHIFT_2 -> shift2++
+                        WorkType.SHIFT_3 -> shift3++
+                        WorkType.TURNUS -> turnus++
+                        WorkType.DUTY -> duty++
+                        WorkType.STANDBY -> standby++
+                        WorkType.CALLOUT -> callout++
+                    }
                 }
                 minute += 60_000L
             }
@@ -457,6 +484,13 @@ object PublicSectorPayroll {
             sundayMinutes = sunday,
             holidayMinutes = holiday,
             secondShiftMinutes = second,
+            shift1Minutes = shift1,
+            shift2Minutes = shift2,
+            shift3Minutes = shift3,
+            turnusMinutes = turnus,
+            dutyMinutes = duty,
+            standbyMinutes = standby,
+            calloutMinutes = callout,
             overtimeMinutes = overtime,
             workedDays = workedDates.size,
             hasActiveEntry = hasActive
