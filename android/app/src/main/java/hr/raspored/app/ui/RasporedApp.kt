@@ -152,8 +152,7 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                     }
                     Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries)
                     Screen.Hours->{
-                        val today=appDate()
-                        val shift=scheduleFor(YearMonth.from(today),scheduleCodes)[today.dayOfMonth]
+                        val shift=currentShiftAt(appDateTime(),scheduleCodes)?.second
                         TimeEvidenceScreen(
                             plannedShiftCode=shift?.code,
                             plannedShiftLabel=shift?.let{it.name+" · "+it.time} ?: "—",
