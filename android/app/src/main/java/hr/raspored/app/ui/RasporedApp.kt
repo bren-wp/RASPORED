@@ -710,49 +710,49 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         }
     }
-}
 
 
-if(customCodeDialog){
-    AlertDialog(
-        onDismissRequest={customCodeDialog=false},
-        title={Text("Vlastita oznaka za "+selected.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy.")))},
-        text={
-            Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Text(
-                    "Upiši kratku oznaku koja postoji na tvom rasporedu. Dozvoljena su slova i brojevi, najviše 8 znakova.",
-                    fontSize=12.sp,
-                    color=MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value=customCode,
-                    onValueChange={value->
-                        customCode=value
-                            .uppercase(Locale("hr","HR"))
-                            .filter{it.isLetterOrDigit()}
-                            .take(8)
+    if(customCodeDialog){
+        AlertDialog(
+            onDismissRequest={customCodeDialog=false},
+            title={Text("Vlastita oznaka za "+selected.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy.")))},
+            text={
+                Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+                    Text(
+                        "Upiši kratku oznaku koja postoji na tvom rasporedu. Dozvoljena su slova i brojevi, najviše 8 znakova.",
+                        fontSize=12.sp,
+                        color=MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value=customCode,
+                        onValueChange={value->
+                            customCode=value
+                                .uppercase(Locale("hr","HR"))
+                                .filter{it.isLetterOrDigit()}
+                                .take(8)
+                        },
+                        label={Text("Oznaka")},
+                        singleLine=true,
+                        modifier=Modifier.fillMaxWidth().testTag("calendar-custom-code")
+                    )
+                }
+            },
+            confirmButton={
+                Button(
+                    onClick={
+                        ScheduleStore.normalizeCode(customCode)?.let{
+                            onShiftChange(selected,it)
+                            customCodeDialog=false
+                        }
                     },
-                    label={Text("Oznaka")},
-                    singleLine=true,
-                    modifier=Modifier.fillMaxWidth().testTag("calendar-custom-code")
-                )
+                    enabled=ScheduleStore.normalizeCode(customCode)!=null
+                ){Text("Spremi")}
+            },
+            dismissButton={
+                TextButton(onClick={customCodeDialog=false}){Text("Odustani")}
             }
-        },
-        confirmButton={
-            Button(
-                onClick={
-                    ScheduleStore.normalizeCode(customCode)?.let{
-                        onShiftChange(selected,it)
-                        customCodeDialog=false
-                    }
-                },
-                enabled=ScheduleStore.normalizeCode(customCode)!=null
-            ){Text("Spremi")}
-        },
-        dismissButton={
-            TextButton(onClick={customCodeDialog=false}){Text("Odustani")}
-        }
-    )
+        )
+    }
 }
 
 @Composable private fun ManualShiftButton(
