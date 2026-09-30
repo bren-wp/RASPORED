@@ -815,7 +815,7 @@ async function prepareRosterBand(tableSource,startRatio,endRatio){
   var bitmap;
   try{
     bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
-    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.34));
     var top=Math.max(0,Math.min(bitmap.height-1,Math.round(bitmap.height*startRatio)));
     var bottom=Math.max(top+1,Math.min(bitmap.height,Math.round(bitmap.height*endRatio)));
     var cropHeight=bottom-top;
@@ -850,7 +850,7 @@ async function prepareRosterColumn(file){
   var bitmap;
   try{
     bitmap=await createImageBitmap(file,{imageOrientation:"from-image"});
-    var cropWidth=Math.max(1,Math.round(bitmap.width*.44));
+    var cropWidth=Math.max(1,Math.round(bitmap.width*.34));
     var pixelScale=Math.sqrt(5000000/(cropWidth*bitmap.height));
     var edgeScale=3000/cropWidth;
     var scale=Math.max(1,Math.min(2.20,pixelScale,edgeScale));
