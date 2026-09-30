@@ -10,7 +10,7 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('X-Frame-Options: DENY');
 
-const RASPORED_SCHEMA_VERSION = 3;
+const RASPORED_SCHEMA_VERSION = 4;
 const RASPORED_MAX_BODY_BYTES = 524288;
 
 function default_state(): array
@@ -22,6 +22,7 @@ function default_state(): array
         'evidence' => [],
         'profile' => ['name' => ''],
         'colleagues' => [],
+        'teamMembers' => [],
         'settings' => ['theme' => 'light', 'reducedMotion' => false, 'notificationReadKey' => ''],
         'scanSession' => ['people' => [], 'selected' => -1, 'month' => null],
         'payroll' => [
@@ -205,6 +206,30 @@ function clean_colleagues(mixed $raw): array
     return $clean;
 }
 
+function clean_team_members(mixed $raw): array
+{
+    if (!is_array($raw)) {
+        return [];
+    }
+    $clean = [];
+    foreach (array_slice($raw, 0, 100) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $name = clean_text($item['name'] ?? '', 100);
+        if (text_length($name) < 2) {
+            continue;
+        }
+        $schedule = clean_schedule($item['schedule'] ?? []);
+        $clean[] = [
+            'name' => $name,
+            'note' => clean_text($item['note'] ?? '', 120),
+            'schedule' => $schedule,
+        ];
+    }
+    return $clean;
+}
+
 function clean_scan_people(mixed $raw): array
 {
     if (!is_array($raw)) {
@@ -263,6 +288,7 @@ function clean_state(mixed $raw, int $revision): array
         'evidence' => clean_evidence($raw['evidence'] ?? []),
         'profile' => ['name' => clean_text($profile['name'] ?? '', 80)],
         'colleagues' => clean_colleagues($raw['colleagues'] ?? []),
+        'teamMembers' => clean_team_members($raw['teamMembers'] ?? []),
         'settings' => [
             'theme' => (($settings['theme'] ?? 'light') === 'dark') ? 'dark' : 'light',
             'reducedMotion' => (bool) ($settings['reducedMotion'] ?? false),
