@@ -211,9 +211,9 @@ internal fun PayrollScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Druga smjena / turnus 10%", fontWeight = FontWeight.Bold)
+                            Text("Druga smjena 10%", fontWeight = FontWeight.Bold)
                             Text(
-                                "Uključi samo ako se dodatak primjenjuje na tvoju organizaciju rada.",
+                                "Uključi samo ako se dodatak za rad u drugoj smjeni primjenjuje na tvoju organizaciju rada.",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -275,7 +275,7 @@ internal fun PayrollScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        "Izvori parametara: NN 22/2024, NN 11/2026 i TKU NN 29/2024. Za KBC Rijeka naziv radnog mjesta uspoređuje se sa službenom sistematizacijom/natječajima.",
+                        "Izvori parametara: NN 22/2024, NN 11/2026 i TKU NN 29/2024. Za KBC Rijeka naziv radnog mjesta uspoređuje se sa službenom sistematizacijom/natječajima. Važeći sustav koristi koeficijent radnog mjesta, a ne jedan univerzalni bod koji bolnica proizvoljno određuje.",
                         modifier = Modifier.padding(top = 8.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
