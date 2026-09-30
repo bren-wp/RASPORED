@@ -75,7 +75,8 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
 | **Tjedna statistika** | Vizualna raspodjela rada po tjednima u mjesecu. |
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
-| **Offline PWA osnova** | Web aplikacija registrira service worker i zadržava lokalno spremljene podatke. |
+| **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
+| **Okvirna plaća** | Android i Web/PWA mogu procijeniti bruto plaću za javno zdravstvo iz službene osnovice/koeficijenta i stvarne Evidencije sati. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
 
 ## Kako radi skeniranje
@@ -87,7 +88,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 5. Prije spremanja moguće je ručno ispraviti prepoznate dane i smjene.
 6. U kalendar se uvozi samo raspored odabrane osobe; ostali prepoznati redovi se ne spremaju.
 
-Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Spremljeni raspored i evidencija sati ostaju lokalni u pregledniku.
+Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Fotografija se obrađuje u pregledniku, a potvrđeni raspored i evidencija spremaju se kroz isti-origin PHP API u per-instalacijski JSON pod `storage/data`.
 
 ## Evidencija sati je odvojena od plana
 
@@ -150,30 +151,33 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - Material 3
 - ML Kit Text Recognition
 - lokalna pohrana rasporeda i evidencije
+- okvirna bruto plaća za javno zdravstvo iz stvarne evidencije sati
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
 - Compose unit/lint provjere i stvarni emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
 
-- PHP entrypoint
+- tanki PHP entrypoint + zasebni viewovi, bootstrap, API i JS moduli
 - HTML + CSS + JavaScript
 - responzivni layout bez framework ovisnosti u runtimeu
 - PWA manifest + service worker
-- lokalna pohrana rasporeda i evidencije
+- per-instalacijski JSON podaci u `storage/data` iza zaštićenog PHP API-ja
+- jednokratna migracija starog browser storagea u JSON spremište
+- okvirna bruto plaća za javno zdravstvo iz stvarne evidencije sati
 - Playwright funkcionalni i screenshot QA
 - stvarni camera/gallery image-upload tok
 
-## Privatnost i lokalni podaci
+## Privatnost i podaci
 
-Trenutačni produkcijski sloj koristi lokalnu pohranu za osobni raspored i evidenciju sati:
-
-- **Android:** aplikacijska lokalna pohrana.
-- **Web/PWA:** browser local storage.
+- **Android:** raspored, evidencija i postavke ostaju u aplikacijskoj pohrani uređaja.
+- **Web/PWA:** raspored, evidencija, profil, kolege, postavke i privremeni Scan rezultat spremaju se u per-instalacijski JSON unutar `storage/data`. Naziv JSON datoteke temelji se na nasumičnom HttpOnly identifikatoru, ne na imenu korisnika.
+- **Zaštita Web spremišta:** `storage/.htaccess` zabranjuje izravno HTTP čitanje; zapis ide kroz isti-origin API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
 - **Android OCR:** obrada teksta preko ML Kit modela na uređaju.
-- **Web OCR:** obrada fotografije odvija se u pregledniku; raspored se sprema lokalno tek nakon korisničke potvrde.
+- **Web OCR:** fotografija se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`.
+- **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
-Projekt trenutačno nema potrebu predstavljati cloud račun ili centralni korisnički profil kao dovršenu funkciju.
+RASPORED ne predstavlja cloud/team sustav niti centralni korisnički račun kao implementiranu funkciju.
 
 ## QA koji mora proći
 
@@ -188,6 +192,8 @@ Svaki ozbiljniji razvojni pass provjerava:
 - produkcijski Scan empty state,
 - evidenciju ulaza/izlaza i perzistenciju,
 - data-driven statistiku,
+- JSON storage API, migraciju i zaštitu zapisa,
+- okvirnu plaću i perzistenciju odabranog radnog mjesta,
 - Android debug APK,
 - Android unit testove,
 - Compose androidTest compile,
@@ -205,11 +211,15 @@ Aplikacija je dostupna na:
 
 <pre><code>http://127.0.0.1:8080/</code></pre>
 
+Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Produkcijski ZIP sadrži <code>storage/</code> uz javne datoteke aplikacije, pa hosting mora PHP procesu dopustiti zapis u <code>storage/data</code>, dok izravni HTTP pristup toj mapi mora ostati blokiran.
+
 ## Struktura repozitorija
 
 <pre><code>RASPORED/
 ├── android/                 # Android / Jetpack Compose
 ├── web/                     # Web/PWA aplikacija
+│   ├── public/              # entrypoint, views, API, CSS/JS i PWA asseti
+│   └── storage/data/        # runtime JSON (nije dio source commita)
 ├── docs/
 │   ├── design/              # dizajnerska pravila i mapiranje referenci
 │   └── media/               # stvarni CI screenshotovi i brand media
