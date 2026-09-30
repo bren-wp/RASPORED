@@ -159,12 +159,17 @@ function clean_evidence(mixed $raw): array
         }
         $startedAt = isset($entry['startedAt']) && is_numeric($entry['startedAt']) ? (int) $entry['startedAt'] : null;
         $endedAt = isset($entry['endedAt']) && is_numeric($entry['endedAt']) ? (int) $entry['endedAt'] : null;
+        $workType = clean_text($entry['workType'] ?? 'regular', 20);
+        if (!in_array($workType, ['regular', 'shift1', 'shift2', 'shift3', 'turnus', 'duty', 'standby', 'callout', 'other'], true)) {
+            $workType = 'regular';
+        }
         $clean[] = [
             'id' => clean_text((string) ($entry['id'] ?? ''), 80) ?: bin2hex(random_bytes(8)),
             'date' => $date,
             'in' => $in,
             'out' => $out === '' ? null : $out,
             'note' => clean_text($entry['note'] ?? '', 500),
+            'workType' => $workType,
             'startedAt' => $startedAt,
             'endedAt' => $endedAt,
         ];
