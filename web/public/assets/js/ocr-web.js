@@ -314,12 +314,44 @@ function clusterByY(tokens,tolerance){
   });
   return clusters;
 }
+function bestRowAlignment(xs,geometry){
+  var centers=Object.values(geometry.centers||{}).map(Number).filter(Number.isFinite);
+  var pivot=centers.length?centers.reduce(function(sum,v){return sum+v},0)/centers.length:0;
+  if(xs.length<4||!(geometry.spacing>0))return {scale:1,offset:0,pivot:pivot};
+  var best={scale:1,offset:0,pivot:pivot},bestScore=Infinity;
+  for(var scaleStep=-6;scaleStep<=6;scaleStep++){
+    var scale=1+scaleStep*.01;
+    for(var offsetStep=-6;offsetStep<=6;offsetStep++){
+      var offset=geometry.spacing*offsetStep*.05;
+      var residual=xs.reduce(function(sum,x){
+        var adjusted=pivot+(x-pivot)*scale+offset;
+        var nearest=Math.min.apply(null,centers.map(function(center){return Math.abs(center-adjusted)}));
+        return sum+nearest;
+      },0)/xs.length/geometry.spacing;
+      var penalty=Math.abs(scale-1)*.10+Math.abs(offset)/geometry.spacing*.015;
+      var score=residual+penalty;
+      if(score<bestScore){
+        bestScore=score;
+        best={scale:scale,offset:offset,pivot:pivot};
+      }
+    }
+  }
+  return bestScore<=.30?best:{scale:1,offset:0,pivot:pivot};
+}
 function mapShiftTokens(tokens,geometry){
   var dayShifts={},maxDistance=Math.max(12,geometry.spacing*.52);
-  tokens.forEach(function(token){
+  var shiftTokens=tokens.filter(function(token){
+    return token&&token.bbox&&canonicalShift(token.text);
+  });
+  var alignment=bestRowAlignment(
+    shiftTokens.map(function(token){return centerX(token.bbox)}),
+    geometry
+  );
+  shiftTokens.forEach(function(token){
     var code=canonicalShift(token.text);
-    if(!code||!token.bbox)return;
-    var x=centerX(token.bbox),nearest=null,best=Infinity;
+    var rawX=centerX(token.bbox);
+    var x=alignment.pivot+(rawX-alignment.pivot)*alignment.scale+alignment.offset;
+    var nearest=null,best=Infinity;
     Object.keys(geometry.centers).forEach(function(day){
       var distance=Math.abs(geometry.centers[day]-x);
       if(distance<best){best=distance;nearest=Number(day)}
