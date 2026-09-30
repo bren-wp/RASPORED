@@ -768,10 +768,45 @@ object ScheduleOcrParser {
                 )
             }
         }
-        return merged.sortedWith(
+        val filtered = filterRowNumberOutliers(merged)
+        return filtered.sortedWith(
             compareBy<RecognizedScheduleRow> { it.rowNumber ?: Int.MAX_VALUE }
                 .thenBy { normalizeAscii(it.name) }
         )
+    }
+
+    private fun filterRowNumberOutliers(
+        rows: List<RecognizedScheduleRow>
+    ): List<RecognizedScheduleRow> {
+        val numbered = rows
+            .mapNotNull { it.rowNumber }
+            .distinct()
+            .sorted()
+        if (numbered.size < 6) return rows
+
+        val positiveGaps = numbered.zipWithNext()
+            .map { (left, right) -> right - left }
+            .filter { it > 0 }
+            .sorted()
+        val medianGap = positiveGaps.getOrNull(positiveGaps.size / 2) ?: return rows
+        val splitGap = maxOf(12, medianGap * 6)
+
+        val clusters = mutableListOf<MutableList<Int>>()
+        numbered.forEach { number ->
+            val current = clusters.lastOrNull()
+            if (current != null && number - current.last() <= splitGap) {
+                current += number
+            } else {
+                clusters += mutableListOf(number)
+            }
+        }
+        val best = clusters.maxByOrNull { it.size } ?: return rows
+        if (best.size * 10 < numbered.size * 6) return rows
+
+        val accepted = best.toSet()
+        return rows.filter { row ->
+            row.rowNumber == null || row.rowNumber in accepted
+        }
     }
 
     internal fun detectMonth(text: String): YearMonth? {
@@ -950,14 +985,18 @@ object ScheduleOcrEngine {
     }
 
     private fun stripeRanges(height: Int): List<IntRange> {
-        if (height < 1000) return emptyList()
-        val overlap = (height * 0.12f).roundToInt().coerceAtLeast(48)
-        val middle = height / 2
-        val firstEnd = (middle + overlap).coerceAtMost(height)
-        val secondStart = (middle - overlap).coerceAtLeast(0)
+        if (height < 900) return emptyList()
+        // Tri preklapajuća pojasa daju veću efektivnu visinu retka nego
+        // dva velika polu-okvira. To je ključno kod fotografije cijelog
+        // mjesečnog rasporeda s 20–40 sitnih redaka.
+        val firstEnd = (height * 0.46f).roundToInt().coerceIn(1, height)
+        val secondStart = (height * 0.27f).roundToInt().coerceIn(0, height - 1)
+        val secondEnd = (height * 0.74f).roundToInt().coerceIn(secondStart + 1, height)
+        val thirdStart = (height * 0.55f).roundToInt().coerceIn(0, height - 1)
         return listOf(
             0 until firstEnd,
-            secondStart until height
+            secondStart until secondEnd,
+            thirdStart until height
         )
     }
 
@@ -969,18 +1008,18 @@ object ScheduleOcrEngine {
         val safeTop = top.coerceIn(0, source.height - 1)
         val safeBottom = bottom.coerceIn(safeTop + 1, source.height)
         val cropHeight = safeBottom - safeTop
-        val targetPixels = 6_500_000.0
+        val targetPixels = 7_000_000.0
         val pixelScale = kotlin.math.sqrt(
             targetPixels / (source.width.toDouble() * cropHeight.toDouble())
         )
-        val edgeScale = 5600.0 / source.width.toDouble()
+        val edgeScale = 6000.0 / source.width.toDouble()
         val scale = minOf(1.65, pixelScale, edgeScale).coerceAtLeast(0.25)
         val width = (source.width * scale).roundToInt().coerceAtLeast(1)
         val height = (cropHeight * scale).roundToInt().coerceAtLeast(1)
 
         val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val grayscale = ColorMatrix().apply { setSaturation(0f) }
-        val contrast = 1.34f
+        val contrast = 1.40f
         val translate = (-0.5f * contrast + 0.5f) * 255f
         grayscale.postConcat(
             ColorMatrix(
