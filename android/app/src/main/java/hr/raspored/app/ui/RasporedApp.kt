@@ -831,11 +831,12 @@ private fun largeMinutesLabel(minutes:Long):String {
     totalMinutes:Long
 ){
     val size=142.dp
+    val trackColor=MaterialTheme.colorScheme.outlineVariant
     Box(Modifier.size(size),contentAlignment=Alignment.Center){
         Canvas(Modifier.fillMaxSize()){
             val stroke=18.dp.toPx()
             drawArc(
-                color=MaterialTheme.colorScheme.outlineVariant,
+                color=trackColor,
                 startAngle=-90f,
                 sweepAngle=360f,
                 useCenter=false,
