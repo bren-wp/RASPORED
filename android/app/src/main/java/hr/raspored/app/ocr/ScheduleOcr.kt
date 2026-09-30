@@ -91,7 +91,7 @@ object ScheduleOcrParser {
      * silently dropping them. Meanings are not guessed; unknown labels stay
      * user-visible custom schedule codes.
      */
-    private fun canonicalGridCode(raw: String): String? {
+    internal fun canonicalGridCode(raw: String): String? {
         canonicalShift(raw)?.let { return it }
         val value = raw
             .trim()
