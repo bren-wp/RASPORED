@@ -1147,22 +1147,36 @@ object ScheduleOcrEngine {
                         )
                         val merged = mergeSchedules(first, second)
                         if (forceDenseRecovery || needsStripeRecovery(merged, recoverySource)) {
-                            recognizeStripes(
+                            recognizeExactRowBands(
                                 source = recoverySource,
-                                baseline = merged,
-                                onSuccess = ::finish
-                            )
+                                baseline = merged
+                            ) { rowRecovered ->
+                                if (forceDenseRecovery || needsStripeRecovery(rowRecovered, recoverySource)) {
+                                    recognizeStripes(
+                                        source = recoverySource,
+                                        baseline = rowRecovered,
+                                        onSuccess = ::finish
+                                    )
+                                } else {
+                                    finish(rowRecovered)
+                                }
+                            }
                         } else {
                             finish(merged)
                         }
                     }
                     .addOnFailureListener {
                         if (forceDenseRecovery || needsStripeRecovery(first, recoverySource)) {
-                            recognizeStripes(
+                            recognizeExactRowBands(
                                 source = recoverySource,
-                                baseline = first,
-                                onSuccess = ::finish
-                            )
+                                baseline = first
+                            ) { rowRecovered ->
+                                recognizeStripes(
+                                    source = recoverySource,
+                                    baseline = rowRecovered,
+                                    onSuccess = ::finish
+                                )
+                            }
                         } else {
                             finish(first)
                         }
@@ -1223,6 +1237,118 @@ object ScheduleOcrEngine {
     ): Boolean = source.width >= 900 &&
         source.height >= 450 &&
         (needsRecoveryPass(schedule) || hasMissingNumberedRows(schedule) || schedule.rows.size in 1..15)
+
+    /**
+     * Dense full-month rosters are more reliable when OCR sees the real table
+     * header together with only a few employee rows at a time. Row bounds come
+     * from detected grid rules, not hard-coded screen ratios, so page margins,
+     * monitor chrome and different camera framing do not shift employee rows.
+     */
+    private fun recognizeExactRowBands(
+        source: Bitmap,
+        baseline: RecognizedSchedule,
+        onSuccess: (RecognizedSchedule) -> Unit
+    ) {
+        val bands = ScheduleTableDetector.detectEmployeeRowBands(source)
+        if (bands.isEmpty()) {
+            onSuccess(baseline)
+            return
+        }
+
+        fun process(index: Int, accumulated: RecognizedSchedule) {
+            if (index >= bands.size) {
+                onSuccess(accumulated)
+                return
+            }
+            val composite = createEnhancedExactRowBand(source, bands[index])
+            if (composite == null) {
+                process(index + 1, accumulated)
+                return
+            }
+            recognizer.process(InputImage.fromBitmap(composite, 0))
+                .addOnSuccessListener { result ->
+                    val parsed = ScheduleOcrParser.parse(
+                        result,
+                        monthHint = accumulated.month
+                    )
+                    process(index + 1, mergeSchedules(accumulated, parsed))
+                }
+                .addOnFailureListener {
+                    process(index + 1, accumulated)
+                }
+                .addOnCompleteListener {
+                    if (!composite.isRecycled) composite.recycle()
+                }
+        }
+
+        process(0, baseline)
+    }
+
+    private fun createEnhancedExactRowBand(
+        source: Bitmap,
+        band: ScheduleTableDetector.EmployeeRowBand
+    ): Bitmap? = runCatching {
+        val left = band.left.coerceIn(0, source.width - 1)
+        val right = band.right.coerceIn(left + 1, source.width)
+        val headerTop = band.headerTop.coerceIn(0, source.height - 1)
+        val headerBottom = band.headerBottom.coerceIn(headerTop + 1, source.height)
+        val bodyTop = band.bodyTop.coerceIn(headerBottom, source.height - 1)
+        val bodyBottom = band.bodyBottom.coerceIn(bodyTop + 1, source.height)
+
+        val cropWidth = right - left
+        val headerHeight = headerBottom - headerTop
+        val bodyHeight = bodyBottom - bodyTop
+        val rawHeight = headerHeight + bodyHeight
+        if (cropWidth < 8 || rawHeight < 8) return@runCatching null
+
+        val targetPixels = 8_500_000.0
+        val pixelScale = kotlin.math.sqrt(
+            targetPixels / (cropWidth.toDouble() * rawHeight.toDouble())
+        )
+        val edgeScale = 6200.0 / cropWidth.toDouble()
+        val scale = minOf(3.60, pixelScale, edgeScale).coerceAtLeast(1.0)
+
+        val width = (cropWidth * scale).roundToInt().coerceAtLeast(1)
+        val headerOut = (headerHeight * scale).roundToInt().coerceAtLeast(1)
+        val height = (rawHeight * scale).roundToInt().coerceAtLeast(headerOut + 1)
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
+        val grayscale = ColorMatrix().apply { setSaturation(0f) }
+        val contrast = 1.58f
+        val translate = (-0.5f * contrast + 0.5f) * 255f
+        grayscale.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = ColorMatrixColorFilter(grayscale)
+            isFilterBitmap = true
+        }
+        val canvas = Canvas(output)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        // Preserve the real day-number header and magnify only a small set of
+        // employee rows below it. This keeps exact day-column geometry intact.
+        canvas.drawBitmap(
+            source,
+            Rect(left, headerTop, right, headerBottom),
+            Rect(0, 0, width, headerOut),
+            paint
+        )
+        canvas.drawBitmap(
+            source,
+            Rect(left, bodyTop, right, bodyBottom),
+            Rect(0, headerOut, width, height),
+            paint
+        )
+        output
+    }.getOrNull()
 
     private fun recognizeStripes(
         source: Bitmap,
