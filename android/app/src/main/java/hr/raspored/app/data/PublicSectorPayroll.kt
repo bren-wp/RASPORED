@@ -228,6 +228,18 @@ object PublicSectorPayroll {
         PayrollRole("edu-accounting-1", setOf("public-education"), "Voditelj računovodstva u školi 1", "Voditelj računovodstva u školi 1", "12.5.26", 2.01),
         PayrollRole("edu-night-watch", setOf("public-education"), "Noćni pazitelj u učeničkom domu", "Noćni pazitelj u učeničkom domu", "12.5.38", 1.30),
 
+        PayrollRole("state-senior-adviser", setOf("state-service"), "Viši savjetnik", "Viši savjetnik", "JRM", 2.10),
+        PayrollRole("state-associate", setOf("state-service"), "Suradnik", "Suradnik", "JRM", 1.80),
+        PayrollRole("state-senior-referent", setOf("state-service"), "Viši referent", "Viši referent", "JRM", 1.70),
+        PayrollRole("state-it-technician", setOf("state-service"), "Informatički tehničar", "Informatički tehničar", "JRM", 1.50),
+        PayrollRole("state-admin-secretary", setOf("state-service"), "Administrativni tajnik čelnika tijela", "Administrativni tajnik čelnika tijela", "JRM", 1.44),
+        PayrollRole("state-referent", setOf("state-service"), "Referent", "Referent", "JRM", 1.43),
+        PayrollRole("state-driver", setOf("state-service"), "Vozač", "Vozač", "JRM", 1.37),
+        PayrollRole("state-employee-iii", setOf("state-service"), "Namještenik III. vrste", "Namještenik – III. vrste", "JRM", 1.25),
+        PayrollRole("state-caretaker", setOf("state-service"), "Domar", "Domar", "JRM", 1.25),
+        PayrollRole("state-doorman", setOf("state-service"), "Portir", "Portir", "JRM", 1.06),
+        PayrollRole("state-cleaner", setOf("state-service"), "Spremač", "Spremač", "JRM", 1.06),
+
         PayrollRole("police-station", setOf("police"), "Policijski službenik u policijskoj postaji", "Policijski službenik u policijskoj postaji", "MUP", 1.70),
         PayrollRole("police-intervention", setOf("police"), "Policijski službenik interventne policije", "Policijski službenik interventne policije", "MUP", 1.70),
         PayrollRole("police-contact", setOf("police"), "Kontakt policajac", "Kontakt policajac", "MUP", 1.70),
@@ -308,7 +320,21 @@ object PublicSectorPayroll {
         PayrollInstitution("Istarska","Rovinj","Specijalna bolnica za ortopediju i rehabilitaciju Martin Horvat Rovinj-Rovigno","public-health","Zdravstvo"),
         PayrollInstitution("Dubrovačko-neretvanska","Dubrovnik","Opća bolnica Dubrovnik","public-health","Zdravstvo"),
         PayrollInstitution("Dubrovačko-neretvanska","Vela Luka","Specijalna bolnica za medicinsku rehabilitaciju Kalos","public-health","Zdravstvo"),
-        PayrollInstitution("Međimurska","Čakovec","Županijska bolnica Čakovec","public-health","Zdravstvo")
+        PayrollInstitution("Međimurska","Čakovec","Županijska bolnica Čakovec","public-health","Zdravstvo"),
+        PayrollInstitution("*","*","Osnovna škola (odaberi županiju / ručni naziv)","public-education","Školstvo i obrazovanje"),
+        PayrollInstitution("*","*","Srednja škola (odaberi županiju / ručni naziv)","public-education","Školstvo i obrazovanje"),
+        PayrollInstitution("*","*","Učenički dom (odaberi županiju / ručni naziv)","public-education","Školstvo i obrazovanje"),
+        PayrollInstitution("*","*","MUP / policijska uprava ili postaja","police","Policija"),
+        PayrollInstitution("*","*","Javna vatrogasna postrojba","firefighter","Vatrogastvo"),
+        PayrollInstitution("*","*","Gradski/općinski vrtić — ručni naziv","preschool-local","Vrtići"),
+        PayrollInstitution("*","*","Županijska uprava","local-government","Lokalna i regionalna uprava"),
+        PayrollInstitution("*","*","Gradska uprava","local-government","Lokalna i regionalna uprava"),
+        PayrollInstitution("*","*","Općinska uprava","local-government","Lokalna i regionalna uprava"),
+        PayrollInstitution("*","*","Ministarstvo / državno tijelo — ručni naziv","state-service","Državna služba"),
+        PayrollInstitution("*","*","Javna ustanova socijalne skrbi — ručni naziv","social-care","Socijalna skrb"),
+        PayrollInstitution("*","*","Javna ustanova u kulturi — ručni naziv","culture","Kultura"),
+        PayrollInstitution("*","*","Javna visokoškolska/znanstvena ustanova — ručni naziv","science","Znanost i visoko obrazovanje"),
+        PayrollInstitution("*","*","Druga javna ustanova — ručni unos","other-public","Ostalo")
     )
 
     val sectors: List<String>
@@ -321,7 +347,7 @@ object PublicSectorPayroll {
         regimes.firstOrNull { it.sector == sector } ?: regimes.last()
 
     fun institutionsFor(sector: String, county: String): List<PayrollInstitution> =
-        institutions.filter { it.sector == sector && it.county == county }
+        institutions.filter { it.sector == sector && (it.county == county || it.county == "*") }
 
     fun rolesFor(regimeId: String): List<PayrollRole> =
         roles.filter { regimeId in it.regimes }
