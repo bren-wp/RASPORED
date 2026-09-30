@@ -102,8 +102,13 @@ private val BO=Shift("BO","Bolovanje","—",0)
     ){
         Scaffold(
             containerColor=MaterialTheme.colorScheme.background,
-            topBar={ BrandHeader() },
-            bottomBar={ BottomNav(screen){screen=it} }
+            topBar={
+                if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Home})
+                else BrandHeader(screen=screen,onScan={screen=Screen.Scan})
+            },
+            bottomBar={
+                if(screen!=Screen.Scan) BottomNav(screen){screen=it}
+            }
         ){ padding ->
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
@@ -144,13 +149,52 @@ private val BO=Shift("BO","Bolovanje","—",0)
     }
 }
 
-@Composable private fun BrandHeader(){
+@Composable private fun BrandHeader(screen:Screen,onScan:()->Unit){
     Surface(color=Navy,modifier=Modifier.fillMaxWidth()){
-        Row(Modifier.statusBarsPadding().height(76.dp).padding(horizontal=18.dp),verticalAlignment=Alignment.CenterVertically){
+        Row(
+            Modifier.statusBarsPadding().height(76.dp).padding(horizontal=18.dp),
+            verticalAlignment=Alignment.CenterVertically
+        ){
             BrandMark()
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)){Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold);Text("Shift planner & evidencija sati",color=Color(0xFFC6D4EA),fontSize=10.sp)}
-            IconButton(onClick={}){Icon(Icons.Outlined.Notifications,null,tint=Color.White)}
+            Column(Modifier.weight(1f)){
+                Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
+                Text("Shift planner & evidencija sati",color=Color(0xFFC6D4EA),fontSize=10.sp)
+            }
+            if(screen==Screen.Calendar){
+                IconButton(onClick=onScan){
+                    Icon(Icons.Outlined.DocumentScanner,"Skeniraj raspored",tint=Color.White)
+                }
+            }
+            if(screen==Screen.Stats){
+                IconButton(onClick={}){
+                    Icon(Icons.Outlined.CloudSync,"Sinkronizacija",tint=Color.White)
+                }
+            }else{
+                IconButton(onClick={}){
+                    BadgedBox(
+                        badge={ if(screen==Screen.Home||screen==Screen.Calendar) Badge(containerColor=Color(0xFFFF4861)) }
+                    ){
+                        Icon(Icons.Outlined.Notifications,"Obavijesti",tint=Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun ScanHeader(onBack:()->Unit){
+    Surface(color=Navy,modifier=Modifier.fillMaxWidth()){
+        Row(
+            Modifier.statusBarsPadding().height(68.dp).padding(horizontal=10.dp),
+            verticalAlignment=Alignment.CenterVertically
+        ){
+            IconButton(onClick=onBack){
+                Icon(Icons.Outlined.ArrowBack,"Natrag",tint=Color.White,modifier=Modifier.size(28.dp))
+            }
+            BrandMark()
+            Spacer(Modifier.width(8.dp))
+            Text("RASPORED",color=Color.White,fontSize=22.sp,fontWeight=FontWeight.ExtraBold)
         }
     }
 }
