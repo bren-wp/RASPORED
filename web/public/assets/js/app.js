@@ -156,7 +156,7 @@ function scanPerson(){
   return state.scanSelected>=0?state.scanPeople[state.scanSelected]||null:null;
 }
 function renderScanPersonPicker(){
-  var button=document.getElementById("scanPersonButton"),label=document.getElementById("scanPersonLabel"),menu=document.getElementById("scanPersonMenu"),status=document.getElementById("recognitionStatus"),saveBtn=document.getElementById("saveSchedule");
+  var button=document.getElementById("scanPersonButton"),label=document.getElementById("scanPersonLabel"),menu=document.getElementById("scanPersonMenu"),status=document.getElementById("recognitionStatus"),saveBtn=document.getElementById("saveSchedule"),monthInput=document.getElementById("scanMonthInput");
   if(!button||!label||!menu)return;
   var person=scanPerson();
   label.textContent=person?((person.row?person.row+". ":"")+person.name):"Odaberi ime i prezime";
@@ -165,6 +165,10 @@ function renderScanPersonPicker(){
     return '<button type="button" role="option" aria-selected="'+(index===state.scanSelected?'true':'false')+'" data-scan-person="'+index+'"><b>'+(item.row?item.row+". ":"")+escapeHtml(item.name)+'</b><small>Samo ovaj raspored bit će uvezen</small></button>';
   }).join("");
   if(status)status.textContent=person?"✓ Odabrana 1 osoba":(state.scanPeople.length>1?"Odaberi jednu osobu":state.scanPeople.length===1?"Provjeri prepoznatu osobu":"Odaberi osobu");
+  if(monthInput){
+    var target=scanTargetMonth();
+    monthInput.value=target.getFullYear()+"-"+String(target.getMonth()+1).padStart(2,"0");
+  }
   if(saveBtn)saveBtn.disabled=!person;
 }
 function selectedScanSchedule(){
@@ -494,9 +498,10 @@ async function handleScanFile(file){
     if(progress)progress.style.width="100%";
     if(state.scanPeople.length){
       status.classList.add("is-success");
-      status.querySelector("span").textContent=state.scanPeople.length===1
+      var monthWarning=result.month?"":" Mjesec nije pouzdano prepoznat; provjeri ga prije spremanja.";
+      status.querySelector("span").textContent=(state.scanPeople.length===1
         ?"Prepoznata je 1 osoba. Provjeri raspored prije spremanja."
-        :"Prepoznate su "+state.scanPeople.length+" osobe. Odaberi ime i prezime osobe čiji raspored želiš uvesti.";
+        :"Prepoznate su "+state.scanPeople.length+" osobe. Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
     }else{
       status.classList.add("is-error");
       status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO ili BO. Pokušaj s ravnijom i oštrijom fotografijom.";
@@ -576,6 +581,14 @@ function bind(){
   ["closeColleagueDialog","cancelColleagueBtn"].forEach(function(id){var button=document.getElementById(id);if(button)button.addEventListener("click",function(){if(colleagueDialog)colleagueDialog.close()})});
 
   var addColleagueBtn=document.getElementById("addColleagueBtn");if(addColleagueBtn)addColleagueBtn.addEventListener("click",addColleague);
+  var scanMonthInput=document.getElementById("scanMonthInput");
+  if(scanMonthInput)scanMonthInput.addEventListener("change",function(){
+    var match=/^(\d{4})-(\d{2})$/.exec(this.value);
+    if(!match)return;
+    var year=Number(match[1]),month=Number(match[2]);
+    if(year<2000||year>2100||month<1||month>12)return;
+    state.scanMonth={year:year,month:month};saveScanSession();renderRecognition();
+  });
   var scanPersonButton=document.getElementById("scanPersonButton"),scanPersonMenu=document.getElementById("scanPersonMenu");
   if(scanPersonButton&&scanPersonMenu){
     scanPersonButton.addEventListener("click",function(e){e.stopPropagation();if(this.disabled)return;var opening=scanPersonMenu.hidden;scanPersonMenu.hidden=!opening;this.setAttribute("aria-expanded",opening?"true":"false")});
