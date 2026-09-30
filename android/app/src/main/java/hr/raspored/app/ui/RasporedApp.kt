@@ -1090,6 +1090,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                         .weight(1f)
                         .aspectRatio(.82f)
                         .alpha(if(inside)1f else .30f)
+                        .testTag("calendar-day-"+date.toString())
                 ){
                     Box(Modifier.fillMaxSize().padding(3.dp)){
                         Text(
