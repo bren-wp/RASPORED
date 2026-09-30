@@ -508,7 +508,7 @@ async function prepareStripe(file,startRatio,endRatio){
     var cropHeight=Math.max(1,bottom-top);
     var pixelScale=Math.sqrt(6500000/(bitmap.width*cropHeight));
     var edgeScale=5600/bitmap.width;
-    var scale=Math.max(1,Math.min(1.65,pixelScale,edgeScale));
+    var scale=Math.max(.18,Math.min(1.65,pixelScale,edgeScale));
     var canvas=document.createElement("canvas");
     canvas.width=Math.max(1,Math.round(bitmap.width*scale));
     canvas.height=Math.max(1,Math.round(cropHeight*scale));
