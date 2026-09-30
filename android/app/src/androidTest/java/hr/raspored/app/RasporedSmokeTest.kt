@@ -24,8 +24,10 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-set-n").performClick()
         composeRule.onNodeWithText("Završi").performClick()
 
-        composeRule.onNodeWithTag("nav-home").performClick()
-        composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
+        composeRule.onNodeWithTag("nav-hours").performClick()
+        composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
+        composeRule.onNodeWithContentDescription("Natrag").performClick()
+        composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-calendar").performClick()
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
