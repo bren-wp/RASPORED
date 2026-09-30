@@ -34,9 +34,6 @@ import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
-import hr.raspored.app.data.AccountSyncStore
-import hr.raspored.app.data.CloudAccount
-import hr.raspored.app.data.CloudResult
 import hr.raspored.app.data.PayrollSettingsStore
 import hr.raspored.app.data.TeamStore
 import hr.raspored.app.data.UiSettingsStore
@@ -86,10 +83,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val profileStore = remember(context) { ProfileStore(context) }
     val payrollSettingsStore = remember(context) { PayrollSettingsStore(context) }
     val teamStore = remember(context) { TeamStore(context) }
-    val accountSyncStore = remember(context) { AccountSyncStore(context) }
-    var cloudAccount by remember { mutableStateOf(accountSyncStore.account) }
-    var cloudBusy by remember { mutableStateOf(false) }
-    var cloudStatus by remember { mutableStateOf("") }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
@@ -101,23 +94,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     LaunchedEffect(store) {
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
-    }
-    LaunchedEffect(accountSyncStore) {
-        if (accountSyncStore.isAuthenticated) {
-            when (val result = accountSyncStore.refreshAccount()) {
-                is CloudResult.Success -> {
-                    cloudAccount = result.value
-                    result.value?.fullName?.takeIf { it.isNotBlank() }?.let {
-                        profileName = it
-                        profileStore.fullName = it
-                    }
-                }
-                is CloudResult.Error -> {
-                    cloudStatus = result.message
-                    cloudAccount = accountSyncStore.account
-                }
-            }
-        }
     }
     val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
         val date = appDate().plusDays(offset)
@@ -196,14 +172,13 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     )
                     Screen.Scan->OcrScanScreen(
                         defaultMonth=YearMonth.from(appDate()),
-                        accountName=cloudAccount?.fullName,
-                        managerMode=cloudAccount?.isManager==true,
+                        accountName=null,
+                        managerMode=true,
                         onSaveTeamSchedules={month,rows->
                             teamStore.saveRecognizedMonth(
                                 month,
                                 rows.map { row -> row.name to row.dayShifts }
                             )
-                            cloudStatus="Spremljeno je "+rows.count{it.dayShifts.isNotEmpty()}+" odvojenih rasporeda tima. U Postavkama odaberi Spremi za sinkronizaciju s računom."
                             scope.launch{
                                 snackbarHostState.showSnackbar("Rasporedi tima su spremljeni odvojeno.")
                             }
@@ -213,9 +188,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                             store.saveMonth(month, shifts)
                             (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
                             shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
-                            if(cloudAccount!=null){
-                                cloudStatus="Raspored je spremljen na uređaj. U Postavkama odaberi Spremi za sinkronizaciju s računom."
-                            }
                             screen = Screen.Calendar
                         }
                     )
@@ -236,9 +208,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         profileName=profileName,
                         scheduleCodes=scheduleCodes,
                         evidenceEntries=evidenceEntries,
-                        cloudAccount=cloudAccount,
-                        cloudBusy=cloudBusy,
-                        cloudStatus=cloudStatus,
                         onProfileNameChange={
                             profileName=it
                             profileStore.fullName=it
@@ -250,97 +219,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         onReducedMotionChange={
                             reducedMotion=it
                             uiSettings.reducedMotion=it
-                        },
-                        onLogin={email,password->
-                            cloudBusy=true
-                            cloudStatus=""
-                            scope.launch{
-                                when(val result=accountSyncStore.login(email,password)){
-                                    is CloudResult.Success->{
-                                        cloudAccount=result.value
-                                        profileName=result.value.fullName
-                                        profileStore.fullName=result.value.fullName
-                                        cloudStatus="Prijava je uspješna. Preuzmi postojeće podatke ili spremi podatke ovog uređaja na račun."
-                                    }
-                                    is CloudResult.Error->cloudStatus=result.message
-                                }
-                                cloudBusy=false
-                            }
-                        },
-                        onRegister={first,last,email,phone,password,manager->
-                            cloudBusy=true
-                            cloudStatus=""
-                            scope.launch{
-                                when(val result=accountSyncStore.register(first,last,email,phone,password,manager)){
-                                    is CloudResult.Success->{
-                                        cloudAccount=result.value
-                                        profileName=result.value.fullName
-                                        profileStore.fullName=result.value.fullName
-                                        cloudStatus="Račun je izrađen. Lokalni kalendar ostaje dostupan i bez sinkronizacije."
-                                    }
-                                    is CloudResult.Error->cloudStatus=result.message
-                                }
-                                cloudBusy=false
-                            }
-                        },
-                        onLogout={
-                            cloudBusy=true
-                            scope.launch{
-                                when(val result=accountSyncStore.logout()){
-                                    is CloudResult.Success->{
-                                        cloudAccount=null
-                                        cloudStatus="Odjavljen si. Lokalni podaci na ovom uređaju nisu obrisani."
-                                    }
-                                    is CloudResult.Error->cloudStatus=result.message
-                                }
-                                cloudBusy=false
-                            }
-                        },
-                        onPull={
-                            cloudBusy=true
-                            cloudStatus=""
-                            scope.launch{
-                                when(val result=accountSyncStore.pullState()){
-                                    is CloudResult.Success->{
-                                        store.replaceAll(result.value.schedule)
-                                        scheduleCodes.clear()
-                                        scheduleCodes.putAll(store.load())
-                                        evidenceStore.replaceAll(result.value.evidence)
-                                        evidenceRevision++
-                                        result.value.payroll?.let(payrollSettingsStore::save)
-                                        if(result.value.account?.isManager==true){
-                                            teamStore.replaceAll(result.value.teamMembers)
-                                        }
-                                        result.value.account?.let{
-                                            cloudAccount=it
-                                            profileName=it.fullName
-                                            profileStore.fullName=it.fullName
-                                        }
-                                        cloudStatus="Podaci s računa su preuzeti na ovaj uređaj."
-                                    }
-                                    is CloudResult.Error->cloudStatus=result.message
-                                }
-                                cloudBusy=false
-                            }
-                        },
-                        onPush={
-                            cloudBusy=true
-                            cloudStatus=""
-                            scope.launch{
-                                when(val result=accountSyncStore.pushState(
-                                    schedule=store.load(),
-                                    evidence=evidenceStore.load(),
-                                    payroll=payrollSettingsStore.load(),
-                                    teamMembers=teamStore.load()
-                                )){
-                                    is CloudResult.Success->{
-                                        cloudAccount=result.value.account ?: cloudAccount
-                                        cloudStatus="Raspored, evidencija i postavke obračuna spremljeni su na račun."
-                                    }
-                                    is CloudResult.Error->cloudStatus=result.message
-                                }
-                                cloudBusy=false
-                            }
                         }
                     )
                 }
@@ -368,7 +246,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
             }
             if(screen==Screen.Stats){
                 IconButton(onClick=onSync){
-                    Icon(Icons.Outlined.CloudSync,"Osvježi podatke",tint=Color.White)
+                    Icon(Icons.Outlined.Refresh,"Osvježi lokalne podatke",tint=Color.White)
                 }
             }else{
                 IconButton(onClick=onNotify){
@@ -1181,31 +1059,14 @@ private fun largeMinutesLabel(minutes:Long):String {
     profileName:String,
     scheduleCodes:Map<String,String>,
     evidenceEntries:List<TimeEvidenceEntry>,
-    cloudAccount:CloudAccount?,
-    cloudBusy:Boolean,
-    cloudStatus:String,
     onProfileNameChange:(String)->Unit,
     onDarkModeChange:(Boolean)->Unit,
-    onReducedMotionChange:(Boolean)->Unit,
-    onLogin:(String,String)->Unit,
-    onRegister:(String,String,String,String,String,Boolean)->Unit,
-    onLogout:()->Unit,
-    onPull:()->Unit,
-    onPush:()->Unit
+    onReducedMotionChange:(Boolean)->Unit
 ){
     val context=LocalContext.current
     var exportStatus by remember { mutableStateOf("") }
     var exportMonth by remember { mutableStateOf(YearMonth.from(appDate())) }
-    var loginOpen by remember { mutableStateOf(false) }
-    var registerOpen by remember { mutableStateOf(false) }
-    var loginEmail by remember { mutableStateOf("") }
-    var loginPassword by remember { mutableStateOf("") }
-    var registerFirst by remember { mutableStateOf("") }
-    var registerLast by remember { mutableStateOf("") }
-    var registerEmail by remember { mutableStateOf("") }
-    var registerPhone by remember { mutableStateOf("") }
-    var registerPassword by remember { mutableStateOf("") }
-    var registerManager by remember { mutableStateOf(false) }
+
     fun openExternal(uri:String){
         runCatching{
             context.startActivity(
@@ -1213,6 +1074,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             )
         }
     }
+
     fun exportSelectedMonth(){
         exportStatus=""
         runCatching{
@@ -1235,124 +1097,26 @@ private fun largeMinutesLabel(minutes:Long):String {
             exportStatus="PDF trenutačno nije moguće izraditi."
         }
     }
+
     LazyColumn(
         Modifier.fillMaxSize().testTag("screen-settings").padding(16.dp),
         contentPadding=PaddingValues(top=10.dp,bottom=20.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
-        item{
-            Text("Postavke",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)
-        }
+        item{Text("Postavke",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)}
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        Icon(Icons.Outlined.CloudSync,null,tint=Cyan)
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)){
-                            Text("Račun i sinkronizacija",fontSize=20.sp,fontWeight=FontWeight.Bold)
-                            Text(
-                                if(cloudAccount==null)
-                                    "Kalendar, OCR i evidencija rade bez registracije. Račun otključava spremanje podataka na raspored.eu i pristup s drugih uređaja."
-                                else
-                                    "Podaci računa spremaju se na raspored.eu u privatne JSON datoteke unutar storage/data.",
-                                color=MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize=12.sp
-                            )
-                        }
-                    }
-                    if(cloudAccount==null){
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement=Arrangement.spacedBy(8.dp)
-                        ){
-                            OutlinedButton(
-                                onClick={loginOpen=true},
-                                enabled=!cloudBusy,
-                                modifier=Modifier.weight(1f)
-                            ){Text("Prijava")}
-                            Button(
-                                onClick={registerOpen=true},
-                                enabled=!cloudBusy,
-                                modifier=Modifier.weight(1f)
-                            ){Text("Izradi račun")}
-                        }
-                    }else{
-                        Surface(
-                            shape=RoundedCornerShape(14.dp),
-                            color=MaterialTheme.colorScheme.surfaceVariant,
-                            modifier=Modifier.fillMaxWidth()
-                        ){
-                            Column(Modifier.padding(14.dp)){
-                                Text(cloudAccount.fullName,fontWeight=FontWeight.Bold)
-                                Text(cloudAccount.email,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(
-                                    if(cloudAccount.isManager)"Voditelj tima · uvoz više djelatnika" else "Osobni račun · uvoz vlastitog rasporeda",
-                                    fontSize=11.sp,
-                                    color=if(cloudAccount.isManager)Teal else Cyan,
-                                    fontWeight=FontWeight.SemiBold
-                                )
-                            }
-                        }
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement=Arrangement.spacedBy(8.dp)
-                        ){
-                            OutlinedButton(
-                                onClick=onPull,
-                                enabled=!cloudBusy,
-                                modifier=Modifier.weight(1f)
-                            ){
-                                Icon(Icons.Outlined.CloudDownload,null)
-                                Spacer(Modifier.width(5.dp))
-                                Text("Preuzmi")
-                            }
-                            Button(
-                                onClick=onPush,
-                                enabled=!cloudBusy,
-                                modifier=Modifier.weight(1f)
-                            ){
-                                Icon(Icons.Outlined.CloudUpload,null)
-                                Spacer(Modifier.width(5.dp))
-                                Text("Spremi")
-                            }
-                        }
-                        TextButton(
-                            onClick=onLogout,
-                            enabled=!cloudBusy,
-                            modifier=Modifier.align(Alignment.End)
-                        ){Text("Odjava")}
-                    }
-                    if(cloudBusy){
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
-                    }
-                    if(cloudStatus.isNotBlank()){
-                        Text(
-                            cloudStatus,
-                            color=MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize=11.sp
-                        )
-                    }
-                }
-            }
-        }
-        item{
-            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
-                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                    Text(if(cloudAccount==null)"Lokalni profil" else "Profil računa",fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text("Lokalni profil",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        if(cloudAccount==null)
-                            "Kalendar i evidencija rade i bez dovršenog profila. Ime se koristi samo na ovom uređaju i u izvozu."
-                        else
-                            "Kod prijavljenog osobnog računa ime i prezime dolaze iz računa. To sprječava slučajan uvoz tuđeg retka iz zajedničkog rasporeda.",
+                        "Android aplikacija nema korisnički račun ni prijavu. Raspored, evidencija, OCR i obračun rade lokalno na uređaju bez registracije. Ime je neobavezno i koristi se samo u izvozu.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
                     OutlinedTextField(
                         value=profileName,
-                        onValueChange={ if(cloudAccount==null) onProfileNameChange(it.take(80)) },
-                        enabled=cloudAccount==null,
-                        label={Text("Ime i prezime")},
+                        onValueChange={onProfileNameChange(it.take(80))},
+                        label={Text("Ime i prezime · neobavezno")},
                         singleLine=true,
                         modifier=Modifier.fillMaxWidth()
                     )
@@ -1364,24 +1128,17 @@ private fun largeMinutesLabel(minutes:Long):String {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                     Text("Izvoz",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Odaberi bilo koji spremljeni mjesec i izradi stvarni PDF s rasporedom D/N/GO/BO/PD/SD i evidentiranim radom. Noćni rad preko ponoći ili granice mjeseca razdvaja se prema stvarnom vremenu.",
+                        "Odaberi spremljeni mjesec i izradi PDF s rasporedom, vlastitim oznakama i evidentiranim radom.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment=Alignment.CenterVertically
-                    ){
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
                         IconButton(onClick={exportMonth=exportMonth.minusMonths(1)}){
                             Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")
                         }
                         Text(
-                            exportMonth.month.getDisplayName(
-                                TextStyle.FULL,
-                                Locale("hr","HR")
-                            ).replaceFirstChar{
-                                it.titlecase(Locale("hr","HR"))
-                            }+" "+exportMonth.year+".",
+                            exportMonth.month.getDisplayName(TextStyle.FULL,Locale("hr","HR"))
+                                .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+exportMonth.year+".",
                             modifier=Modifier.weight(1f),
                             textAlign=TextAlign.Center,
                             fontWeight=FontWeight.Bold
@@ -1399,11 +1156,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                         Text("Izvezi mjesečni PDF")
                     }
                     if(exportStatus.isNotBlank()){
-                        Text(
-                            exportStatus,
-                            color=MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize=11.sp
-                        )
+                        Text(exportStatus,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=11.sp)
                     }
                 }
             }
@@ -1460,98 +1213,8 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         }
     }
-
-    if(loginOpen){
-        AlertDialog(
-            onDismissRequest={if(!cloudBusy)loginOpen=false},
-            title={Text("Prijava na RASPORED")},
-            text={
-                Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
-                    OutlinedTextField(
-                        value=loginEmail,
-                        onValueChange={loginEmail=it.take(160)},
-                        label={Text("E-mail")},
-                        singleLine=true,
-                        keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType=androidx.compose.ui.text.input.KeyboardType.Email
-                        )
-                    )
-                    OutlinedTextField(
-                        value=loginPassword,
-                        onValueChange={loginPassword=it.take(128)},
-                        label={Text("Lozinka")},
-                        singleLine=true,
-                        visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation()
-                    )
-                }
-            },
-            confirmButton={
-                Button(
-                    onClick={
-                        onLogin(loginEmail,loginPassword)
-                        loginOpen=false
-                        loginPassword=""
-                    },
-                    enabled=!cloudBusy&&loginEmail.isNotBlank()&&loginPassword.isNotBlank()
-                ){Text("Prijavi se")}
-            },
-            dismissButton={
-                TextButton(onClick={loginOpen=false},enabled=!cloudBusy){Text("Odustani")}
-            }
-        )
-    }
-
-    if(registerOpen){
-        AlertDialog(
-            onDismissRequest={if(!cloudBusy)registerOpen=false},
-            title={Text("Izradi RASPORED račun")},
-            text={
-                Column(
-                    modifier=Modifier.heightIn(max=520.dp),
-                    verticalArrangement=Arrangement.spacedBy(8.dp)
-                ){
-                    OutlinedTextField(value=registerFirst,onValueChange={registerFirst=it.take(60)},label={Text("Ime")},singleLine=true)
-                    OutlinedTextField(value=registerLast,onValueChange={registerLast=it.take(60)},label={Text("Prezime")},singleLine=true)
-                    OutlinedTextField(value=registerEmail,onValueChange={registerEmail=it.take(160)},label={Text("E-mail")},singleLine=true)
-                    OutlinedTextField(value=registerPhone,onValueChange={registerPhone=it.take(30)},label={Text("Broj telefona")},singleLine=true)
-                    OutlinedTextField(
-                        value=registerPassword,
-                        onValueChange={registerPassword=it.take(128)},
-                        label={Text("Lozinka · najmanje 10 znakova, slovo i broj")},
-                        singleLine=true,
-                        visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation()
-                    )
-                    SettingSwitch(
-                        title="Voditelj tima",
-                        caption="Omogućuje uvoz svih prepoznatih djelatnika kao odvojenih rasporeda tima.",
-                        checked=registerManager,
-                        onCheckedChange={registerManager=it}
-                    )
-                }
-            },
-            confirmButton={
-                Button(
-                    onClick={
-                        onRegister(
-                            registerFirst,
-                            registerLast,
-                            registerEmail,
-                            registerPhone,
-                            registerPassword,
-                            registerManager
-                        )
-                        registerOpen=false
-                        registerPassword=""
-                    },
-                    enabled=!cloudBusy&&registerFirst.length>=2&&registerLast.length>=2&&registerEmail.contains("@")&&registerPhone.isNotBlank()&&registerPassword.length>=10
-                ){Text("Izradi račun")}
-            },
-            dismissButton={
-                TextButton(onClick={registerOpen=false},enabled=!cloudBusy){Text("Odustani")}
-            }
-        )
-    }
 }
+
 @Composable private fun SupportAction(
     icon:ImageVector,
     title:String,
