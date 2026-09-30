@@ -12,6 +12,8 @@ class ScheduleStoreTest {
         assertEquals("P1", ScheduleStore.normalizeCode(" p1 "))
         assertEquals("EDU", ScheduleStore.normalizeCode("edu"))
         assertEquals("Č1", ScheduleStore.normalizeCode("č1"))
+        assertEquals("GO", ScheduleStore.normalizeCode("G0"))
+        assertEquals("BO", ScheduleStore.normalizeCode("b0"))
     }
 
     @Test
