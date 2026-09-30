@@ -295,6 +295,62 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun finalizeRowsRejectsOneOffGhostNamesFromDenseThirtyPersonRoster() {
+        val realRows = (1..30).map { number ->
+            RecognizedScheduleRow(
+                rowNumber = number,
+                name = "TEST OSOBA $number".replace(number.toString(), ""),
+                dayShifts = mapOf(1 to if (number % 2 == 0) "N" else "D", 16 to "GO", 31 to "D"),
+                supportCount = 3
+            )
+        }
+        val ghosts = (1..25).map { index ->
+            RecognizedScheduleRow(
+                rowNumber = null,
+                name = "SLUCAJNI TEKST $index".replace(index.toString(), ""),
+                dayShifts = mapOf(2 to "D"),
+                supportCount = 1
+            )
+        }
+
+        val finalized = ScheduleOcrParser.finalizeRows(realRows + ghosts)
+
+        assertEquals(30, finalized.size)
+        assertEquals((1..30).toList(), finalized.mapNotNull { it.rowNumber })
+    }
+
+    @Test
+    fun mergeRowsUsesRowNumberToConsolidateOcrNameVariants() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = 4,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(1 to "D"),
+                    supportCount = 1
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 4,
+                    name = "ANA HORV4T",
+                    dayShifts = mapOf(18 to "N"),
+                    supportCount = 1
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 4,
+                    name = "ANA HORVAT",
+                    dayShifts = mapOf(31 to "GO"),
+                    supportCount = 1
+                )
+            )
+        )
+
+        assertEquals(1, merged.size)
+        assertEquals("ANA HORVAT", merged.single().name)
+        assertEquals(mapOf(1 to "D", 18 to "N", 31 to "GO"), merged.single().dayShifts)
+        assertEquals(3, merged.single().supportCount)
+    }
+
+    @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
         assertEquals(YearMonth.of(2027, 1), result.month)
