@@ -371,8 +371,8 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text(dateTitle,fontSize=28.sp,fontWeight=FontWeight.ExtraBold,color=MaterialTheme.colorScheme.onBackground)
             Text("Dobar dan! 👋",fontSize=20.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(currentDate,current,now),onHours={go(Screen.Hours)})}
-        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onHours=null)}
+        item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(currentDate,current,now),onOpen={go(Screen.Hours)},onHours={go(Screen.Hours)})}
+        item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onOpen={go(Screen.Calendar)},onHours=null)}
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                 listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
@@ -404,10 +404,11 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 }
 
-@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,statusText:String?,onHours:(()->Unit)?){
+@Composable private fun ShiftCard(title:String,shift:Shift,today:Boolean,statusText:String?,onOpen:(()->Unit)?,onHours:(()->Unit)?){
     Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth()){
         Column(Modifier.padding(18.dp)){
-            Row(verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,null,tint=MaterialTheme.colorScheme.onSurface)}
+            val headerModifier=if(onOpen!=null) Modifier.fillMaxWidth().clickable(onClick=onOpen) else Modifier.fillMaxWidth()
+            Row(headerModifier,verticalAlignment=Alignment.CenterVertically){Text(title,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Outlined.ChevronRight,"Otvori "+title,tint=MaterialTheme.colorScheme.onSurface)}
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment=Alignment.CenterVertically){
                 ShiftBadge(shift,72.dp)
