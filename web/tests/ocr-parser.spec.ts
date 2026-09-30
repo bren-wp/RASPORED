@@ -147,3 +147,29 @@ test("OCR geometry retains a dense 30-person roster and sparse exact days", asyn
     expect(row.dayShifts["31"]).toMatch(/^(N|SD)$/);
   }
 });
+
+
+test("OCR finalization suppresses one-off ghost people in a dense numbered roster", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const real=Array.from({length:30},(_,index) => ({
+      row:index+1,
+      name:"Test Osoba",
+      dayShifts:{"1":index%2?"N":"D","16":"GO","31":"D"},
+      supportCount:3
+    }));
+    const ghosts=Array.from({length:25},(_,index) => ({
+      row:null,
+      name:"Slucajni Tekst "+String.fromCharCode(65+(index%20)),
+      dayShifts:{"2":"D"},
+      supportCount:1
+    }));
+    return api.finalizeRows(real.concat(ghosts));
+  });
+
+  expect(rows).toHaveLength(30);
+  expect(rows.map((row:any)=>row.row)).toEqual(Array.from({length:30},(_,i)=>i+1));
+});
