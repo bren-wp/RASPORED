@@ -107,6 +107,7 @@
 <div class="connectivity-banner" id="connectivityBanner" role="status" aria-live="polite">Nema internetske veze. Spremljeni raspored ostaje dostupan.</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/data-store.js', ENT_QUOTES) ?>" defer></script>
+<script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-table.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/payroll.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/auth.js', ENT_QUOTES) ?>" defer></script>
