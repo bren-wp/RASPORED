@@ -522,6 +522,7 @@ internal fun OcrScanScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("• Obuhvati cijelu tablicu: prvi i zadnji redak osobe te sve stupce od 1. do zadnjeg dana mjeseca.")
                     Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
+                    Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Ako je na rasporedu više osoba, odaberi samo jedno ime i prezime.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.")
