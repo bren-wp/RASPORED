@@ -28,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
@@ -694,9 +695,15 @@ private fun largeMinutesLabel(minutes:Long):String {
         fallbackToPlanned=false
     )
     val holidays=CroatianHolidays.forYear(month.year)
-    val saturdayCount=data.keys.count{month.atDay(it).dayOfWeek.value==6}
-    val sundayCount=data.keys.count{month.atDay(it).dayOfWeek.value==7}
-    val holidayShiftCount=data.keys.count{holidays.containsKey(month.atDay(it))}
+    val saturdayCount=data.count{(day,shift)->
+        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==6
+    }
+    val sundayCount=data.count{(day,shift)->
+        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==7
+    }
+    val holidayShiftCount=data.count{(day,shift)->
+        shift.code in setOf("D","N")&&holidays.containsKey(month.atDay(day))
+    }
     val trend=if(previousAnalytics.workedMinutes>0L){
         ((analytics.workedMinutes-previousAnalytics.workedMinutes)*100L/previousAnalytics.workedMinutes).toInt()
     }else null
@@ -768,8 +775,8 @@ private fun largeMinutesLabel(minutes:Long):String {
                     }
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-                        StatMini("Dnevne",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
-                        StatMini("Noćne",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
+                        StatMini("Dnevni sati",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
+                        StatMini("Noćni sati",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
                         StatMini("GO",data.values.count{it.code=="GO"}.toString()+" d",Teal,Modifier.weight(1f))
                         StatMini("BO",data.values.count{it.code=="BO"}.toString()+" d",Red,Modifier.weight(1f))
                     }
@@ -807,14 +814,14 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     DetailLine(
                         Icons.Outlined.WbSunny,
-                        "Dnevne smjene",
-                        data.values.count{it.code=="D"}.toString()+" smjena",
+                        "Dnevni sati",
+                        "D raspored · "+data.values.count{it.code=="D"}.toString()+" smjena",
                         minutesLabel(analytics.dayMinutes)
                     )
                     DetailLine(
                         Icons.Outlined.DarkMode,
-                        "Noćne smjene",
-                        data.values.count{it.code=="N"}.toString()+" smjena",
+                        "Noćni sati",
+                        "N raspored · "+data.values.count{it.code=="N"}.toString()+" smjena",
                         minutesLabel(analytics.nightMinutes)
                     )
                     DetailLine(
@@ -958,6 +965,7 @@ private fun largeMinutesLabel(minutes:Long):String {
 ){
     val context=LocalContext.current
     var exportStatus by remember { mutableStateOf("") }
+    var exportMonth by remember { mutableStateOf(YearMonth.from(appDate())) }
     fun openExternal(uri:String){
         runCatching{
             context.startActivity(
@@ -965,13 +973,12 @@ private fun largeMinutesLabel(minutes:Long):String {
             )
         }
     }
-    fun exportCurrentMonth(){
+    fun exportSelectedMonth(){
         exportStatus=""
         runCatching{
-            val month=YearMonth.from(appDate())
             val uri=ReportExporter.createMonthlyPdf(
                 context=context,
-                month=month,
+                month=exportMonth,
                 schedule=scheduleCodes,
                 evidence=evidenceEntries,
                 profileName=profileName
@@ -983,7 +990,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
             context.startActivity(Intent.createChooser(share,"Podijeli RASPORED PDF"))
         }.onSuccess{
-            exportStatus="PDF je izrađen za "+YearMonth.from(appDate())+"."
+            exportStatus="PDF je izrađen za "+exportMonth+"."
         }.onFailure{
             exportStatus="PDF trenutačno nije moguće izraditi."
         }
@@ -1020,12 +1027,34 @@ private fun largeMinutesLabel(minutes:Long):String {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                     Text("Izvoz",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Izradi stvarni PDF za tekući mjesec s rasporedom D/N/GO/BO/PD/SD i evidentiranim radom. Aktivna evidencija ostaje označena kao rad u tijeku.",
+                        "Odaberi bilo koji spremljeni mjesec i izradi stvarni PDF s rasporedom D/N/GO/BO/PD/SD i evidentiranim radom. Noćni rad preko ponoći ili granice mjeseca razdvaja se prema stvarnom vremenu.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment=Alignment.CenterVertically
+                    ){
+                        IconButton(onClick={exportMonth=exportMonth.minusMonths(1)}){
+                            Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")
+                        }
+                        Text(
+                            exportMonth.month.getDisplayName(
+                                TextStyle.FULL,
+                                Locale("hr","HR")
+                            ).replaceFirstChar{
+                                it.titlecase(Locale("hr","HR"))
+                            }+" "+exportMonth.year+".",
+                            modifier=Modifier.weight(1f),
+                            textAlign=TextAlign.Center,
+                            fontWeight=FontWeight.Bold
+                        )
+                        IconButton(onClick={exportMonth=exportMonth.plusMonths(1)}){
+                            Icon(Icons.Outlined.ChevronRight,"Sljedeći mjesec")
+                        }
+                    }
                     Button(
-                        onClick={exportCurrentMonth()},
+                        onClick={exportSelectedMonth()},
                         modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
                     ){
                         Icon(Icons.Outlined.PictureAsPdf,null)

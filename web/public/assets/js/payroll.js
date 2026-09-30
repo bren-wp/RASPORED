@@ -104,10 +104,10 @@ function holidayMap(year){
 }
 function interval(entry){
   if(!entry||!entry.date||!entry.in)return null;
-  var start=Number(entry.startedAt);
+  var start=entry.startedAt==null?NaN:Number(entry.startedAt);
   if(!Number.isFinite(start))start=new Date(entry.date+"T"+entry.in+":00").getTime();
   if(!Number.isFinite(start))return null;
-  var end=Number(entry.endedAt);
+  var end=entry.endedAt==null?NaN:Number(entry.endedAt);
   if(!Number.isFinite(end)){
     if(entry.out){
       end=new Date(entry.date+"T"+entry.out+":00").getTime();
@@ -122,7 +122,7 @@ function evidenceForMonth(year,monthIndex){
   var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,active:false,workedDates:{}};
   entries.forEach(function(entry){
     var span=interval(entry);if(!span)return;
-    if(!entry.out&&!Number.isFinite(Number(entry.endedAt)))result.active=true;
+    if(!entry.out&&entry.endedAt==null)result.active=true;
     for(var t=span.start;t<span.end;t+=60000){
       var d=new Date(t);
       if(d.getFullYear()!==year||d.getMonth()!==monthIndex)continue;

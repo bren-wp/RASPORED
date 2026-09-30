@@ -8,8 +8,11 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import java.io.File
+import kotlin.math.min
+import kotlin.math.sqrt
 
-private const val MAX_OCR_DIMENSION = 2400
+private const val MAX_OCR_LONG_EDGE = 3200
+private const val MAX_OCR_PIXELS = 8_000_000L
 
 fun createOcrCaptureUri(context: Context): Uri {
     val directory = File(context.cacheDir, "ocr").apply { mkdirs() }
@@ -29,9 +32,8 @@ fun loadBitmap(context: Context, uri: Uri): Bitmap? = runCatching {
             decoder.isMutableRequired = false
             val width = info.size.width
             val height = info.size.height
-            val largest = maxOf(width, height)
-            if (largest > MAX_OCR_DIMENSION) {
-                val scale = MAX_OCR_DIMENSION.toFloat() / largest.toFloat()
+            val scale = targetScale(width, height)
+            if (scale < 1f) {
                 decoder.setTargetSize(
                     (width * scale).toInt().coerceAtLeast(1),
                     (height * scale).toInt().coerceAtLeast(1)
@@ -44,10 +46,21 @@ fun loadBitmap(context: Context, uri: Uri): Bitmap? = runCatching {
     scaleDown(bitmap)
 }.getOrNull()
 
+private fun targetScale(width: Int, height: Int): Float {
+    if (width <= 0 || height <= 0) return 1f
+    val longEdgeScale = MAX_OCR_LONG_EDGE.toFloat() / maxOf(width, height).toFloat()
+    val pixels = width.toLong() * height.toLong()
+    val pixelScale = if (pixels > MAX_OCR_PIXELS) {
+        sqrt(MAX_OCR_PIXELS.toDouble() / pixels.toDouble()).toFloat()
+    } else {
+        1f
+    }
+    return min(1f, min(longEdgeScale, pixelScale))
+}
+
 private fun scaleDown(bitmap: Bitmap): Bitmap {
-    val largest = maxOf(bitmap.width, bitmap.height)
-    if (largest <= MAX_OCR_DIMENSION) return bitmap
-    val scale = MAX_OCR_DIMENSION.toFloat() / largest.toFloat()
+    val scale = targetScale(bitmap.width, bitmap.height)
+    if (scale >= 1f) return bitmap
     return Bitmap.createScaledBitmap(
         bitmap,
         (bitmap.width * scale).toInt().coerceAtLeast(1),

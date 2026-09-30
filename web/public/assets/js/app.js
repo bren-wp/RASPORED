@@ -88,6 +88,23 @@ function individualAccountName(){
   if(!auth.authenticated||!auth.account||auth.account.accountType==="manager")return "";
   return ((auth.account.firstName||"")+" "+(auth.account.lastName||"")).trim();
 }
+function syncAuthenticatedProfile(){
+  var auth=authSnapshot(),input=document.getElementById("profileNameInput"),saveBtn=document.getElementById("saveProfileBtn"),help=document.getElementById("profileHelp");
+  if(auth.authenticated&&auth.account){
+    var name=((auth.account.firstName||"")+" "+(auth.account.lastName||"")).trim().replace(/\s+/g," ").slice(0,80);
+    if(input){input.value=name;input.readOnly=true}
+    if(saveBtn)saveBtn.hidden=true;
+    if(help)help.textContent="Prijavljen profil koristi ime i prezime iz korisničkog računa. Promjena lokalnog imena nije dopuštena dok je račun prijavljen.";
+    if(name&&window.RasporedDataStore&&window.RasporedDataStore.isAvailable&&window.RasporedDataStore.isAvailable()){
+      if((storageGet("raspored.profile.name")||"")!==name)storageSet("raspored.profile.name",name);
+    }
+    configureProfile();
+    return;
+  }
+  if(input)input.readOnly=false;
+  if(saveBtn)saveBtn.hidden=false;
+  if(help)help.textContent="Bez računa ime se sprema u ovoj instalaciji. Nakon prijave koristi se ime i prezime iz korisničkog računa.";
+}
 function scanPersonAllowed(person){
   var expected=individualAccountName();
   return !expected||normalizePersonName(expected)===normalizePersonName(person&&person.name);
@@ -310,11 +327,12 @@ function loadTimeEntries(){
     });
   }catch(e){return []}
 }
-function saveTimeEntries(entries){return storageSet("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
+function saveTimeEntries(entries){return storageSet("raspored.timeEntries.v1",JSON.stringify(entries.slice(-3000)))}
 function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function durationMinutes(entry,now){
   if(!entry||!entry.in)return 0;
-  var startedAt=Number(entry.startedAt),endedAt=entry.endedAt==null?NaN:Number(entry.endedAt);
+  var startedAt=entry.startedAt==null?NaN:Number(entry.startedAt);
+  var endedAt=entry.endedAt==null?NaN:Number(entry.endedAt);
   if(Number.isFinite(startedAt)){
     var finish=Number.isFinite(endedAt)?endedAt:now.getTime();
     return Math.max(0,Math.round((finish-startedAt)/60000));
@@ -344,6 +362,28 @@ function largeHoursText(minutes){
   var mins=Math.max(0,Math.round(minutes||0));
   return Math.floor(mins/60)+":"+String(mins%60).padStart(2,"0")+" h";
 }
+function completedEvidenceInterval(entry){
+  if(!entry||(!entry.out&&entry.endedAt==null))return null;
+  var start=entry.startedAt==null?NaN:Number(entry.startedAt);
+  if(!Number.isFinite(start)&&entry.date&&entry.in)start=new Date(entry.date+"T"+entry.in+":00").getTime();
+  if(!Number.isFinite(start))return null;
+  var end=entry.endedAt==null?NaN:Number(entry.endedAt);
+  if(!Number.isFinite(end)&&entry.out&&entry.date){
+    end=new Date(entry.date+"T"+entry.out+":00").getTime();
+    if(end<=start)end+=24*60*60*1000;
+  }
+  if(!Number.isFinite(end)||end<=start)return null;
+  return {start:start,end:Math.min(end,start+36*60*60*1000)};
+}
+function overlapMinutes(start,end,windowStart,windowEnd){
+  var clippedStart=Math.max(start,windowStart),clippedEnd=Math.min(end,windowEnd);
+  return clippedEnd>clippedStart?Math.round((clippedEnd-clippedStart)/60000):0;
+}
+function nightMinutesForDaySegment(start,end,dayDate){
+  var y=dayDate.getFullYear(),m=dayDate.getMonth(),d=dayDate.getDate();
+  return overlapMinutes(start,end,new Date(y,m,d,0,0,0).getTime(),new Date(y,m,d,6,0,0).getTime())+
+    overlapMinutes(start,end,new Date(y,m,d,22,0,0).getTime(),new Date(y,m,d+1,0,0,0).getTime());
+}
 function monthData(y,m){
   var out={
     worked:0,workedMinutes:0,dayMinutes:0,night:0,nightMinutes:0,otherMinutes:0,
@@ -368,27 +408,38 @@ function monthData(y,m){
     else if(code==="SD")out.sd=(out.sd||0)+1;
   }
 
-  var prefix=y+"-"+String(m+1).padStart(2,"0")+"-";
-  var entries=loadTimeEntries().filter(function(x){return x.out&&x.date.indexOf(prefix)===0});
-  entries.forEach(function(entry){
-    var mins=durationMinutes(entry,appNow());
-    var ed=new Date(entry.date+"T12:00:00");
-    var ecode=state.schedule[entry.date]||"";
-    out.workedMinutes+=mins;
-    if(ecode==="D")out.dayMinutes+=mins;
-    else if(ecode==="N")out.nightMinutes+=mins;
-    else out.otherMinutes+=mins;
-    if(ed.getDay()===6)out.satMinutes+=mins;
-    if(ed.getDay()===0)out.sunMinutes+=mins;
-    if(hm[entry.date])out.holidayMinutes+=mins;
-    if(ed.getDay()===0||ed.getDay()===6||hm[entry.date])out.weekendHolidayMinutes+=mins;
-    wi=Math.min(4,Math.floor((ed.getDate()-1)/7));
-    if(ecode==="D")out.weeks[wi].d+=mins/60;
-    else if(ecode==="N")out.weeks[wi].n+=mins/60;
-    else out.weeks[wi].o+=mins/60;
+  var monthStart=new Date(y,m,1,0,0,0).getTime(),monthEnd=new Date(y,m+1,1,0,0,0).getTime();
+  loadTimeEntries().forEach(function(entry){
+    var span=completedEvidenceInterval(entry);
+    if(!span||span.start>=monthEnd||span.end<=monthStart)return;
+    var cursor=Math.max(span.start,monthStart),end=Math.min(span.end,monthEnd);
+    while(cursor<end){
+      var current=new Date(cursor),segmentDate=new Date(current.getFullYear(),current.getMonth(),current.getDate(),0,0,0);
+      var nextDay=new Date(segmentDate.getFullYear(),segmentDate.getMonth(),segmentDate.getDate()+1,0,0,0).getTime();
+      var segmentEnd=Math.min(end,nextDay);
+      var mins=Math.round((segmentEnd-cursor)/60000);
+      if(mins<=0){cursor=segmentEnd;continue}
+
+      var nightMins=nightMinutesForDaySegment(cursor,segmentEnd,segmentDate);
+      var dayMins=Math.max(0,mins-nightMins);
+      var dateKey=iso(segmentDate);
+
+      out.workedMinutes+=mins;
+      out.dayMinutes+=dayMins;
+      out.nightMinutes+=nightMins;
+      if(segmentDate.getDay()===6)out.satMinutes+=mins;
+      if(segmentDate.getDay()===0)out.sunMinutes+=mins;
+      if(hm[dateKey])out.holidayMinutes+=mins;
+      if(segmentDate.getDay()===0||segmentDate.getDay()===6||hm[dateKey])out.weekendHolidayMinutes+=mins;
+
+      wi=Math.min(4,Math.floor((segmentDate.getDate()-1)/7));
+      out.weeks[wi].d+=dayMins/60;
+      out.weeks[wi].n+=nightMins/60;
+      cursor=segmentEnd;
+    }
   });
 
-
+  out.otherMinutes=Math.max(0,out.workedMinutes-out.dayMinutes-out.nightMinutes);
   out.worked=out.workedMinutes/60;
   out.night=out.nightMinutes/60;
   out.balanceMinutes=out.workedMinutes-out.planned*60;
@@ -530,8 +581,8 @@ function renderStats(){
   var donut=document.getElementById("donut"),total=Math.max(1,d.workedMinutes),dayPct=Math.round(d.dayMinutes/total*100),nightPct=Math.round(d.nightMinutes/total*100);
   if(donut)donut.style.background="conic-gradient(#20B7EB 0 "+dayPct+"%,#27388D "+dayPct+"% "+(dayPct+nightPct)+"%,#B8D0ED "+(dayPct+nightPct)+"% 100%)";
   var cats=[
-    ["#20B7EB","Dnevne smjene",hoursText(d.dayMinutes),d.counts.D+" smjena"],
-    ["#27388D","Noćne smjene",hoursText(d.nightMinutes),d.counts.N+" smjena"],
+    ["#20B7EB","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
+    ["#27388D","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
     ["#B8D0ED","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
     ["#FF6B61","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
     ["#F59E0B","Blagdani",hoursText(d.holidayMinutes),d.holidays+" smjena"],
@@ -550,9 +601,9 @@ function renderStats(){
   }).join("");
   var detail=document.getElementById("detailStats");
   if(detail)detail.innerHTML=[
-    ["sun","Dnevne smjene",d.counts.D+" smjena",hoursText(d.dayMinutes)],
+    ["sun","Dnevni sati","D raspored · "+d.counts.D+" smjena",hoursText(d.dayMinutes)],
     ["holiday","Blagdani",d.holidays+" smjena",hoursText(d.holidayMinutes)],
-    ["moon","Noćne smjene",d.counts.N+" smjena",hoursText(d.nightMinutes)],
+    ["moon","Noćni sati","N raspored · "+d.counts.N+" smjena",hoursText(d.nightMinutes)],
     ["holiday","GO",d.go+" dana","Godišnji odmor"],
     ["calendar","Subote",d.sat+" smjene",hoursText(d.satMinutes)],
     ["check","BO",d.bo+" dana","Bolovanje"],
@@ -686,6 +737,7 @@ function route(name){
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
   var navRoute=name==="payroll"?"stats":name;
   document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===navRoute)});
+  if(name==="stats")renderStats();
   if(name==="hours")renderHours();
   if(name==="colleagues")renderColleagues();
   if(name==="payroll"&&window.RasporedPayroll)window.RasporedPayroll.render();
@@ -733,7 +785,7 @@ function bind(){
   document.getElementById("saveSchedule").addEventListener("click",importSelectedScanSchedule);
   var saveTeamSchedules=document.getElementById("saveTeamSchedules");
   if(saveTeamSchedules)saveTeamSchedules.addEventListener("click",importScannedTeamSchedules);
-  window.addEventListener("raspored:auth-ready",function(){renderScanPersonPicker();renderTeamMembers()});
+  window.addEventListener("raspored:auth-ready",function(){syncAuthenticatedProfile();renderScanPersonPicker();renderTeamMembers()});
   document.getElementById("clockInBtn").addEventListener("click",clockIn);
   document.getElementById("clockOutBtn").addEventListener("click",clockOut);
   document.getElementById("hoursNote").addEventListener("change",saveHoursNote);
@@ -803,6 +855,7 @@ function bind(){
   var profileInput=document.getElementById("profileNameInput"),saveProfileBtn=document.getElementById("saveProfileBtn");
   if(saveProfileBtn&&profileInput){
     saveProfileBtn.addEventListener("click",function(){
+      if(authSnapshot().authenticated){toast("Ime profila dolazi iz prijavljenog korisničkog računa.");return}
       var value=profileInput.value.trim().replace(/\s+/g," ").slice(0,80);
       if(value.length>0&&value.length<2){toast("Unesi valjano ime i prezime.");return}
       var stored=value?storageSet("raspored.profile.name",value):storageRemove("raspored.profile.name");
@@ -834,6 +887,7 @@ async function initApp(){
   await window.RasporedDataStore.init();
   if(window.RasporedPayroll)await window.RasporedPayroll.init();
   loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();
+  syncAuthenticatedProfile();
   renderAll();
   document.body.dataset.appReady=window.RasporedDataStore.isAvailable()?"true":"storage-unavailable";
   if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");

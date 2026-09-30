@@ -18,12 +18,16 @@
       </section>
       <section class="card settings-card">
         <h2>Profil</h2>
-        <label class="setting-field"><span><b>Ime i prezime</b><small>Koristi se samo za prikaz u ovoj instalaciji aplikacije.</small></span><input type="text" id="profileNameInput" maxlength="80" autocomplete="name" placeholder="Unesi ime i prezime"></label>
+        <label class="setting-field"><span><b>Ime i prezime</b><small id="profileHelp">Bez računa ime se sprema u ovoj instalaciji. Nakon prijave koristi se ime i prezime iz korisničkog računa.</small></span><input type="text" id="profileNameInput" maxlength="80" autocomplete="name" placeholder="Unesi ime i prezime"></label>
         <button class="secondary-btn settings-save" id="saveProfileBtn">Spremi profil</button>
       </section>
       <section class="card settings-card">
         <h2>Izvoz podataka</h2>
-        <p class="settings-help">Preuzmi sigurnosnu kopiju u JSON-u ili otvori mjesečni izvještaj za ispis / spremanje kao PDF u pregledniku.</p>
+        <p class="settings-help">Preuzmi sigurnosnu kopiju svih spremljenih podataka u JSON-u ili odaberi bilo koji spremljeni mjesec za mjesečni izvještaj i ispis / spremanje kao PDF u pregledniku.</p>
+        <label class="setting-field report-month-field">
+          <span><b>Mjesec izvještaja</b><small>Prošli mjeseci ostaju dostupni dok su spremljeni u RASPORED-u.</small></span>
+          <input type="month" id="reportMonth" min="2000-01" max="2100-12">
+        </label>
         <div class="account-actions">
           <button class="secondary-btn" id="exportJsonBtn" type="button">Preuzmi JSON</button>
           <button class="primary-btn" id="printPdfBtn" type="button">Ispis / spremi kao PDF</button>

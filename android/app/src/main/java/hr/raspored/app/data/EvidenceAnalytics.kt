@@ -1,8 +1,12 @@
 package hr.raspored.app.data
 
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 data class EvidenceMonthSummary(
     val plannedMinutes: Long,
@@ -20,6 +24,8 @@ data class EvidenceMonthSummary(
 }
 
 object EvidenceAnalytics {
+    private const val MAX_ENTRY_HOURS = 36L
+
     fun summarize(
         month: YearMonth,
         entries: List<TimeEvidenceEntry>,
@@ -45,30 +51,54 @@ object EvidenceAnalytics {
         var weekendHolidayMinutes = 0L
         val weeks = MutableList(5) { 0L }
 
+        val monthStart = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val monthEnd = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
         val completed = entries.filter { entry ->
-            if (entry.endedAt == null) return@filter false
-            val date = Instant.ofEpochMilli(entry.startedAt).atZone(zone).toLocalDate()
-            YearMonth.from(date) == month
+            val rawEnd = entry.endedAt ?: return@filter false
+            val safeEnd = minOf(rawEnd, entry.startedAt + MAX_ENTRY_HOURS * 60L * 60L * 1000L)
+            entry.startedAt < monthEnd && safeEnd > monthStart
         }
 
         completed.forEach { entry ->
-            val date = Instant.ofEpochMilli(entry.startedAt).atZone(zone).toLocalDate()
-            val minutes = entry.durationMinutes(entry.endedAt ?: entry.startedAt)
-            val code = scheduleCodes[date.toString()].orEmpty()
-            worked += minutes
-            when (code) {
-                "D" -> dayMinutes += minutes
-                "N" -> nightMinutes += minutes
-                else -> otherMinutes += minutes
+            val rawEnd = entry.endedAt ?: return@forEach
+            val safeEnd = minOf(rawEnd, entry.startedAt + MAX_ENTRY_HOURS * 60L * 60L * 1000L)
+            var cursor = maxOf(entry.startedAt, monthStart)
+            val end = minOf(safeEnd, monthEnd)
+            if (end <= cursor) return@forEach
+
+            while (cursor < end) {
+                val cursorZoned = Instant.ofEpochMilli(cursor).atZone(zone)
+                val date = cursorZoned.toLocalDate()
+                val nextDay = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                val segmentEnd = minOf(end, nextDay)
+                val segmentMinutes = Duration.ofMillis(segmentEnd - cursor).toMinutes()
+                if (segmentMinutes <= 0L) {
+                    cursor = segmentEnd
+                    continue
+                }
+
+                val nightForDay = nightMinutesForSegment(cursor, segmentEnd, date, zone)
+                val dayForDay = (segmentMinutes - nightForDay).coerceAtLeast(0L)
+
+                worked += segmentMinutes
+                dayMinutes += dayForDay
+                nightMinutes += nightForDay
+
+                when (date.dayOfWeek.value) {
+                    6 -> saturdayMinutes += segmentMinutes
+                    7 -> sundayMinutes += segmentMinutes
+                }
+                val holiday = holidays.containsKey(date)
+                if (holiday) holidayMinutes += segmentMinutes
+                if (date.dayOfWeek.value >= 6 || holiday) {
+                    weekendHolidayMinutes += segmentMinutes
+                }
+
+                val week = minOf(4, (date.dayOfMonth - 1) / 7)
+                weeks[week] += segmentMinutes
+                cursor = segmentEnd
             }
-            when (date.dayOfWeek.value) {
-                6 -> saturdayMinutes += minutes
-                7 -> sundayMinutes += minutes
-            }
-            if (holidays.containsKey(date)) holidayMinutes += minutes
-            if (date.dayOfWeek.value >= 6 || holidays.containsKey(date)) weekendHolidayMinutes += minutes
-            val week = minOf(4, (date.dayOfMonth - 1) / 7)
-            weeks[week] += minutes
         }
 
         if (completed.isEmpty() && fallbackToPlanned) {
@@ -83,11 +113,16 @@ object EvidenceAnalytics {
                     6 -> saturdayMinutes += minutes
                     7 -> sundayMinutes += minutes
                 }
-                if (holidays.containsKey(date)) holidayMinutes += minutes
-                if (date.dayOfWeek.value >= 6 || holidays.containsKey(date)) weekendHolidayMinutes += minutes
+                val holiday = holidays.containsKey(date)
+                if (holiday) holidayMinutes += minutes
+                if (date.dayOfWeek.value >= 6 || holiday) {
+                    weekendHolidayMinutes += minutes
+                }
                 weeks[minOf(4, (day - 1) / 7)] += minutes
             }
         }
+
+        otherMinutes = (worked - dayMinutes - nightMinutes).coerceAtLeast(0L)
 
         return EvidenceMonthSummary(
             plannedMinutes = planned,
@@ -101,5 +136,31 @@ object EvidenceAnalytics {
             weekendHolidayMinutes = weekendHolidayMinutes,
             weekMinutes = weeks
         )
+    }
+
+    private fun nightMinutesForSegment(
+        segmentStart: Long,
+        segmentEnd: Long,
+        date: LocalDate,
+        zone: ZoneId
+    ): Long {
+        val midnight = date.atStartOfDay(zone)
+        val six = date.atTime(LocalTime.of(6, 0)).atZone(zone)
+        val twentyTwo = date.atTime(LocalTime.of(22, 0)).atZone(zone)
+        val nextMidnight = date.plusDays(1).atStartOfDay(zone)
+
+        return overlapMinutes(segmentStart, segmentEnd, midnight, six) +
+            overlapMinutes(segmentStart, segmentEnd, twentyTwo, nextMidnight)
+    }
+
+    private fun overlapMinutes(
+        segmentStart: Long,
+        segmentEnd: Long,
+        windowStart: ZonedDateTime,
+        windowEnd: ZonedDateTime
+    ): Long {
+        val start = maxOf(segmentStart, windowStart.toInstant().toEpochMilli())
+        val end = minOf(segmentEnd, windowEnd.toInstant().toEpochMilli())
+        return if (end > start) Duration.ofMillis(end - start).toMinutes() else 0L
     }
 }

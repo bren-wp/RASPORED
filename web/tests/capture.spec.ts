@@ -34,6 +34,7 @@ for (const route of ["home","calendar","scan","stats","payroll","hours","setting
     if(route==="scan") await mockOcr(page);
     await seedApp(page);
     await page.goto("/");
+    await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
 
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;

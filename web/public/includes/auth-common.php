@@ -45,9 +45,72 @@ function raspored_start_session(): void
     session_start();
 }
 
+function raspored_install_secret(): string
+{
+    $storageRoot = dirname(raspored_storage_directory());
+    $path = $storageRoot . '/install-secret.php';
+
+    $read = static function (string $file): string {
+        if (!is_file($file)) {
+            return '';
+        }
+        $secret = require $file;
+        return is_string($secret) && preg_match('/^[a-f0-9]{64}$/', $secret) ? $secret : '';
+    };
+
+    $existing = $read($path);
+    if ($existing !== '') {
+        return $existing;
+    }
+
+    $lock = @fopen($storageRoot . '/.secret.lock', 'c');
+    if ($lock === false || !flock($lock, LOCK_EX)) {
+        if (is_resource($lock)) {
+            fclose($lock);
+        }
+        throw new RuntimeException('Sigurnosna konfiguracija nije dostupna.');
+    }
+
+    try {
+        $existing = $read($path);
+        if ($existing !== '') {
+            return $existing;
+        }
+
+        $secret = bin2hex(random_bytes(32));
+        $tmp = $path . '.tmp-' . bin2hex(random_bytes(6));
+        $payload = "<?php\ndeclare(strict_types=1);\nreturn '" . $secret . "';\n";
+        if (@file_put_contents($tmp, $payload, LOCK_EX) === false) {
+            @unlink($tmp);
+            throw new RuntimeException('Sigurnosna konfiguracija nije moguća.');
+        }
+        @chmod($tmp, 0600);
+        if (!@rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException('Sigurnosna konfiguracija nije moguća.');
+        }
+        @chmod($path, 0600);
+        return $secret;
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
+function raspored_account_paths_from_email(string $email): array
+{
+    $normalized = strtolower(trim($email));
+    $directory = raspored_storage_directory();
+
+    return [
+        'current' => $directory . '/account-' . hash_hmac('sha256', $normalized, raspored_install_secret()) . '.json',
+        'legacy' => $directory . '/account-' . hash('sha256', $normalized) . '.json',
+    ];
+}
+
 function raspored_account_path_from_email(string $email): string
 {
-    return raspored_storage_directory() . '/account-' . hash('sha256', strtolower(trim($email))) . '.json';
+    return raspored_account_paths_from_email($email)['current'];
 }
 
 function raspored_account_state_path(string $accountId): string
