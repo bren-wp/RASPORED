@@ -32,7 +32,7 @@ if ($base === '.') { $base = ''; }
       <button class="nav-item desktop-extra" data-route="colleagues"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-users"></use></svg>Kolege</button>
       <button class="nav-item" data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg>Postavke</button>
     </nav>
-    <div class="side-version"><img src="assets/brand/logo.svg" alt="" width="36"><span>RASPORED<small>v0.1.0-dev</small></span></div>
+    <div class="side-version"><img src="assets/brand/logo.svg" alt="" width="36"><span>RASPORED<small>v1.0.0</small></span></div>
   </aside>
 
   <main class="main">
@@ -40,7 +40,7 @@ if ($base === '.') { $base = ''; }
       <a class="brand brand--mobile" href="#" data-route="home"><img src="assets/brand/logo.svg" alt="" width="42"><strong>RASPORED</strong></a>
       <div class="top-actions">
         <button class="icon-btn" id="searchBtn" aria-label="Pretraži"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-search"></use></svg></button>
-        <button class="icon-btn notification" aria-label="Obavijesti"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span></span></button>
+        <button class="icon-btn notification" id="notificationBtn" aria-label="Obavijesti" aria-expanded="false"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-bell"></use></svg><span></span></button>
         <button class="profile-btn" id="profileButton" aria-label="Korisnički profil"><b id="profileInitials">K</b><span id="profileName">Korisnik</span><i>⌄</i></button>
       </div>
     </header>
@@ -129,12 +129,6 @@ if ($base === '.') { $base = ''; }
           <b>Raspored nije učitan</b>
           <span>Skeniraj papirnati raspored ili odaberi fotografiju iz galerije.</span>
         </div>
-        <div class="fake-sheet" id="fakeSheet" aria-label="Primjer pregleda skeniranog rasporeda">
-          <b>LISTOPAD 2026.</b>
-          <div class="fake-row is-selected">6&nbsp;&nbsp;&nbsp; MARIO EGIMOVIĆ&nbsp;&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; GO&nbsp;&nbsp; D</div>
-          <div class="fake-row">7&nbsp;&nbsp;&nbsp; ADEMI DENI&nbsp;&nbsp;&nbsp; GO&nbsp;&nbsp; D&nbsp;&nbsp; N&nbsp;&nbsp; GO</div>
-          <div class="fake-row">8&nbsp;&nbsp;&nbsp; VUČETA ZLATKO&nbsp;&nbsp;&nbsp; N&nbsp;&nbsp; D&nbsp;&nbsp; D</div>
-        </div>
         <div class="scan-actions">
           <button id="rescanBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Ponovno skeniraj</button>
           <button id="galleryBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-image"></use></svg>Odaberi iz galerije</button>
@@ -158,7 +152,7 @@ if ($base === '.') { $base = ''; }
           <div class="scan-person-menu" id="scanPersonMenu" role="listbox" hidden></div>
         </div>
       </section>
-      <section class="card scan-card"><div class="card-head"><div><h2>Provjera rasporeda</h2><p>Pregledaj prepoznate smjene i po potrebi ih ispravi.</p></div><span class="success-pill" id="recognitionStatus">Odaberi osobu</span></div><div class="recognition-days" id="recognitionDays"></div><div class="scan-edit-actions"><button><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-edit"></use></svg>Uredi</button><button id="rescanSecondary"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>Ponovno skeniraj</button></div></section>
+      <section class="card scan-card"><div class="card-head"><div><h2>Provjera rasporeda</h2><p>Pregledaj prepoznate smjene i po potrebi ih ispravi.</p></div><span class="success-pill" id="recognitionStatus">Odaberi osobu</span></div><div class="recognition-days" id="recognitionDays"></div><div class="scan-edit-actions"><button id="editRecognitionBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-edit"></use></svg>Uredi</button><button id="rescanSecondary"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>Ponovno skeniraj</button></div></section>
       <button class="primary-btn primary-btn--full" id="saveSchedule"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Spremi raspored</button>
     </section>
 
@@ -241,6 +235,11 @@ if ($base === '.') { $base = ''; }
     <section class="view" id="view-settings" data-view="settings">
       <div class="mobile-page-title"><h1>Postavke</h1></div>
       <section class="card settings-card">
+        <h2>Profil</h2>
+        <label class="setting-field"><span><b>Ime i prezime</b><small>Koristi se samo za prikaz u ovoj instalaciji aplikacije.</small></span><input type="text" id="profileNameInput" maxlength="80" autocomplete="name" placeholder="Unesi ime i prezime"></label>
+        <button class="secondary-btn settings-save" id="saveProfileBtn">Spremi profil</button>
+      </section>
+      <section class="card settings-card">
         <h2>Izgled i pristupačnost</h2>
         <label class="setting-row"><span><b>Tamni način</b><small>Koristi navy/dark surface uz iste statusne boje.</small></span><input type="checkbox" id="themeToggle"></label>
         <label class="setting-row"><span><b>Smanjene animacije</b><small>Poštuje prefers-reduced-motion i dodatnu lokalnu postavku.</small></span><input type="checkbox" id="motionToggle"></label>
@@ -257,9 +256,18 @@ if ($base === '.') { $base = ''; }
   </nav>
 </div>
 
+<div class="floating-panel notification-panel" id="notificationPanel" hidden>
+  <div class="floating-panel-head"><b>Obavijesti</b><button class="icon-btn" id="closeNotificationBtn" aria-label="Zatvori">×</button></div>
+  <p>Nema novih obavijesti.</p>
+</div>
+<div class="floating-panel profile-panel" id="profilePanel" hidden>
+  <div class="floating-panel-head"><b>Profil</b><button class="icon-btn" id="closeProfileBtn" aria-label="Zatvori">×</button></div>
+  <button class="panel-action" data-route="settings">Uredi profil i postavke</button>
+</div>
 <div class="connectivity-banner" id="connectivityBanner" role="status" aria-live="polite">Nema internetske veze. Spremljeni raspored ostaje dostupan.</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>window.RASPORED_BASE = <?= json_encode($base, JSON_UNESCAPED_SLASHES) ?>;</script>
+<script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/ocr-web.js', ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars(($base ?: '') . '/assets/js/app.js', ENT_QUOTES) ?>" defer></script>
 </body>
 </html>
