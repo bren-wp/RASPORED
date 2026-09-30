@@ -535,7 +535,15 @@ object PublicSectorPayroll {
                 "SD" -> sdDays++
             }
         }
-        val compensatedAbsenceMinutes = (goDays + boDays + pdDays) * 8L * 60L
+        val compensatedAbsenceDays = scheduleCodes.count { (dateText, code) ->
+            if (code !in setOf("GO", "BO", "PD")) {
+                false
+            } else {
+                val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
+                date != null && YearMonth.from(date) == month && date !in workedDates
+            }
+        }
+        val compensatedAbsenceMinutes = compensatedAbsenceDays * 8L * 60L
         val overtime = (
             worked + compensatedAbsenceMinutes - monthlyFundHours(month) * 60L
         ).coerceAtLeast(0L)
