@@ -159,10 +159,11 @@ test("web OCR parser normalizes common OCR errors without user data", async ({pa
 test("overnight time evidence can be closed after midnight", async ({page}) => {
   await page.goto("/");
   await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
-  await page.evaluate(() => {
-    localStorage.setItem("raspored.timeEntries.v1",JSON.stringify([
+  await page.evaluate(async () => {
+    (window as any).RasporedDataStore.set("raspored.timeEntries.v1",JSON.stringify([
       {id:"night-active",date:"2026-10-16",in:"19:00",out:null,note:"Noćna smjena"}
     ]));
+    await (window as any).RasporedDataStore.flush();
   });
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
@@ -175,12 +176,20 @@ test("overnight time evidence can be closed after midnight", async ({page}) => {
 
 
 test("main routes have no page-level horizontal overflow or fixed-nav overlap", async ({page}) => {
-  for (const route of ["home","calendar","scan","stats","hours","settings"]) {
+  for (const route of ["home","calendar","scan","stats","payroll","hours","settings"]) {
     await page.goto("/");
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
       else await page.locator('[data-route="hours"]:visible').first().click();
+    }else if(route==="payroll"){
+      const width=page.viewportSize()?.width ?? 1440;
+      if(width<=820){
+        await page.locator('[data-route="stats"]:visible').first().click();
+        await page.locator(".stats-payroll-link").click();
+      }else{
+        await page.locator('[data-route="payroll"]:visible').first().click();
+      }
     }else if(route!=="home"){
       await page.locator('[data-route="'+route+'"]:visible').first().click();
     }
@@ -201,6 +210,56 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
     }
   }
 });
+
+test("salary estimator uses official public-health role parameters and persists choices", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.locator('[data-route="stats"]:visible').first().click();
+    await page.locator(".stats-payroll-link").click();
+  }else{
+    await page.locator('[data-route="payroll"]:visible').first().click();
+  }
+  await expect(page.locator('[data-view="payroll"]')).toBeVisible();
+  await page.locator("#payrollRole").selectOption("kbc-portir");
+  await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
+  await page.locator("#payrollYears").fill("10");
+  await page.locator("#payrollYears").blur();
+  await (page as any).waitForTimeout(100);
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+  await expect(page.locator("#payrollBase")).toContainText("1.025");
+  await expect(page.locator("#payrollCoefResult")).toHaveText("1,39");
+  await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
+  await expect(page.locator("#payrollBreakdown")).toContainText("Noćni rad");
+
+  await page.reload();
+  if(width<=820){
+    await page.locator('[data-route="stats"]:visible').first().click();
+    await page.locator(".stats-payroll-link").click();
+  }else{
+    await page.locator('[data-route="payroll"]:visible').first().click();
+  }
+  await expect(page.locator("#payrollRole")).toHaveValue("kbc-portir");
+  await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
+  await expect(page.locator("#payrollYears")).toHaveValue("10");
+});
+
+test("salary estimator exposes sources and remains a gross estimate", async ({page}) => {
+  await page.goto("/");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.locator('[data-route="stats"]:visible').first().click();
+    await page.locator(".stats-payroll-link").click();
+  }else{
+    await page.locator('[data-route="payroll"]:visible').first().click();
+  }
+  await expect(page.locator("#payrollLegalText")).toContainText("Osnovna bruto plaća");
+  await expect(page.locator(".payroll-legal-card")).toContainText("nije obračunska isprava");
+  await expect(page.locator("#payrollSources a")).toHaveCount(6);
+  await expect(page.locator("#payrollSources")).toContainText("NN 22/2024");
+  await expect(page.locator("#payrollSources")).toContainText("KBC Rijeka");
+});
+
 
 test("calendar, scan help and settings controls are wired", async ({page}) => {
   await page.goto("/");
@@ -296,7 +355,7 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
 });
 
 
-test("app remains usable when localStorage is unavailable", async ({browser}) => {
+test("server JSON storage works when browser Storage APIs are unavailable", async ({browser}) => {
   const context=await browser.newContext({viewport:{width:390,height:844}});
   const page=await context.newPage();
   const pageErrors:string[]=[];
@@ -312,8 +371,73 @@ test("app remains usable when localStorage is unavailable", async ({browser}) =>
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator('[data-view="settings"]')).toBeVisible();
   await page.locator("#themeToggle").check();
-  await expect(page.locator("#toast")).toContainText("nije moguće spremiti");
+  await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
+  await page.reload();
+  await expect(page.locator("#themeToggle")).toBeChecked();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
   expect(pageErrors).toEqual([]);
+  await context.close();
+});
+
+test("application data is persisted through the JSON state API", async ({page}) => {
+  await seedApp(page,{withScan:true});
+  await page.goto("/");
+  await expect(page.locator("#profileName")).toContainText("Ivana");
+  const stored=await page.evaluate(async () => {
+    const response=await fetch((document.body.dataset.base||"")+"/api/state.php",{cache:"no-store"});
+    return response.json();
+  });
+  expect(stored.ok).toBe(true);
+  expect(stored.state.revision).toBeGreaterThan(0);
+  expect(stored.state.schedule["2026-10-16"]).toBe("D");
+  expect(stored.state.evidence.length).toBeGreaterThan(0);
+  expect(stored.state.profile.name).toBe("Ivana Radić");
+  expect(stored.state.colleagues).toHaveLength(2);
+  expect(stored.state.scanSession.people).toHaveLength(3);
+});
+
+test("state API rejects writes without the application request header", async ({page}) => {
+  await page.goto("/");
+  const status=await page.evaluate(async () => {
+    const response=await fetch((document.body.dataset.base||"")+"/api/state.php",{
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({state:{schedule:{}}})
+    });
+    return response.status;
+  });
+  expect(status).toBe(403);
+});
+
+
+test("queued JSON writes preserve edits made while an earlier PUT is in flight", async ({page}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    store.set("raspored.theme","dark");
+    await new Promise(resolve=>setTimeout(resolve,0));
+    store.set("raspored.profile.name","Ana Horvat");
+    await store.flush();
+  });
+  const saved=await page.evaluate(async () => {
+    const response=await fetch((document.body.dataset.base||"")+"/api/state.php",{cache:"no-store"});
+    return (await response.json()).state;
+  });
+  expect(saved.settings.theme).toBe("dark");
+  expect(saved.profile.name).toBe("Ana Horvat");
+});
+
+test("offline API startup rejects writes instead of overwriting server state", async ({browser}) => {
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  const page=await context.newPage();
+  await page.route("**/api/state.php",route=>route.abort());
+  await page.goto("/");
+  const result=await page.evaluate(() => {
+    const store=(window as any).RasporedDataStore;
+    return {available:store.isAvailable(),saved:store.set("raspored.profile.name","Ne smije se spremiti")};
+  });
+  expect(result.available).toBe(false);
+  expect(result.saved).toBe(false);
   await context.close();
 });
 

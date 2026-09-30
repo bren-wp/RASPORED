@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-node@v5
         with: {node-version: 22}
       - name: PHP syntax
-        run: php -l public/index.php
+        run: find public -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Install QA dependencies
         run: npm install
       - name: Install Playwright Chromium
@@ -52,10 +52,18 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(tr -d '[:space:]' < ../VERSION)"
-          mkdir -p ../dist
+          rm -rf ../dist/web-package
+          mkdir -p ../dist/web-package/storage/data
+          cp -R public/. ../dist/web-package/
+          cp storage/.htaccess ../dist/web-package/storage/.htaccess
+          printf '%s\n' '# Runtime JSON files are created here.' > ../dist/web-package/storage/data/.gitkeep
           (
-            cd public
-            zip -r "../../dist/RASPORED-web-v${VERSION}.zip" . -x "*.DS_Store" -x "__MACOSX/*"
+            cd ../dist/web-package
+            zip -r "../RASPORED-web-v${VERSION}.zip" . \
+              -x "*.DS_Store" \
+              -x "__MACOSX/*" \
+              -x "storage/data/client-*.json" \
+              -x "storage/data/.write.lock"
           )
       - uses: actions/upload-artifact@v4
         if: always()

@@ -55,7 +55,7 @@ private val Nbg=RasporedTokens.NavyAlt
 private val GObg=RasporedTokens.TealSoft
 private val BObg=RasporedTokens.RedSoft
 
-private enum class Screen { Home, Calendar, Scan, Stats, Hours, Settings }
+private enum class Screen { Home, Calendar, Scan, Stats, Payroll, Hours, Settings }
 private data class Shift(val code:String,val name:String,val time:String,val hours:Int)
 private val D=Shift("D","Dnevna smjena","07:00 – 19:00 (12h)",12)
 private val N=Shift("N","Noćna smjena","19:00 – 07:00 (12h)",12)
@@ -153,7 +153,8 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
                         shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
                         screen = Screen.Calendar
                     }
-                    Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries)
+                    Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries,onPayroll={screen=Screen.Payroll})
+                    Screen.Payroll->PayrollScreen(evidenceEntries,onBack={screen=Screen.Stats})
                     Screen.Hours->{
                         val shift=currentShiftAt(appDateTime(),scheduleCodes)?.second
                         TimeEvidenceScreen(
@@ -240,7 +241,11 @@ private val NONE=Shift("","Nema planirane smjene","—",0)
 }
 
 @Composable private fun BottomNav(current:Screen,onSelect:(Screen)->Unit){
-    val selected=if(current==Screen.Hours) Screen.Home else current
+    val selected=when(current){
+        Screen.Hours->Screen.Home
+        Screen.Payroll->Screen.Stats
+        else->current
+    }
     NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=6.dp){
         NavItem(selected,Screen.Home,"Početna",Icons.Outlined.Home,onSelect)
         NavItem(selected,Screen.Calendar,"Kalendar",Icons.Outlined.CalendarMonth,onSelect)
@@ -391,6 +396,17 @@ private fun largeMinutesLabel(minutes:Long):String {
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
                 MetricCard("Noćni sati",minutesLabel(analytics.nightMinutes),"Ovaj mjesec",Icons.Outlined.DarkMode,Modifier.weight(1f))
                 MetricCard("Vikendi i blagdani",minutesLabel(analytics.weekendHolidayMinutes),"Ovaj mjesec",Icons.Outlined.Event,Modifier.weight(1f))
+            }
+        }
+        item{
+            OutlinedButton(
+                onClick={go(Screen.Payroll)},
+                modifier=Modifier.fillMaxWidth().height(54.dp),
+                shape=RoundedCornerShape(16.dp)
+            ){
+                Icon(Icons.Outlined.Balance,null)
+                Spacer(Modifier.width(10.dp))
+                Text("Izračunaj okvirnu plaću",fontWeight=FontWeight.Bold)
             }
         }
         item{
@@ -644,7 +660,8 @@ private fun largeMinutesLabel(minutes:Long):String {
 
 @Composable private fun StatsScreen(
     scheduleCodes:Map<String,String>,
-    evidenceEntries:List<TimeEvidenceEntry>
+    evidenceEntries:List<TimeEvidenceEntry>,
+    onPayroll:()->Unit
 ){
     var month by remember { mutableStateOf(YearMonth.from(appDate())) }
     var periodMenu by remember { mutableStateOf(false) }
@@ -681,7 +698,12 @@ private fun largeMinutesLabel(minutes:Long):String {
     ){
         item{
             Row(verticalAlignment=Alignment.CenterVertically){
-                Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.weight(1f))
+                Column(Modifier.weight(1f)){
+                    Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)
+                    TextButton(onClick=onPayroll,contentPadding=PaddingValues(0.dp)){
+                        Text("Izračunaj okvirnu plaću ›",fontWeight=FontWeight.Bold)
+                    }
+                }
                 Box{
                     OutlinedButton(onClick={periodMenu=true}){
                         Icon(Icons.Outlined.CalendarMonth,null)

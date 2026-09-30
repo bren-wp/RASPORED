@@ -75,7 +75,7 @@ jobs:
         working-directory: web
         run: |
           set -euo pipefail
-          php -l public/index.php
+          find public -name '*.php' -print0 | xargs -0 -n1 php -l
           npm install
           npx playwright install --with-deps chromium
           npx playwright test tests/smoke.spec.ts tests/capture.spec.ts
@@ -85,12 +85,18 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          mkdir -p dist
+          rm -rf dist/web-package
+          mkdir -p dist/web-package/storage/data
+          cp -R web/public/. dist/web-package/
+          cp web/storage/.htaccess dist/web-package/storage/.htaccess
+          printf '%s\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
           (
-            cd web/public
-            zip -r "../../dist/RASPORED-web-v${VERSION}.zip" . \
+            cd dist/web-package
+            zip -r "../RASPORED-web-v${VERSION}.zip" . \
               -x "*.DS_Store" \
-              -x "__MACOSX/*"
+              -x "__MACOSX/*" \
+              -x "storage/data/client-*.json" \
+              -x "storage/data/.write.lock"
           )
           sha256sum dist/RASPORED.apk "dist/RASPORED-web-v${VERSION}.zip" > "dist/SHA256SUMS-v${VERSION}.txt"
 

@@ -1,0 +1,215 @@
+{
+  "schema": 1,
+  "title": "Javne zdravstvene ustanove RH — obračunski parametri 2026",
+  "disclaimer": "Procjena bruto plaće. Točan obračun ovisi o ugovoru o radu, službenom nazivu radnog mjesta, mjesečnom fondu sati, evidenciji rada i pravima koja se primjenjuju kod poslodavca.",
+  "bases": [
+    {
+      "from": "2026-01-01",
+      "to": "2026-03-31",
+      "amount": 1004.87
+    },
+    {
+      "from": "2026-04-01",
+      "to": "2026-07-31",
+      "amount": 1015
+    },
+    {
+      "from": "2026-08-01",
+      "to": "2026-11-30",
+      "amount": 1025
+    },
+    {
+      "from": "2026-12-01",
+      "to": null,
+      "amount": 1035
+    }
+  ],
+  "additions": {
+    "seniorityPerYear": 0.005,
+    "night": 0.4,
+    "overtime": 0.5,
+    "saturday": 0.25,
+    "sunday": 0.5,
+    "holiday": 1.5,
+    "secondShift": 0.1
+  },
+  "roles": [
+    {
+      "id": "kbc-transport-nss",
+      "label": "KBC Rijeka — transportni radnik / nosač bolesnika (NSS)",
+      "official": "Pomoćni radnik u sustavu s posebnim uvjetima rada",
+      "code": "10.1.24",
+      "coefficient": 1.15,
+      "note": "KBC Rijeka koristi naziv transportni radnik; stvarni raspored na službeno radno mjesto provjeriti u ugovoru/sistematizaciji."
+    },
+    {
+      "id": "kbc-transport-sss",
+      "label": "KBC Rijeka — transportni radnik / nosač bolesnika (SSS)",
+      "official": "Radnik III. vrste",
+      "code": "10.1.23",
+      "coefficient": 1.25,
+      "note": "KBC Rijeka u sistematizaciji navodi i varijantu Radnik III. vrste za transportnog radnika."
+    },
+    {
+      "id": "kbc-portir",
+      "label": "KBC Rijeka — portir",
+      "official": "Stručni radnik na tehničkom održavanju",
+      "code": "10.1.20",
+      "coefficient": 1.39,
+      "note": "KBC Rijeka je 2026. objavljivao radno mjesto pod nazivom Stručni radnik na tehničkom održavanju – Portir."
+    },
+    {
+      "id": "cleaner-special",
+      "label": "Čistač / spremač u sustavu s posebnim uvjetima rada",
+      "official": "Čistač – spremač u sustavu s posebnim uvjetima rada",
+      "code": "10.1.25",
+      "coefficient": 1.15
+    },
+    {
+      "id": "cleaner",
+      "label": "Čistač / spremač",
+      "official": "Čistač – spremač",
+      "code": "10.1.26",
+      "coefficient": 1.06
+    },
+    {
+      "id": "caregiver",
+      "label": "Njegovatelj / njegovateljica",
+      "official": "Njegovatelj",
+      "code": "16.15.1",
+      "coefficient": 1.35
+    },
+    {
+      "id": "hospital-attendant",
+      "label": "Bolničar / bolničarka",
+      "official": "Bolničar",
+      "code": "16.15.2",
+      "coefficient": 1.35
+    },
+    {
+      "id": "nurse-bacc-1",
+      "label": "Viša medicinska sestra / prvostupnik sestrinstva — bolnica 1",
+      "official": "Medicinska sestra/medicinski tehničar prvostupnik / zdravstveni radnik prvostupnik u bolnici 1",
+      "code": "16.11.1",
+      "coefficient": 1.95
+    },
+    {
+      "id": "nurse-bacc-2",
+      "label": "Viša medicinska sestra / prvostupnik sestrinstva — bolnica 2",
+      "official": "Medicinska sestra/medicinski tehničar prvostupnik / zdravstveni radnik prvostupnik u bolnici 2",
+      "code": "16.11.2",
+      "coefficient": 1.87
+    },
+    {
+      "id": "nurse-sss-1",
+      "label": "Medicinska sestra/tehničar — bolnica 1",
+      "official": "Medicinska sestra/medicinski tehničar / zdravstveni radnik u bolnici 1",
+      "code": "16.13.1",
+      "coefficient": 1.78
+    },
+    {
+      "id": "nurse-sss-2",
+      "label": "Medicinska sestra/tehničar — bolnica 2",
+      "official": "Medicinska sestra/medicinski tehničar / zdravstveni radnik u bolnici 2",
+      "code": "16.13.2",
+      "coefficient": 1.7
+    },
+    {
+      "id": "nurse-master-special",
+      "label": "Magistra sestrinstva / dipl. medicinska sestra — posebni poslovi",
+      "official": "Magistra sestrinstva/diplomirana medicinska sestra na propisanim posebnim poslovima",
+      "code": "16.10.1",
+      "coefficient": 2.45
+    },
+    {
+      "id": "physio-bacc-1",
+      "label": "Viši fizioterapeut / prvostupnik fizioterapije — bolnica 1",
+      "official": "Zdravstveni radnik prvostupnik u bolnici 1",
+      "code": "16.11.1",
+      "coefficient": 1.95
+    },
+    {
+      "id": "physio-bacc-2",
+      "label": "Viši fizioterapeut / prvostupnik fizioterapije — bolnica 2",
+      "official": "Zdravstveni radnik prvostupnik u bolnici 2",
+      "code": "16.11.2",
+      "coefficient": 1.87,
+      "note": "KBC Rijeka je objavljivao natječaj upravo pod ovim nazivom za prvostupnika fizioterapije."
+    },
+    {
+      "id": "doctor-1",
+      "label": "Doktor medicine — 1",
+      "official": "Doktor medicine i doktor dentalne medicine 1",
+      "code": "16.4.3",
+      "coefficient": 2.92
+    },
+    {
+      "id": "doctor-2",
+      "label": "Doktor medicine — 2",
+      "official": "Doktor medicine i doktor dentalne medicine 2",
+      "code": "16.4.6",
+      "coefficient": 2.83
+    },
+    {
+      "id": "doctor-3",
+      "label": "Doktor medicine — 3",
+      "official": "Doktor medicine i doktor dentalne medicine 3",
+      "code": "16.4.9",
+      "coefficient": 2.81
+    },
+    {
+      "id": "doctor-specialization",
+      "label": "Doktor medicine na specijalizaciji",
+      "official": "Doktor medicine i doktor dentalne medicine na specijalizaciji",
+      "code": "16.4.10",
+      "coefficient": 2.81
+    },
+    {
+      "id": "doctor-specialist-1",
+      "label": "Doktor medicine specijalist — 1",
+      "official": "Doktor medicine specijalist i doktor dentalne medicine specijalist 1",
+      "code": "16.4.2",
+      "coefficient": 3.82
+    },
+    {
+      "id": "doctor-specialist-2",
+      "label": "Doktor medicine specijalist — 2",
+      "official": "Doktor medicine specijalist i doktor dentalne medicine specijalist 2",
+      "code": "16.4.5",
+      "coefficient": 3.74
+    },
+    {
+      "id": "doctor-specialist-3",
+      "label": "Doktor medicine specijalist — 3",
+      "official": "Doktor medicine specijalist i doktor dentalne medicine specijalist 3",
+      "code": "16.4.8",
+      "coefficient": 3.65
+    }
+  ],
+  "sources": [
+    {
+      "label": "Uredba o nazivima radnih mjesta i koeficijentima u javnim službama, NN 22/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/full/2024_02_22_354.html"
+    },
+    {
+      "label": "Odluka o osnovici za obračun plaće zaposlenicima u javnim službama u 2026., NN 11/2026",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2026_01_11_86.html"
+    },
+    {
+      "label": "Temeljni kolektivni ugovor za zaposlenike u javnim službama, NN 29/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_03_29_458.html"
+    },
+    {
+      "label": "Odluka o produljenju primjene prava iz granskih kolektivnih ugovora, NN 35/2024",
+      "url": "https://narodne-novine.nn.hr/clanci/sluzbeni/2024_03_35_544.html"
+    },
+    {
+      "label": "KBC Rijeka — pravilnici i sistematizacija",
+      "url": "https://kbc-rijeka.hr/statut-pravilnici-klinickog-bolnickog-centra-rijeka/"
+    },
+    {
+      "label": "KBC Rijeka — natječaji za zaposlenje",
+      "url": "https://kbc-rijeka.hr/natjecaj-zaposlenje/"
+    }
+  ]
+}

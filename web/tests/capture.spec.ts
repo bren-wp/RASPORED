@@ -29,7 +29,7 @@ function syntheticScheduleSvg(): Buffer {
   return Buffer.from(svg);
 }
 
-for (const route of ["home","calendar","scan","stats","hours","settings"]) {
+for (const route of ["home","calendar","scan","stats","payroll","hours","settings"]) {
   test("capture "+route,async({page},testInfo)=>{
     if(route==="scan") await mockOcr(page);
     await seedApp(page);
@@ -39,6 +39,14 @@ for (const route of ["home","calendar","scan","stats","hours","settings"]) {
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820) await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
       else await page.locator('[data-route="hours"]:visible').first().click();
+    }else if(route==="payroll"){
+      const width=page.viewportSize()?.width ?? 1440;
+      if(width<=820){
+        await page.locator('[data-route="stats"]:visible').first().click();
+        await page.locator('.stats-payroll-link').click();
+      }else{
+        await page.locator('[data-route="payroll"]:visible').first().click();
+      }
     }else if(route!=="home"){
       await page.locator('[data-route="'+route+'"]:visible').first().click();
     }

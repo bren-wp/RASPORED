@@ -1,10 +1,13 @@
-const CACHE="raspored-v1.0.2";
+const CACHE="raspored-v1.0.3";
 const ASSETS=[
   "./",
   "./version.txt",
   "./assets/css/app.css",
+  "./assets/js/data-store.js",
   "./assets/js/app.js",
   "./assets/js/ocr-web.js",
+  "./assets/js/payroll.js",
+  "./assets/data/payroll-public-health-2026.json",
   "./assets/brand/logo.svg",
   "./assets/brand/icon-maskable.svg",
   "./assets/brand/icons.svg",
@@ -31,6 +34,7 @@ self.addEventListener("fetch",event=>{
   if(event.request.method!=="GET")return;
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin)return;
+  if(url.pathname.includes("/api/"))return;
 
   if(event.request.mode==="navigate"){
     event.respondWith(
