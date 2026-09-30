@@ -70,7 +70,7 @@ function sortedShiftMap(raw){
     .reduce(function(out,day){out[day]=raw[day];return out},{});
 }
 function nameFingerprint(value){
-  return normalizeAscii(value).replace(/[^A-Z0-9ČĆŽŠĐ]/g,"");
+  return normalizeAscii(value).split(/[^A-Z0-9]+/).filter(Boolean).sort().join("");
 }
 function mergeRows(rows){
   var merged=[];
