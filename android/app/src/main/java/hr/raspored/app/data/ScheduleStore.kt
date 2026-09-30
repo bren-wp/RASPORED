@@ -11,6 +11,11 @@ import java.util.Locale
  * Values are short user-visible schedule labels. Built-in semantic codes
  * (D/N/GO/BO/PD/SD) keep their special meaning, while users may also save
  * their own short labels for workplace-specific roster notation.
+ *
+ * The store never auto-prunes old months. A monthly import only replaces the
+ * selected month, so schedules from previous months/years remain available.
+ * The product guarantee is at least 10 years of local calendar history unless
+ * the user explicitly clears app data or uninstalls the application.
  */
 class ScheduleStore(context: Context) {
     private val preferences =
@@ -23,17 +28,6 @@ class ScheduleStore(context: Context) {
                 if (DATE.matches(key)) key to code else null
             }
             .toMap()
-
-    fun replaceAll(schedule: Map<String, String>) {
-        val editor = preferences.edit().clear()
-        schedule.toSortedMap().forEach { (date, rawCode) ->
-            val code = normalizeCode(rawCode)
-            if (DATE.matches(date) && code != null) {
-                editor.putString(date, code)
-            }
-        }
-        editor.apply()
-    }
 
     fun saveMonth(month: YearMonth, shifts: Map<Int, String>) {
         val editor = preferences.edit()
@@ -58,6 +52,7 @@ class ScheduleStore(context: Context) {
     }
 
     companion object {
+        const val ARCHIVE_GUARANTEE_YEARS = 10
         val BUILT_IN_CODES = setOf("D", "N", "GO", "BO", "PD", "SD")
         private val DATE = Regex("""\d{4}-\d{2}-\d{2}""")
         private val CODE = Regex("""^[\p{L}\p{N}]{1,8}$""")
