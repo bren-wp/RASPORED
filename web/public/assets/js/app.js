@@ -11,6 +11,30 @@ function icon(name,extra){
   return '<svg class="ui-icon '+(extra||"")+'" aria-hidden="true"><use href="'+base+'"></use></svg>';
 }
 
+function sanitizeSchedule(raw){
+  var clean={};
+  if(!raw||typeof raw!=="object"||Array.isArray(raw))return clean;
+  Object.keys(raw).forEach(function(key){
+    var code=raw[key];
+    if(/^\d{4}-\d{2}-\d{2}$/.test(key)&&["D","N","GO","BO"].indexOf(code)>=0)clean[key]=code;
+  });
+  return clean;
+}
+function sanitizeScanPeople(items){
+  if(!Array.isArray(items))return [];
+  return items.slice(0,100).map(function(item){
+    if(!item||typeof item.name!=="string")return null;
+    var name=item.name.trim().replace(/\s+/g," ").slice(0,100);
+    if(name.length<2)return null;
+    var shifts={};
+    var raw=item.dayShifts&&typeof item.dayShifts==="object"?item.dayShifts:{};
+    Object.keys(raw).forEach(function(day){
+      var number=Number(day),code=raw[day];
+      if(Number.isInteger(number)&&number>=1&&number<=31&&["D","N","GO","BO"].indexOf(code)>=0)shifts[number]=code;
+    });
+    return {row:Number.isInteger(item.row)?item.row:null,name:name,dayShifts:shifts};
+  }).filter(Boolean);
+}
 function configureProfile(){
   var saved="";
   try{saved=(localStorage.getItem("raspored.profile.name")||"").trim().slice(0,80)}catch(e){}
@@ -93,7 +117,7 @@ function loadScanSession(){
   try{
     var raw=JSON.parse(sessionStorage.getItem("raspored.scan.v1")||"null");
     if(raw&&Array.isArray(raw.people)){
-      state.scanPeople=raw.people.slice(0,100);
+      state.scanPeople=sanitizeScanPeople(raw.people);
       state.scanSelected=Number.isInteger(raw.selected)?raw.selected:-1;
       state.scanMonth=raw.month&&Number.isInteger(raw.month.year)&&Number.isInteger(raw.month.month)?raw.month:null;
     }
@@ -145,10 +169,10 @@ function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"
 function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31)-1,da=((h+l-7*m+114)%31)+1;return new Date(y,mo,da)}
 function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x}
 function holidays(y){var map={};function add(m,d,n){map[y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0")]=n}add(1,1,"Nova godina");add(1,6,"Bogojavljenje");add(5,1,"Praznik rada");add(5,30,"Dan državnosti");add(6,22,"Dan antifašističke borbe");add(8,5,"Dan pobjede i domovinske zahvalnosti i Dan hrvatskih branitelja");add(8,15,"Velika Gospa");add(11,1,"Svi sveti");add(11,18,"Dan sjećanja na žrtve Domovinskog rata");add(12,25,"Božić");add(12,26,"Sveti Stjepan");var e=easter(y);map[iso(e)]="Uskrs";map[iso(addDays(e,1))]="Uskrsni ponedjeljak";map[iso(addDays(e,60))]="Tijelovo";return map}
-function loadSchedule(){try{state.schedule=JSON.parse(localStorage.getItem("raspored.schedule")||"{}")}catch(e){state.schedule={}}}
+function loadSchedule(){try{state.schedule=sanitizeSchedule(JSON.parse(localStorage.getItem("raspored.schedule")||"{}"))}catch(e){state.schedule={}}}
 function save(){localStorage.setItem("raspored.schedule",JSON.stringify(state.schedule))}
 function appNow(){return new Date()}
-function loadTimeEntries(){try{var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");return Array.isArray(raw)?raw.filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")}):[]}catch(e){return []}}
+function loadTimeEntries(){try{var raw=JSON.parse(localStorage.getItem("raspored.timeEntries.v1")||"[]");return Array.isArray(raw)?raw.filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||"")&&/^\d{2}:\d{2}$/.test(x.in||"")&&(!x.out||/^\d{2}:\d{2}$/.test(x.out))}):[]}catch(e){return []}}
 function saveTimeEntries(entries){localStorage.setItem("raspored.timeEntries.v1",JSON.stringify(entries.slice(-366)))}
 function hhmm(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function durationMinutes(entry,now){
@@ -262,12 +286,33 @@ function renderSummary(){
     ["Noćni sati",hoursText(d.nightMinutes)]
   ].map(function(x){return '<div class="month-strip-item"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>'}).join("");
 }
+function currentShiftFor(date){
+  var now=appNow(),today=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+  if(now.getHours()<7){
+    var previous=addDays(today,-1),previousCode=state.schedule[iso(previous)];
+    if(previousCode==="N")return {date:previous,code:"N"};
+  }
+  var code=state.schedule[iso(today)];
+  return code?{date:today,code:code}:null;
+}
+function shiftStatus(date,code){
+  if(code!=="D"&&code!=="N")return code?"Danas":"Nema smjene";
+  var now=appNow(),start=new Date(date),end=new Date(date);
+  if(code==="D"){start.setHours(7,0,0,0);end.setHours(19,0,0,0)}
+  else{start.setHours(19,0,0,0);end=addDays(start,1);end.setHours(7,0,0,0)}
+  if(now<start){
+    var mins=Math.max(0,Math.round((start-now)/60000));
+    return "Za "+Math.floor(mins/60)+"h "+String(mins%60).padStart(2,"0")+"min";
+  }
+  if(now<end)return "U tijeku";
+  return "Završeno";
+}
 function renderMobileHome(){
-  var date=appNow(),key=iso(date),code=state.schedule[key]||null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
+  var date=appNow(),entry=currentShiftFor(date),code=entry?entry.code:null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
   var title=document.getElementById("mobileTodayTitle");
   if(title){var dateText=date.toLocaleDateString("hr-HR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)+"."}
   var currentEl=document.getElementById("mobileCurrentShift");
-  if(currentEl){currentEl.innerHTML='<div class="mobile-shift-card-head"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</div><div class="mobile-shift-card-body">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code==="D"||code==="N"?'<span class="shift-countdown">Danas</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("check")+'<span>Evidentiraj ulaz/izlaz</span>'+icon("chevron-right")+'</button><div>'+icon("note")+'<span>Bilješka</span>'+icon("chevron-right")+'</div></div>'}
+  if(currentEl){currentEl.innerHTML='<div class="mobile-shift-card-head"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</div><div class="mobile-shift-card-body">'+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code?'<span class="shift-countdown">'+shiftStatus(entry?entry.date:date,code)+'</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("check")+'<span>Evidentiraj ulaz/izlaz</span>'+icon("chevron-right")+'</button><div>'+icon("note")+'<span>Bilješka</span>'+icon("chevron-right")+'</div></div>'}
   var next=null;
   for(var i=1;i<=62&&!next;i++){var nd=addDays(date,i),nc=state.schedule[iso(nd)];if(nc==="D"||nc==="N")next={date:nd,code:nc}}
   var nextEl=document.getElementById("mobileNextShift");
@@ -392,7 +437,7 @@ async function handleScanFile(file){
     var result=await window.RasporedWebOcr.recognizeSchedule(file,function(value){
       if(progress)progress.style.width=Math.max(4,Math.min(96,Math.round(value*100)))+"%";
     });
-    state.scanPeople=Array.isArray(result.people)?result.people:[];
+    state.scanPeople=sanitizeScanPeople(result.people);
     state.scanMonth=result.month||null;
     state.scanSelected=state.scanPeople.length===1?0:-1;
     saveScanSession();
