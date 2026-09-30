@@ -86,9 +86,11 @@ internal fun OcrScanScreen(
         }
     }
 
-    fun process(source: Bitmap) {
-        val generation = ocrGeneration + 1
-        ocrGeneration = generation
+    fun process(source: Bitmap, generation: Int) {
+        if (ocrGeneration != generation) {
+            source.recycle()
+            return
+        }
         bitmap = source
         result = null
         selectedRow = -1
@@ -112,12 +114,23 @@ internal fun OcrScanScreen(
     }
 
     fun loadAndProcess(uri: android.net.Uri, errorMessage: String) {
+        val generation = ocrGeneration + 1
+        ocrGeneration = generation
+        result = null
+        selectedRow = -1
+        editedShifts.clear()
+        editMode = false
+        employeeMenu = false
         phase = OcrPhase.Processing
         message = "Učitavanje fotografije..."
         scope.launch {
             val loaded = withContext(Dispatchers.IO) { loadBitmap(context, uri) }
+            if (ocrGeneration != generation) {
+                loaded?.recycle()
+                return@launch
+            }
             if (loaded != null) {
-                process(loaded)
+                process(loaded, generation)
             } else {
                 phase = OcrPhase.Error
                 message = errorMessage
