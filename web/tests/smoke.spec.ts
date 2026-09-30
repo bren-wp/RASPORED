@@ -282,7 +282,7 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
       const target=await next.getAttribute("data-open-date");
       await next.click();
       await expect(page.locator('[data-view="calendar"]')).toBeVisible();
-      await expect(page.locator('[data-date="'+target+'"].is-selected')).toHaveCount(1);
+      await expect(page.locator('[data-view="calendar"].is-active [data-date="'+target+'"].is-selected')).toHaveCount(1);
     }
   }else{
     const next=page.locator("#nextShiftList [data-open-date]").first();
@@ -290,7 +290,7 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
       const target=await next.getAttribute("data-open-date");
       await next.click();
       await expect(page.locator('[data-view="calendar"]')).toBeVisible();
-      await expect(page.locator('[data-date="'+target+'"].is-selected')).toHaveCount(1);
+      await expect(page.locator('[data-view="calendar"].is-active [data-date="'+target+'"].is-selected')).toHaveCount(1);
     }
   }
 });
