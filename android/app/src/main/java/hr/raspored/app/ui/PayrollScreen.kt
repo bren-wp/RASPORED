@@ -257,7 +257,7 @@ internal fun PayrollScreen(
                     PayrollLine("Rad blagdanom / neradnim danom", minutesLabelPayroll(estimate.evidence.holidayMinutes), estimate.holidayAddition)
                     PayrollLine("Prekovremeni iznad mjesečnog fonda", minutesLabelPayroll(estimate.evidence.overtimeMinutes), estimate.overtimeAddition)
                     if (secondShift) {
-                        PayrollLine("Druga smjena / turnus 14:00–22:00", minutesLabelPayroll(estimate.evidence.secondShiftMinutes), estimate.secondShiftAddition)
+                        PayrollLine("Druga smjena 14:00–22:00", minutesLabelPayroll(estimate.evidence.secondShiftMinutes), estimate.secondShiftAddition)
                     }
                     if (estimate.customAddition > 0.0) {
                         PayrollLine("Dodatak po rješenju / ugovoru", "${decimalText(extra)}%", estimate.customAddition)
