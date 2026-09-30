@@ -351,6 +351,63 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun doesNotMergeDifferentEmployeesWithVerySimilarNames() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "IVAN HORVAT",
+                    dayShifts = mapOf(1 to "D"),
+                    supportCount = 3
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = null,
+                    name = "IVANA HORVAT",
+                    dayShifts = mapOf(2 to "N"),
+                    supportCount = 3
+                )
+            )
+        )
+
+        assertEquals(2, merged.size)
+        assertEquals(setOf("IVAN HORVAT", "IVANA HORVAT"), merged.map { it.name }.toSet())
+    }
+
+    @Test
+    fun denseRosterKeepsRepeatedUnnumberedEmployeeOnlyForMissingSlot() {
+        val numbered = (1..30)
+            .filter { it != 15 }
+            .map { number ->
+                RecognizedScheduleRow(
+                    rowNumber = number,
+                    name = "OSOBA BROJ $number",
+                    dayShifts = mapOf(1 to "D", 31 to "N"),
+                    supportCount = 3
+                )
+            }
+        val missingEmployee = RecognizedScheduleRow(
+            rowNumber = null,
+            name = "MAJA PERIĆ",
+            dayShifts = mapOf(1 to "N", 16 to "GO", 31 to "D"),
+            supportCount = 4
+        )
+        val repeatedGhost = RecognizedScheduleRow(
+            rowNumber = null,
+            name = "NASLOV TABLICE",
+            dayShifts = mapOf(2 to "D"),
+            supportCount = 3
+        )
+
+        val finalized = ScheduleOcrParser.finalizeRows(
+            numbered + missingEmployee + repeatedGhost
+        )
+
+        assertEquals(30, finalized.size)
+        assertEquals(1, finalized.count { it.rowNumber == null })
+        assertEquals("MAJA PERIĆ", finalized.single { it.rowNumber == null }.name)
+    }
+
+    @Test
     fun detectsCroatianMonthWithoutDiacritics() {
         val result = ScheduleOcrParser.parse("SIJECANJ 2027.\n3 ANA HORVAT D N")
         assertEquals(YearMonth.of(2027, 1), result.month)
