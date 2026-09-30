@@ -54,13 +54,17 @@ private val Dbg=RasporedTokens.CyanSoft
 private val Nbg=RasporedTokens.NavyAlt
 private val GObg=RasporedTokens.TealSoft
 private val BObg=RasporedTokens.RedSoft
+private val PDbg=Color(0xFFFFF3D6)
+private val SDbg=Color(0xFFE9EEF5)
 
 private enum class Screen { Home, Calendar, Scan, Stats, Payroll, Hours, Settings }
 private data class Shift(val code:String,val name:String,val time:String,val hours:Int)
 private val D=Shift("D","Dnevna smjena","07:00 – 19:00 (12h)",12)
 private val N=Shift("N","Noćna smjena","19:00 – 07:00 (12h)",12)
-private val GO=Shift("GO","Slobodan dan","—",0)
+private val GO=Shift("GO","Godišnji odmor","—",0)
 private val BO=Shift("BO","Bolovanje","—",0)
+private val PD=Shift("PD","Plaćeni dopust","—",0)
+private val SD=Shift("SD","Slobodan dan","—",0)
 private val NONE=Shift("","Nema planirane smjene","—",0)
 
 @Composable fun RasporedApp(){
@@ -311,7 +315,7 @@ private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String 
         prefix+"\n"+start.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))+" → "+end.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.",Locale("hr","HR")))
     } else prefix
 }
-private fun shiftFromCode(code:String):Shift?=when(code){"D"->D;"N"->N;"GO"->GO;"BO"->BO;else->null}
+private fun shiftFromCode(code:String):Shift?=when(code){"D"->D;"N"->N;"GO"->GO;"BO"->BO;"PD"->PD;"SD"->SD;else->null}
 private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>{
     val persisted=(1..month.lengthOfMonth()).mapNotNull { day ->
         shiftFromCode(codes[month.atDay(day).toString()] ?: "")?.let { day to it }
@@ -382,9 +386,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{ShiftCard("Današnja smjena",current,true,statusText=shiftStatusLabel(currentDate,current,now),onOpen={go(Screen.Hours)},onHours={go(Screen.Hours)})}
         item{ShiftCard("Sljedeća smjena",next,false,statusText=nextEntry?.let{nextShiftStatus(today,it.first,it.second)},onOpen={go(Screen.Calendar)},onHours=null)}
         item{
-            Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-                listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
-            }
+            ShiftLegendGrid()
         }
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
@@ -545,9 +547,9 @@ private fun largeMinutesLabel(minutes:Long):String {
                         }else{
                             Surface(
                                 shape=RoundedCornerShape(14.dp),
-                                color=if(selectedHoliday!=null) BObg else Color(0xFFF1F5F9),
+                                color=if(selectedHoliday!=null) Color(0xFFFFE8E6) else Color(0xFFF1F5F9),
                                 modifier=Modifier.size(62.dp)
-                            ){Box(contentAlignment=Alignment.Center){Text(if(selectedHoliday!=null)"BO" else "—",fontWeight=FontWeight.Bold,color=if(selectedHoliday!=null)Red else Slate)}}
+                            ){Box(contentAlignment=Alignment.Center){Text(if(selectedHoliday!=null)"✣" else "—",fontWeight=FontWeight.Bold,color=if(selectedHoliday!=null)Red else Slate)}}
                         }
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)){
@@ -564,9 +566,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         }
         item{
-            Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
-                listOf(D,N,GO,BO).forEach{ShiftChip(it,Modifier.weight(1f))}
-            }
+            ShiftLegendGrid()
         }
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
@@ -757,8 +757,8 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                         StatMini("Dnevne",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
                         StatMini("Noćne",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
-                        StatMini("GO",(data.values.count{it.code=="GO"}*8).toString()+"h",Teal,Modifier.weight(1f))
-                        StatMini("BO",(data.values.count{it.code=="BO"}*8).toString()+"h",Red,Modifier.weight(1f))
+                        StatMini("GO",data.values.count{it.code=="GO"}.toString()+" d",Teal,Modifier.weight(1f))
+                        StatMini("BO",data.values.count{it.code=="BO"}.toString()+" d",Red,Modifier.weight(1f))
                     }
                 }
             }
@@ -825,14 +825,26 @@ private fun largeMinutesLabel(minutes:Long):String {
                     DetailLine(
                         Icons.Outlined.BeachAccess,
                         "GO",
-                        data.values.count{it.code=="GO"}.toString()+" dana",
-                        (data.values.count{it.code=="GO"}*8).toString()+"h"
+                        "Godišnji odmor",
+                        data.values.count{it.code=="GO"}.toString()+" dana"
                     )
                     DetailLine(
                         Icons.Outlined.MedicalServices,
                         "BO",
-                        data.values.count{it.code=="BO"}.toString()+" dana",
-                        (data.values.count{it.code=="BO"}*8).toString()+"h"
+                        "Bolovanje",
+                        data.values.count{it.code=="BO"}.toString()+" dana"
+                    )
+                    DetailLine(
+                        Icons.Outlined.EventAvailable,
+                        "PD",
+                        "Plaćeni dopust",
+                        data.values.count{it.code=="PD"}.toString()+" dana"
+                    )
+                    DetailLine(
+                        Icons.Outlined.Weekend,
+                        "SD",
+                        "Slobodan dan",
+                        data.values.count{it.code=="SD"}.toString()+" dana"
                     )
                     DetailLine(
                         Icons.Outlined.Balance,
@@ -974,5 +986,16 @@ private fun largeMinutesLabel(minutes:Long):String {
 
 @Composable private fun ShiftChip(s:Shift,modifier:Modifier){Surface(modifier=modifier.height(40.dp),shape=RoundedCornerShape(11.dp),color=shiftBg(s)){Box(contentAlignment=Alignment.Center){Text(s.code,fontWeight=FontWeight.ExtraBold,color=shiftFg(s),fontSize=13.sp)}}}
 @Composable private fun ShiftBadge(s:Shift,size:androidx.compose.ui.unit.Dp){Surface(shape=RoundedCornerShape(14.dp),color=shiftBg(s),modifier=Modifier.size(size)){Box(contentAlignment=Alignment.Center){Text(if(s.code.isBlank())"—" else s.code,fontSize=if(size>50.dp)24.sp else 14.sp,fontWeight=FontWeight.ExtraBold,color=shiftFg(s))}}}
-private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"GO"->GObg;"BO"->BObg;else->Color(0xFFF1F5F9)}
-private fun shiftFg(s:Shift)=when(s.code){"D"->Color(0xFF087BC9);"N"->Color.White;"GO"->Color(0xFF07865F);"BO"->Color(0xFFD22333);else->Slate}
+@Composable private fun ShiftLegendGrid(){
+    Column(verticalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
+        Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
+            listOf(D,N,GO).forEach{ShiftChip(it,Modifier.weight(1f))}
+        }
+        Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
+            listOf(BO,PD,SD).forEach{ShiftChip(it,Modifier.weight(1f))}
+        }
+    }
+}
+
+private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"GO"->GObg;"BO"->BObg;"PD"->PDbg;"SD"->SDbg;else->Color(0xFFF1F5F9)}
+private fun shiftFg(s:Shift)=when(s.code){"D"->Color(0xFF087BC9);"N"->Color.White;"GO"->Color(0xFF07865F);"BO"->Color(0xFFD22333);"PD"->Color(0xFF9A6500);"SD"->Color(0xFF475569);else->Slate}
