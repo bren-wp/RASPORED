@@ -60,7 +60,8 @@ jobs:
           mkdir -p ../dist/web-package/storage/data
           cp -R public/. ../dist/web-package/
           cp storage/.htaccess ../dist/web-package/storage/.htaccess
-          printf '%s\n' '# Runtime JSON files are created here.' > ../dist/web-package/storage/data/.gitkeep
+          printf '%s
+' '# Runtime JSON files are created here.' > ../dist/web-package/storage/data/.gitkeep
           (
             cd ../dist/web-package
             zip -r "../RASPORED-web-v${VERSION}.zip" . \
@@ -102,12 +103,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk\n          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: RASPORED-android
-          path: |\n            dist/RASPORED.apk\n            dist/RASPORED.aab
+          path: |
+            dist/RASPORED.apk
+            dist/RASPORED.aab
           if-no-files-found: error
 
   android-ui:
