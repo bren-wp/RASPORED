@@ -159,10 +159,14 @@ if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.0'; }
           </button>
           <div class="scan-person-menu" id="scanPersonMenu" role="listbox" hidden></div>
         </div>
-        <label class="scan-month-field">
+        <div class="scan-month-field">
           <span>Mjesec rasporeda</span>
-          <input id="scanMonthInput" type="month" aria-label="Mjesec rasporeda">
-        </label>
+          <div class="scan-month-stepper" aria-label="Mjesec rasporeda">
+            <button type="button" class="icon-btn" id="scanMonthPrev" aria-label="Prethodni mjesec"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-left"></use></svg></button>
+            <b id="scanMonthLabel">—</b>
+            <button type="button" class="icon-btn" id="scanMonthNext" aria-label="Sljedeći mjesec"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-right"></use></svg></button>
+          </div>
+        </div>
       </section>
       <section class="card scan-card"><div class="card-head"><div><h2>Provjera rasporeda</h2><p>Pregledaj prepoznate smjene i po potrebi ih ispravi.</p></div><span class="success-pill" id="recognitionStatus">Odaberi osobu</span></div><div class="recognition-days" id="recognitionDays"></div><div class="scan-edit-actions"><button id="editRecognitionBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-edit"></use></svg>Uredi</button><button id="rescanSecondary"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>Ponovno skeniraj</button></div></section>
       <button class="primary-btn primary-btn--full" id="saveSchedule"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Spremi raspored</button>
