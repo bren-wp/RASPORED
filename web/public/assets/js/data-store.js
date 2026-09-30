@@ -44,8 +44,8 @@ function sanitizeEvidence(raw){
       out:x.out||null,
       note:typeof x.note==="string"?x.note.slice(0,500):"",
       workType:["regular","shift1","shift2","shift3","turnus","duty","standby","callout","other"].indexOf(x.workType)>=0?x.workType:"regular",
-      startedAt:Number.isFinite(Number(x.startedAt))?Number(x.startedAt):null,
-      endedAt:Number.isFinite(Number(x.endedAt))?Number(x.endedAt):null
+      startedAt:x.startedAt!=null&&Number.isFinite(Number(x.startedAt))?Number(x.startedAt):null,
+      endedAt:x.endedAt!=null&&Number.isFinite(Number(x.endedAt))?Number(x.endedAt):null
     };
   });
 }
@@ -118,7 +118,7 @@ function sanitize(raw){
   };
 }
 function emptyState(data){
-  return data.revision===0&&!Object.keys(data.schedule).length&&!data.evidence.length&&!data.profile.name&&!data.colleagues.length&&!data.teamMembers.length&&!data.scanSession.people.length;
+  return !Object.keys(data.schedule).length&&!data.evidence.length&&!data.profile.name&&!data.colleagues.length&&!data.teamMembers.length&&!data.scanSession.people.length;
 }
 function legacyValue(key){
   try{return localStorage.getItem(key)}catch(e){return null}
