@@ -1674,7 +1674,7 @@ object ScheduleOcrEngine {
         startRatio: Float,
         endRatio: Float
     ): Bitmap {
-        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val cropWidth = (source.width * 0.34f).roundToInt().coerceIn(1, source.width)
         val top = (source.height * startRatio).roundToInt().coerceIn(0, source.height - 1)
         val bottom = (source.height * endRatio).roundToInt().coerceIn(top + 1, source.height)
         val cropHeight = bottom - top
@@ -1714,7 +1714,7 @@ object ScheduleOcrEngine {
     }
 
     private fun createEnhancedRosterColumn(source: Bitmap): Bitmap {
-        val cropWidth = (source.width * 0.44f).roundToInt().coerceIn(1, source.width)
+        val cropWidth = (source.width * 0.34f).roundToInt().coerceIn(1, source.width)
         val targetPixels = 5_000_000.0
         val pixelScale = kotlin.math.sqrt(
             targetPixels / (cropWidth.toDouble() * source.height.toDouble())
