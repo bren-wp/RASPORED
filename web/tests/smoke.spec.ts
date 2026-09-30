@@ -311,6 +311,7 @@ test("Android bearer account API stores schedule state in storage data", async (
     headers:mobileHeaders,
     data:{
       patch:true,
+      expectedRevision:0,
       state:{
         schedule:{"2026-10-01":"D","2026-10-02":"N","2026-10-03":"PD","2026-10-04":"SD"},
         evidence:[{
@@ -331,6 +332,19 @@ test("Android bearer account API stores schedule state in storage data", async (
   expect(savedBody.state.schedule["2026-10-03"]).toBe("PD");
   expect(savedBody.state.evidence[0].workType).toBe("shift1");
   expect(savedBody.state.profile.name).toBe("Petra Novak");
+  expect(savedBody.state.revision).toBe(1);
+
+  const stale=await request.put("/api/state.php",{
+    headers:mobileHeaders,
+    data:{
+      patch:true,
+      expectedRevision:0,
+      state:{schedule:{"2026-10-01":"N"}}
+    }
+  });
+  expect(stale.status()).toBe(409);
+  const staleBody=await stale.json();
+  expect(staleBody.error).toContain("drugom uređaju");
 
   const fetched=await request.get("/api/state.php",{headers:mobileHeaders});
   expect(fetched.ok()).toBeTruthy();
