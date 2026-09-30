@@ -130,7 +130,7 @@ function applySaved(){
   qs("payrollYears").value=String(Number.isFinite(Number(p.yearsService))?Math.trunc(Number(p.yearsService)):0);
   qs("payrollExtraPercent").value=String(Number(p.extraPercent)||0);
   qs("payrollCustomBase").value=Number(p.customBase)>0?Number(p.customBase).toFixed(2):"";
-  qs("payrollOvertimeHours").value=Number.isFinite(Number(p.overtimeHours))?String(Number(p.overtimeHours)):"";
+  qs("payrollOvertimeHours").value=p.overtimeHours!=null&&Number.isFinite(Number(p.overtimeHours))?String(Number(p.overtimeHours)):"";
   qs("payrollTurnusHours").value=Number(p.turnusHours)>0?String(Number(p.turnusHours)):"";
   qs("payrollSecondShiftHours").value=Number(p.secondShiftHours)>0?String(Number(p.secondShiftHours)):"";
   qs("payrollGrossAdjustment").value=Number(p.grossAdjustment)!==0?String(Number(p.grossAdjustment)):"";
