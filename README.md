@@ -16,6 +16,16 @@
 
 ---
 
+## Preuzimanja
+
+Svako produkcijsko izdanje objavljuje gotove artefakte:
+
+- **RASPORED.apk** — instalabilna Android aplikacija.
+- **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
+- **SHA256SUMS-vX.Y.Z.txt** — kontrolne vrijednosti za provjeru preuzetih datoteka.
+
+Verzija Android aplikacije i Web/PWA paketa uvijek se čita iz zajedničke datoteke <code>VERSION</code>. CI ne dopušta novo izdanje s već korištenom verzijom.
+
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
 RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima, koliko je stvarno odradio i kakav mu je saldo sati**.
@@ -142,7 +152,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - lokalna pohrana rasporeda i evidencije
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
-- Compose testna osnova, unit testovi i lint u CI-ju
+- Compose unit/lint provjere i stvarni emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
 
