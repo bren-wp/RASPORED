@@ -89,3 +89,29 @@ test("statistics prefer completed time evidence over planned demo hours", async 
   await expect(page.locator("#workedTotal")).toHaveText("0:00 h");
   await expect(page.locator("#statsCategories")).toContainText("Saldo sati");
 });
+
+
+test("scan imports only the explicitly selected employee schedule", async ({page}) => {
+  await page.goto("/?demo=1");
+  await page.locator('[data-route="scan"]:visible').first().click();
+
+  await expect(page.locator("#scanPersonLabel")).toContainText("MARIO EGIMOVIĆ");
+  await page.locator("#scanPersonButton").click();
+  await expect(page.locator("#scanPersonMenu [data-scan-person]")).toHaveCount(3);
+  await page.locator('#scanPersonMenu [data-scan-person="1"]').click();
+  await expect(page.locator("#scanPersonLabel")).toContainText("ADEMI DENI");
+
+  await page.locator("#saveSchedule").click();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await expect(page.locator('[data-date="2026-10-01"] .code').first()).toHaveText("GO");
+  await expect(page.locator('[data-date="2026-10-04"] .code').first()).toHaveText("D");
+  await expect(page.locator('[data-date="2026-10-02"] .code')).toHaveCount(0);
+});
+
+test("production scan cannot import a schedule before a person is recognized and selected", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await expect(page.locator("#scanPersonLabel")).toHaveText("Odaberi ime i prezime");
+  await expect(page.locator("#scanPersonButton")).toBeDisabled();
+  await expect(page.locator("#saveSchedule")).toBeDisabled();
+});
