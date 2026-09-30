@@ -264,10 +264,8 @@ test("Web account registration stays optional and manager import keeps employees
   await page.locator("#registerPhone").fill("+385 91 555 0101");
   await page.locator("#registerPassword").fill("RasporedTest2026");
   await page.locator("#registerAccountType").selectOption("manager");
-  await Promise.all([
-    page.waitForLoadState("domcontentloaded"),
-    page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click()
-  ]);
+  await page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click();
+  await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator("#accountStatusBadge")).toHaveText("Prijavljen");
   await expect(page.locator("#accountDetails")).toContainText("Voditelj tima");
@@ -389,10 +387,8 @@ test("individual Web account can import only its own recognized row", async ({pa
   await page.locator("#registerEmail").fill("ana-"+suffix+"@example.test");
   await page.locator("#registerPhone").fill("+385 91 555 0102");
   await page.locator("#registerPassword").fill("RasporedTest2026");
-  await Promise.all([
-    page.waitForLoadState("domcontentloaded"),
-    page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click()
-  ]);
+  await page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click();
+  await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
   await page.locator('[data-route="scan"]:visible').first().click();
   await page.locator("#galleryInput").setInputFiles({
     name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
