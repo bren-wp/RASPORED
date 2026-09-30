@@ -44,13 +44,13 @@ internal fun OcrScanScreen(
     var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
     var selectedRow by remember { mutableIntStateOf(0) }
     var employeeMenu by remember { mutableStateOf(false) }
-    val editedShifts = remember { mutableStateListOf<String>() }
+    val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule) {
         result = recognized
         selectedRow = 0
         editedShifts.clear()
-        recognized.rows.firstOrNull()?.shifts?.let(editedShifts::addAll)
+        recognized.rows.firstOrNull()?.dayShifts?.let(editedShifts::putAll)
         if (recognized.rows.isEmpty()) {
             phase = OcrPhase.Error
             message = "Nije pronađen red sa smjenama D, N, GO ili BO. Pokušaj ravniju i oštriju fotografiju."
@@ -220,7 +220,8 @@ internal fun OcrScanScreen(
                             Icon(Icons.Outlined.Person, null)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                activeRow?.name ?: "Nema prepoznatog zaposlenika",
+                                activeRow?.let { row -> (row.rowNumber?.let { number -> number.toString() + ". " } ?: "") + row.name }
+                                    ?: "Nema prepoznatog zaposlenika",
                                 modifier = Modifier.weight(1f),
                                 fontWeight = FontWeight.Bold
                             )
@@ -232,11 +233,23 @@ internal fun OcrScanScreen(
                         ) {
                             result?.rows?.forEachIndexed { index, row ->
                                 DropdownMenuItem(
-                                    text = { Text(row.name) },
+                                    text = {
+                                        Column {
+                                            Text(
+                                                (row.rowNumber?.let { number -> number.toString() + ". " } ?: "") + row.name,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                row.dayShifts.size.toString() + " prepoznatih dana",
+                                                fontSize = 11.sp,
+                                                color = RasporedTokens.Slate
+                                            )
+                                        }
+                                    },
                                     onClick = {
                                         selectedRow = index
                                         editedShifts.clear()
-                                        editedShifts.addAll(row.shifts)
+                                        editedShifts.putAll(row.dayShifts)
                                         employeeMenu = false
                                     }
                                 )
@@ -266,7 +279,7 @@ internal fun OcrScanScreen(
                         if (editedShifts.isNotEmpty()) {
                             AssistChip(
                                 onClick = {},
-                                label = { Text("✓ ${editedShifts.size} dana") }
+                                label = { Text("✓ " + editedShifts.size + " prepoznato") }
                             )
                         }
                     }
@@ -285,12 +298,16 @@ internal fun OcrScanScreen(
                                 .padding(top = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            editedShifts.forEachIndexed { index, code ->
+                            (1..recognizedMonth.lengthOfMonth()).forEach { day ->
+                                val code = editedShifts[day].orEmpty()
                                 RecognizedDay(
-                                    day = index + 1,
+                                    day = day,
                                     month = recognizedMonth,
                                     code = code,
-                                    onClick = { editedShifts[index] = nextShiftCode(code) }
+                                    onClick = {
+                                        val next = nextShiftCode(code)
+                                        if (next.isBlank()) editedShifts.remove(day) else editedShifts[day] = next
+                                    }
                                 )
                             }
                         }
@@ -302,11 +319,8 @@ internal fun OcrScanScreen(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                if (editedShifts.isNotEmpty()) {
-                                    for (i in editedShifts.indices) {
-                                        if (editedShifts[i] !in listOf("D", "N", "GO", "BO")) editedShifts[i] = "D"
-                                    }
-                                }
+                                val invalidDays = editedShifts.filterValues { it !in listOf("D", "N", "GO", "BO") }.keys
+                                invalidDays.forEach(editedShifts::remove)
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -330,10 +344,11 @@ internal fun OcrScanScreen(
         item {
             Button(
                 onClick = {
-                    val days = minOf(recognizedMonth.lengthOfMonth(), editedShifts.size)
                     onSaveSchedule(
                         recognizedMonth,
-                        (1..days).associateWith { editedShifts[it - 1] }
+                        editedShifts
+                            .filterKeys { it in 1..recognizedMonth.lengthOfMonth() }
+                            .filterValues { it in listOf("D", "N", "GO", "BO") }
                     )
                 },
                 enabled = editedShifts.isNotEmpty(),
@@ -416,7 +431,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, onClick: () 
 }
 
 private fun nextShiftCode(current: String): String {
-    val order = listOf("D", "N", "GO", "BO")
+    val order = listOf("", "D", "N", "GO", "BO")
     val index = order.indexOf(current).takeIf { it >= 0 } ?: 0
     return order[(index + 1) % order.size]
 }
