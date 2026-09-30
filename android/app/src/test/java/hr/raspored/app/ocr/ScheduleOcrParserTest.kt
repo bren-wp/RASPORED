@@ -47,6 +47,42 @@ class ScheduleOcrParserTest {
     }
 
     @Test
+    fun acceptsTableBorderSeparatorsAroundExplicitCodes() {
+        val result = ScheduleOcrParser.parse(
+            "6 ANA HORVAT 1 | D 2 | N 4 | GO 7 | PD 9 | SD"
+        )
+        assertEquals(
+            mapOf(1 to "D", 2 to "N", 4 to "GO", 7 to "PD", 9 to "SD"),
+            result.rows.single().dayShifts
+        )
+    }
+
+    @Test
+    fun mergesShiftOnlyNumberedRowWithRecoveredRosterName() {
+        val merged = ScheduleOcrParser.mergeRows(
+            listOf(
+                RecognizedScheduleRow(
+                    rowNumber = 6,
+                    name = "",
+                    dayShifts = mapOf(1 to "D", 15 to "N", 31 to "GO")
+                ),
+                RecognizedScheduleRow(
+                    rowNumber = 6,
+                    name = "ANA HORVAT",
+                    dayShifts = emptyMap()
+                )
+            )
+        )
+
+        assertEquals(1, merged.size)
+        assertEquals("ANA HORVAT", merged.single().name)
+        assertEquals(
+            mapOf(1 to "D", 15 to "N", 31 to "GO"),
+            merged.single().dayShifts
+        )
+    }
+
+    @Test
     fun preservesExplicitDayNumbersWithoutCompressingEmptyDays() {
         val result = ScheduleOcrParser.parse("6 ANA HORVAT 1 D 2 N 4 GO 7 PD 9 SD")
         assertEquals(
@@ -216,6 +252,46 @@ class ScheduleOcrParserTest {
 
         assertEquals(1, merged.size)
         assertEquals(mapOf(1 to "D", 20 to "N"), merged.single().dayShifts)
+    }
+
+
+    @Test
+    fun mergesDenseThirtyPersonRosterWithoutDroppingBlankCalendarDays() {
+        val rows = buildList {
+            for (number in 1..30) {
+                add(
+                    RecognizedScheduleRow(
+                        rowNumber = number,
+                        name = "TESTOSOBA$number",
+                        dayShifts = mapOf(
+                            1 to if (number % 2 == 0) "N" else "D",
+                            5 to "GO",
+                            16 to if (number % 3 == 0) "PD" else "D"
+                        )
+                    )
+                )
+                add(
+                    RecognizedScheduleRow(
+                        rowNumber = number,
+                        name = "TESTOSOBA$number",
+                        dayShifts = mapOf(
+                            24 to "BO",
+                            31 to if (number % 4 == 0) "SD" else "N"
+                        )
+                    )
+                )
+            }
+        }
+
+        val merged = ScheduleOcrParser.mergeRows(rows)
+
+        assertEquals(30, merged.size)
+        assertEquals((1..30).toList(), merged.mapNotNull { it.rowNumber })
+        merged.forEach { row ->
+            assertEquals(null, row.dayShifts[2])
+            assertEquals("GO", row.dayShifts[5])
+            assertEquals("BO", row.dayShifts[24])
+        }
     }
 
     @Test

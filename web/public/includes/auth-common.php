@@ -3,13 +3,61 @@ declare(strict_types=1);
 
 function raspored_storage_directory(): string
 {
-    $sourceCandidate = dirname(__DIR__, 2) . '/storage/data';
-    $flatPackageCandidate = dirname(__DIR__) . '/storage/data';
-    $dir = is_dir($sourceCandidate) ? $sourceCandidate : $flatPackageCandidate;
-    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
-        throw new RuntimeException('Spremište nije dostupno.');
+    static $resolved = null;
+    if (is_string($resolved) && $resolved !== '') {
+        return $resolved;
     }
-    return $dir;
+
+    $candidates = [];
+
+    $configured = trim((string) getenv('RASPORED_STORAGE_DIR'));
+    if ($configured !== '') {
+        $candidates[] = rtrim($configured, DIRECTORY_SEPARATOR);
+    }
+
+    // Source checkout: web/storage/data is already outside web/public.
+    $sourceCandidate = dirname(__DIR__, 2) . '/storage/data';
+    if (is_dir($sourceCandidate)) {
+        $candidates[] = $sourceCandidate;
+    }
+
+    // Flat shared-hosting package: prefer a private directory outside the
+    // document root so account JSON, state and password hashes cannot become
+    // directly downloadable on servers that ignore .htaccess (for example
+    // nginx). The host+base-path hash keeps multiple installations separate.
+    $documentRoot = trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    if ($documentRoot !== '') {
+        $realDocumentRoot = realpath($documentRoot);
+        if (is_string($realDocumentRoot) && $realDocumentRoot !== '') {
+            $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+            $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/'));
+            $apiPos = strpos($script, '/api/');
+            $base = $apiPos === false ? dirname($script) : substr($script, 0, $apiPos);
+            $key = substr(hash('sha256', $host . '|' . $base), 0, 16);
+            $candidates[] = dirname($realDocumentRoot) . '/.raspored-data-' . $key;
+        }
+    }
+
+    // Last-resort compatibility path. web/storage/.htaccess denies Apache
+    // access, but deployments on other servers should use the private path
+    // above or explicitly set RASPORED_STORAGE_DIR.
+    $candidates[] = dirname(__DIR__) . '/storage/data';
+
+    foreach (array_values(array_unique($candidates)) as $dir) {
+        if ($dir === '') {
+            continue;
+        }
+        if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
+            continue;
+        }
+        @chmod($dir, 0700);
+        if (is_writable($dir)) {
+            $resolved = $dir;
+            return $resolved;
+        }
+    }
+
+    throw new RuntimeException('Spremište nije dostupno.');
 }
 
 function raspored_cookie_path(): string
@@ -163,4 +211,116 @@ function raspored_same_origin_ok(): bool
     }
     $expected = (raspored_is_https() ? 'https://' : 'http://') . (string) ($_SERVER['HTTP_HOST'] ?? '');
     return hash_equals(strtolower($expected), strtolower($origin));
+}
+
+function raspored_secure_api_transport_ok(): bool
+{
+    if (raspored_is_https()) {
+        return true;
+    }
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\\d+$/', '', $host) ?? $host;
+    return in_array($host, ['localhost', '127.0.0.1', '[::1]', '::1'], true);
+}
+
+function raspored_bearer_token(): string
+{
+    $header = trim((string) (
+        $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? ''
+    ));
+    if ($header === '' && function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (is_array($headers)) {
+            foreach ($headers as $name => $value) {
+                if (strcasecmp((string) $name, 'Authorization') === 0) {
+                    $header = trim((string) $value);
+                    break;
+                }
+            }
+        }
+    }
+    if (!preg_match('/^Bearer\\s+([a-f0-9]{64})$/i', $header, $match)) {
+        return '';
+    }
+    return strtolower($match[1]);
+}
+function raspored_mobile_client_request(): bool
+{
+    return strtolower(trim((string) ($_SERVER['HTTP_X_RASPORED_CLIENT'] ?? ''))) === 'android';
+}
+
+function raspored_mobile_token_path(string $token): string
+{
+    return raspored_storage_directory()
+        . '/mobile-token-'
+        . hash_hmac('sha256', strtolower($token), raspored_install_secret())
+        . '.json';
+}
+
+function raspored_mobile_account_from_token(string $token): ?array
+{
+    if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+        return null;
+    }
+    $tokenFile = raspored_mobile_token_path($token);
+    if (!is_file($tokenFile)) {
+        return null;
+    }
+    $record = json_decode((string) @file_get_contents($tokenFile), true);
+    if (!is_array($record) || (int) ($record['expiresAt'] ?? 0) <= time()) {
+        @unlink($tokenFile);
+        return null;
+    }
+    $accountFile = basename((string) ($record['accountFile'] ?? ''));
+    if (!preg_match('/^account-[a-f0-9]{64}\\.json$/', $accountFile)) {
+        return null;
+    }
+    $path = raspored_storage_directory() . '/' . $accountFile;
+    $account = is_file($path) ? json_decode((string) @file_get_contents($path), true) : null;
+    if (!is_array($account)
+        || !hash_equals((string) ($account['id'] ?? ''), (string) ($record['accountId'] ?? ''))
+    ) {
+        return null;
+    }
+    return $account;
+}
+
+function raspored_request_account(): ?array
+{
+    $token = raspored_bearer_token();
+    return $token !== '' ? raspored_mobile_account_from_token($token) : raspored_current_account();
+}
+
+function raspored_issue_mobile_token(string $accountPath, array $account): array
+{
+    $accountFile = basename($accountPath);
+    if (!preg_match('/^account-[a-f0-9]{64}\\.json$/', $accountFile)) {
+        throw new RuntimeException('Račun nije moguće povezati s Android aplikacijom.');
+    }
+    $token = bin2hex(random_bytes(32));
+    $expiresAt = time() + 15552000;
+    $record = [
+        'schema' => 1,
+        'accountId' => (string) ($account['id'] ?? ''),
+        'accountFile' => $accountFile,
+        'createdAt' => gmdate('c'),
+        'expiresAt' => $expiresAt,
+    ];
+    $json = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    $path = raspored_mobile_token_path($token);
+    if ($json === false || @file_put_contents($path, $json . PHP_EOL, LOCK_EX) === false) {
+        @unlink($path);
+        throw new RuntimeException('Pristupni token nije moguće spremiti.');
+    }
+    @chmod($path, 0600);
+    return ['token' => $token, 'expiresAt' => gmdate('c', $expiresAt)];
+}
+
+function raspored_revoke_mobile_token(string $token): void
+{
+    if (preg_match('/^[a-f0-9]{64}$/', $token)) {
+        @unlink(raspored_mobile_token_path($token));
+    }
 }

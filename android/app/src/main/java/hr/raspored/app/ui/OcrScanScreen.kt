@@ -35,12 +35,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.YearMonth
+import java.text.Normalizer
+import java.util.Locale
 
 private enum class OcrPhase { Idle, Processing, Success, Error }
 
 @Composable
 internal fun OcrScanScreen(
     defaultMonth: YearMonth,
+    accountName: String? = null,
+    managerMode: Boolean = false,
+    onSaveTeamSchedules: (YearMonth, List<hr.raspored.app.ocr.RecognizedScheduleRow>) -> Unit = { _, _ -> },
     onSaveSchedule: (YearMonth, Map<Int, String>) -> Unit
 ) {
     val context = LocalContext.current
@@ -116,6 +121,27 @@ internal fun OcrScanScreen(
                     if (emptyRows > 0) " $emptyRows numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih." else "" +
                     " Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
+            }
+        }
+
+        val expectedName = accountName?.trim().orEmpty()
+        if (!managerMode && expectedName.isNotBlank() && recognized.rows.isNotEmpty()) {
+            val matchedIndex = recognized.rows.indexOfFirst { namesMatch(it.name, expectedName) }
+            if (matchedIndex >= 0) {
+                selectedRow = matchedIndex
+                editedShifts.clear()
+                editedShifts.putAll(recognized.rows[matchedIndex].dayShifts)
+                phase = if (editedShifts.isEmpty()) OcrPhase.Error else OcrPhase.Success
+                message = if (editedShifts.isEmpty()) {
+                    "Pronađeno je ime s računa, ali smjene nisu dovoljno pouzdano očitane. Ponovi skeniranje cijele tablice ili ručno unesi raspored."
+                } else {
+                    "Pronađen je raspored za " + expectedName + ". Provjeri sve dane prije spremanja."
+                }
+            } else {
+                selectedRow = -1
+                editedShifts.clear()
+                phase = OcrPhase.Error
+                message = "Ime i prezime s računa (" + expectedName + ") nisu pouzdano pronađeni. Osobni račun ne može uvesti raspored druge osobe."
             }
         }
     }
@@ -224,6 +250,11 @@ internal fun OcrScanScreen(
 
     val activeRow = result?.rows?.getOrNull(selectedRow)
     val recognizedMonth = selectedMonth
+    val previewAspect = bitmap
+        ?.takeIf { !it.isRecycled && it.height > 0 }
+        ?.let { it.width.toFloat() / it.height.toFloat() }
+        ?.coerceIn(0.72f, 2.20f)
+        ?: 1.30f
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("screen-scan").padding(horizontal = 14.dp),
@@ -255,7 +286,8 @@ internal fun OcrScanScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(310.dp)
+                            .heightIn(min = 220.dp, max = 430.dp)
+                            .aspectRatio(previewAspect)
                             .clip(RoundedCornerShape(14.dp))
                             .background(Color(0xFFE7EAEE)),
                         contentAlignment = Alignment.Center
@@ -280,26 +312,19 @@ internal fun OcrScanScreen(
                             }
                         }
                         ScanFrame()
-                        if (bitmap != null) {
-                            Surface(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(horizontal = 18.dp, vertical = 14.dp),
-                                shape = RoundedCornerShape(999.dp),
-                                color = Color(0xD90B1F44)
-                            ) {
-                                Text(
-                                    "OCR obrađuje cijelu fotografiju — provjeri da je cijela tablica vidljiva.",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                    color = Color.White,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
+                    }
+
+                    if (bitmap != null) {
+                        Text(
+                            "OCR obrađuje cijelu fotografiju. U plavom okviru mora biti vidljiv cijeli raspored: sva imena i svi dani mjeseca.",
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 9.dp),
+                            color = Color.White,
+                            fontSize = 11.sp
+                        )
                     }
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         TextButton(
@@ -361,7 +386,11 @@ internal fun OcrScanScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text("Odaberi osobu", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Ako raspored sadrži više osoba, obavezno odaberi samo jednu osobu čiji će se raspored uvesti.",
+                        when {
+                            managerMode -> "Voditeljski račun može provjeriti jednu osobu ili spremiti sve prepoznate osobe kao odvojene rasporede tima."
+                            !accountName.isNullOrBlank() -> "Osobni račun može uvesti samo redak koji odgovara imenu i prezimenu registriranog korisnika."
+                            else -> "Ako raspored sadrži više osoba, obavezno odaberi samo jednu osobu čiji će se raspored uvesti."
+                        },
                         color = RasporedTokens.Slate,
                         fontSize = 13.sp
                     )
@@ -386,7 +415,9 @@ internal fun OcrScanScreen(
                             onDismissRequest = { employeeMenu = false }
                         ) {
                             result?.rows?.forEachIndexed { index, row ->
+                                val allowed = managerMode || accountName.isNullOrBlank() || namesMatch(row.name, accountName)
                                 DropdownMenuItem(
+                                    enabled = allowed,
                                     text = {
                                         Column {
                                             Text(
@@ -394,7 +425,8 @@ internal fun OcrScanScreen(
                                                 fontWeight = FontWeight.Bold
                                             )
                                             Text(
-                                                row.dayShifts.size.toString() + " prepoznatih dana",
+                                                row.dayShifts.size.toString() + " prepoznatih dana" +
+                                                    if (allowed) "" else " · račun dopušta samo vlastiti raspored",
                                                 fontSize = 11.sp,
                                                 color = RasporedTokens.Slate
                                             )
@@ -532,22 +564,40 @@ internal fun OcrScanScreen(
         }
 
         item {
-            Button(
-                onClick = {
-                    onSaveSchedule(
-                        recognizedMonth,
-                        editedShifts
-                            .filterKeys { it in 1..recognizedMonth.lengthOfMonth() }
-                            .filterValues { it in listOf("D", "N", "GO", "BO", "PD", "SD") }
-                    )
-                },
-                enabled = selectedRow >= 0 && editedShifts.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Outlined.CheckCircle, null)
-                Spacer(Modifier.width(8.dp))
-                Text("Spremi raspored", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        onSaveSchedule(
+                            recognizedMonth,
+                            editedShifts
+                                .filterKeys { it in 1..recognizedMonth.lengthOfMonth() }
+                                .filterValues { it in listOf("D", "N", "GO", "BO", "PD", "SD") }
+                        )
+                    },
+                    enabled = selectedRow >= 0 &&
+                        editedShifts.isNotEmpty() &&
+                        (managerMode || accountName.isNullOrBlank() || activeRow?.let { namesMatch(it.name, accountName) } == true),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Outlined.CheckCircle, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Spremi raspored", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+                if (managerMode && (result?.rows?.size ?: 0) > 1) {
+                    OutlinedButton(
+                        onClick = {
+                            val rows = result?.rows.orEmpty().filter { it.dayShifts.isNotEmpty() }
+                            if (rows.isNotEmpty()) onSaveTeamSchedules(recognizedMonth, rows)
+                        },
+                        enabled = result?.rows.orEmpty().any { it.dayShifts.isNotEmpty() },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
+                    ) {
+                        Icon(Icons.Outlined.Groups, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Spremi sve prepoznate djelatnike")
+                    }
+                }
             }
         }
     }
@@ -563,7 +613,8 @@ internal fun OcrScanScreen(
                     Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
                     Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
-                    Text("• Ako je na rasporedu više osoba, odaberi samo jedno ime i prezime.")
+                    Text("• Osobni račun može uvesti samo registrirano ime; voditeljski račun može spremiti sve djelatnike odvojeno.")
+                    Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja.")
                 }
             },
@@ -634,7 +685,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
             Spacer(Modifier.height(7.dp))
             Surface(shape = RoundedCornerShape(9.dp), color = bg, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    if (code.isBlank()) "slobodno" else code,
+                    if (code.isBlank()) "" else code,
                     color = fg,
                     fontWeight = if (code.isBlank()) FontWeight.Medium else FontWeight.ExtraBold,
                     fontSize = if (code.isBlank()) 10.sp else 14.sp,
@@ -651,3 +702,17 @@ private fun nextShiftCode(current: String): String {
     val index = order.indexOf(current).takeIf { it >= 0 } ?: 0
     return order[(index + 1) % order.size]
 }
+
+
+private fun namesMatch(left: String, right: String): Boolean =
+    normalizedNameTokens(left) == normalizedNameTokens(right)
+
+private fun normalizedNameTokens(value: String): List<String> =
+    Normalizer.normalize(value.uppercase(Locale("hr", "HR")), Normalizer.Form.NFD)
+        .replace(Regex("""\p{M}+"""), "")
+        .replace('Đ', 'D')
+        .replace(Regex("""[^A-Z0-9]+"""), " ")
+        .trim()
+        .split(Regex("""\s+"""))
+        .filter(String::isNotBlank)
+        .sorted()

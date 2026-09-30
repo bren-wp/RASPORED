@@ -18,7 +18,7 @@ function normalizeAscii(value){
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/Đ/g,"D");
 }
 function canonicalShift(raw){
-  var value=normalize(raw).toUpperCase().replace(/[.,;:|]+$/,"");
+  var value=normalize(raw).toUpperCase().replace(/^[.,;:|\[\](){}_\-]+|[.,;:|\[\](){}_\-]+$/g,"");
   if(value==="G0")return "GO";
   if(value==="B0")return "BO";
   return VALID.has(value)?value:null;
@@ -75,8 +75,11 @@ function nameFingerprint(value){
 function mergeRows(rows){
   var merged=[];
   (rows||[]).forEach(function(row){
-    if(!row||!validName(row.name||""))return;
-    var key=nameFingerprint(row.name);
+    if(!row)return;
+    var numbered=Number.isInteger(Number(row.row))&&Number(row.row)>=1&&Number(row.row)<=100;
+    var valid=validName(row.name||"");
+    if(!valid&&!numbered)return;
+    var key=valid?nameFingerprint(row.name):("__ROW__"+Number(row.row));
     var index=merged.findIndex(function(existing){
       var sameRow=row.row!=null&&existing.row!=null&&Number(row.row)===Number(existing.row);
       var conflictingRows=row.row!=null&&existing.row!=null&&Number(row.row)!==Number(existing.row);
@@ -123,7 +126,7 @@ function mergeRows(rows){
 function parseText(text){
   var rows=String(text||"").split(/\r?\n/).map(normalize).filter(Boolean).map(function(line){
     var explicit={};
-    Array.from(line.matchAll(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu))
+    Array.from(line.matchAll(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)|\-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu))
       .forEach(function(match){
         var code=canonicalShift(match[2]);
         if(code)explicit[Number(match[1])]=code;
@@ -581,14 +584,14 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
   var bitmap;
   try{
     bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
-    var rosterWidth=Math.max(1,Math.round(bitmap.width*.28));
+    var rosterWidth=Math.max(1,Math.round(bitmap.width*.34));
     var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*startRatio)));
     var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*endRatio)));
     var gridWidth=gridEnd-gridStart;
     var rawWidth=rosterWidth+gridWidth;
-    var pixelScale=Math.sqrt(7500000/(rawWidth*bitmap.height));
-    var edgeScale=4200/rawWidth;
-    var scale=Math.max(.70,Math.min(2.40,pixelScale,edgeScale));
+    var pixelScale=Math.sqrt(8500000/(rawWidth*bitmap.height));
+    var edgeScale=4600/rawWidth;
+    var scale=Math.max(.75,Math.min(2.85,pixelScale,edgeScale));
     var canvas=document.createElement("canvas");
     canvas.width=Math.max(1,Math.round(rawWidth*scale));
     canvas.height=Math.max(1,Math.round(bitmap.height*scale));
@@ -611,6 +614,75 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
     context.filter="none";
     return await new Promise(function(resolve){
       canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.97);
+    });
+  }catch(error){
+    return tableSource;
+  }finally{
+    if(bitmap&&typeof bitmap.close==="function")bitmap.close();
+  }
+}
+async function prepareFocusedTableTile(tableSource,rowStart,rowEnd,dayStart,dayEnd){
+  if(typeof createImageBitmap!=="function")return tableSource;
+  var bitmap;
+  try{
+    bitmap=await createImageBitmap(tableSource,{imageOrientation:"from-image"});
+    var rosterWidth=Math.max(1,Math.round(bitmap.width*.34));
+    var gridStart=Math.max(0,Math.min(bitmap.width-1,Math.round(bitmap.width*dayStart)));
+    var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*dayEnd)));
+    var gridWidth=gridEnd-gridStart;
+
+    // Always preserve the day-number header, then append only one horizontal
+    // roster band. This makes both tiny employee names and one-letter shift
+    // cells much larger than in a whole-table pass without losing day geometry.
+    var headerHeight=Math.max(1,Math.round(bitmap.height*.16));
+    var bodyTop=Math.max(headerHeight,Math.round(bitmap.height*rowStart));
+    var bodyBottom=Math.max(bodyTop+1,Math.min(bitmap.height,Math.round(bitmap.height*rowEnd)));
+    var bodyHeight=bodyBottom-bodyTop;
+    var rawWidth=rosterWidth+gridWidth;
+    var rawHeight=headerHeight+bodyHeight;
+
+    var pixelScale=Math.sqrt(6500000/(rawWidth*rawHeight));
+    var edgeScale=4200/rawWidth;
+    var scale=Math.max(1.05,Math.min(3.25,pixelScale,edgeScale));
+    var canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(rawWidth*scale));
+    canvas.height=Math.max(1,Math.round(rawHeight*scale));
+    var rosterOut=Math.max(1,Math.min(canvas.width-1,Math.round(rosterWidth*scale)));
+    var headerOut=Math.max(1,Math.min(canvas.height-1,Math.round(headerHeight*scale)));
+    var context=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!context)return tableSource;
+
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.filter="grayscale(1) contrast(1.62)";
+
+    // Header: roster area + exact original day-band columns.
+    context.drawImage(
+      bitmap,
+      0,0,rosterWidth,headerHeight,
+      0,0,rosterOut,headerOut
+    );
+    context.drawImage(
+      bitmap,
+      gridStart,0,gridWidth,headerHeight,
+      rosterOut,0,canvas.width-rosterOut,headerOut
+    );
+
+    // Body: selected employee rows only, aligned to the same X mapping.
+    context.drawImage(
+      bitmap,
+      0,bodyTop,rosterWidth,bodyHeight,
+      0,headerOut,rosterOut,canvas.height-headerOut
+    );
+    context.drawImage(
+      bitmap,
+      gridStart,bodyTop,gridWidth,bodyHeight,
+      rosterOut,headerOut,canvas.width-rosterOut,canvas.height-headerOut
+    );
+    context.filter="none";
+
+    return await new Promise(function(resolve){
+      canvas.toBlob(function(blob){resolve(blob||tableSource)},"image/jpeg",.98);
     });
   }catch(error){
     return tableSource;
@@ -711,6 +783,12 @@ function sparseResult(parsed){
   var expected=Math.min(daysInMonth(parsed.month),12);
   return mapped<Math.max(18,rows.length*expected);
 }
+function hasAnonymousNumberedRows(parsed){
+  var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
+  return rows.some(function(row){
+    return Number.isInteger(Number(row.row))&&!validName(row.name||"");
+  });
+}
 function missingNumberedRows(parsed){
   var rows=parsed&&Array.isArray(parsed.people)?parsed.people:[];
   var numbers=Array.from(new Set(rows.map(function(row){return Number(row.row)}).filter(function(value){
@@ -740,7 +818,7 @@ async function recognizeScheduleNow(file,onProgress){
       ?await window.RasporedOcrTableCrop.cropScheduleTable(file)
       :file;
     var forceDenseRecovery=tableSource!==file;
-    var needsDeep=forceDenseRecovery||sparseResult(first)||missingNumberedRows(first)||(first.people||[]).length<16;
+    var needsDeep=forceDenseRecovery||sparseResult(first)||missingNumberedRows(first)||hasAnonymousNumberedRows(first)||(first.people||[]).length<16;
     if(!needsDeep)return first;
 
     if(onProgress)onProgress(.78,"recovery");
@@ -752,9 +830,9 @@ async function recognizeScheduleNow(file,onProgress){
     var merged=mergeRecognized(first,second);
     if(!forceDenseRecovery&&!sparseResult(merged)&&!missingNumberedRows(merged)&&(merged.people||[]).length>=16)return merged;
 
-    var stripes=[[0,.46],[.27,.74],[.55,1]];
+    var stripes=[[0,.30],[.18,.48],[.36,.66],[.54,.84],[.72,1]];
     for(var i=0;i<stripes.length;i++){
-      if(onProgress)onProgress(.80+i*.025,"table-stripe-"+(i+1));
+      if(onProgress)onProgress(.80+i*.012,"table-stripe-"+(i+1));
       var stripeSource=await prepareStripe(tableSource,stripes[i][0],stripes[i][1]);
       var stripe=parsedResult(
         await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
@@ -771,9 +849,9 @@ async function recognizeScheduleNow(file,onProgress){
       return Number.isInteger(Number(row.row))&&Object.keys(row.dayShifts||{}).length<3;
     });
     if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)||sparseNumberedRow){
-      var dayBands=[[.15,.39],[.36,.60],[.57,.81],[.78,1]];
+      var dayBands=[[.12,.28],[.22,.38],[.32,.48],[.42,.58],[.52,.68],[.62,.78],[.72,.88],[.82,1]];
       for(var b=0;b<dayBands.length;b++){
-        if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
+        if(onProgress)onProgress(.86+b*.012,"day-band-"+(b+1));
         var bandSource=await prepareDayBandComposite(tableSource,dayBands[b][0],dayBands[b][1]);
         var band=parsedResult(
           await worker.recognize(bandSource,{}, {text:true,blocks:true}),
@@ -783,15 +861,45 @@ async function recognizeScheduleNow(file,onProgress){
       }
     }
 
-    if(onProgress)onProgress(.97,"roster-column");
+    var mappedAfterBands=(merged.people||[]).reduce(function(sum,row){
+      return sum+Object.keys(row.dayShifts||{}).length;
+    },0);
+    var minimumMapped=Math.max(12,(merged.people||[]).length*2);
+    if((merged.people||[]).length>=4&&mappedAfterBands<minimumMapped){
+      // Extremely dense photographed schedules can yield the roster but almost
+      // no one-letter cell codes. Cross-tiling both axes is slower, so it is
+      // reserved for this failure mode. Each pass keeps the header + roster and
+      // enlarges only one row band and one day band.
+      var rowBands=[[.12,.44],[.36,.70],[.62,1]];
+      var focusedDayBands=[[.18,.62],[.56,1]];
+      var pass=0,totalPasses=rowBands.length*focusedDayBands.length;
+      for(var rb=0;rb<rowBands.length;rb++){
+        for(var db=0;db<focusedDayBands.length;db++){
+          pass++;
+          if(onProgress)onProgress(.94+pass/totalPasses*.018,"focused-table-"+pass);
+          var focusedSource=await prepareFocusedTableTile(
+            tableSource,
+            rowBands[rb][0],rowBands[rb][1],
+            focusedDayBands[db][0],focusedDayBands[db][1]
+          );
+          var focusedParsed=parsedResult(
+            await worker.recognize(focusedSource,{}, {text:true,blocks:true}),
+            merged.month
+          );
+          merged=mergeRecognized(merged,focusedParsed);
+        }
+      }
+    }
+
+    if(onProgress)onProgress(.96,"roster-column");
     var rosterSource=await prepareRosterColumn(tableSource);
     var rosterResult=await worker.recognize(rosterSource,{}, {text:true,blocks:true});
     var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
     merged.people=mergeRows((merged.people||[]).concat(rosterRows));
 
-    var rosterBands=[[0,.44],[.28,.73],[.57,1]];
+    var rosterBands=[[0,.28],[.18,.46],[.36,.64],[.54,.82],[.72,1]];
     for(var r=0;r<rosterBands.length;r++){
-      if(onProgress)onProgress(.98+r*.006,"roster-band-"+(r+1));
+      if(onProgress)onProgress(.965+r*.005,"roster-band-"+(r+1));
       var rosterBandSource=await prepareRosterBand(tableSource,rosterBands[r][0],rosterBands[r][1]);
       var rosterBandResult=await worker.recognize(rosterBandSource,{}, {text:true,blocks:true});
       var rosterBandRows=parseRosterRows(
@@ -799,6 +907,7 @@ async function recognizeScheduleNow(file,onProgress){
       );
       merged.people=mergeRows((merged.people||[]).concat(rosterBandRows));
     }
+    merged.people=(merged.people||[]).filter(function(row){return validName(row.name||"")});
     return merged;
   }finally{
     activeProgressCallback=null;

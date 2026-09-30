@@ -21,10 +21,16 @@ internal object ScheduleTableDetector {
 
     fun cropForRecovery(source: Bitmap): Bitmap? {
         val bounds = detectBounds(source) ?: return null
-        val areaRatio =
-            (bounds.width().toDouble() * bounds.height().toDouble()) /
-                (source.width.toDouble() * source.height.toDouble())
-        if (areaRatio >= 0.92) return null
+        val widthRatio = bounds.width().toDouble() / source.width.toDouble()
+        val heightRatio = bounds.height().toDouble() / source.height.toDouble()
+        val areaRatio = widthRatio * heightRatio
+
+        // Completeness has priority over aggressive cropping. A partial grid
+        // detection caused by glare or weak lines must never cut off the lower
+        // employees or the last day columns. If the detected rectangle is too
+        // small to plausibly be the whole monthly table, recovery uses the
+        // original full-resolution image instead.
+        if (widthRatio < 0.60 || heightRatio < 0.45 || areaRatio >= 0.92) return null
         return runCatching {
             Bitmap.createBitmap(
                 source,

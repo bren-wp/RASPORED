@@ -65,6 +65,8 @@ data class PayrollEvidence(
     val standbyMinutes: Long,
     val calloutMinutes: Long,
     val compensatedAbsenceMinutes: Long,
+    val holidayCompensatedMinutes: Long,
+    val holidayCompensatedDays: Int,
     val goDays: Int,
     val boDays: Int,
     val pdDays: Int,
@@ -431,7 +433,7 @@ object PublicSectorPayroll {
         val secondShiftAddition = add(secondMinutes, rates.secondShift)
         val turnusAddition = add(turnusMinutes, rates.turnus)
         val additions = nightAddition + saturdayAddition + sundayAddition + holidayAddition +
-            overtimeAddition + secondShiftAddition + turnusAddition + custom
+            overtimeBasePay + overtimeAddition + secondShiftAddition + turnusAddition + custom
         val gross = basicGross + additions
         val pension = gross * PENSION_CONTRIBUTION
         val taxable = (gross - pension - personalAllowance.coerceIn(0.0, 10_000.0)).coerceAtLeast(0.0)
@@ -539,17 +541,33 @@ object PublicSectorPayroll {
                 "SD" -> sdDays++
             }
         }
-        val compensatedAbsenceDays = scheduleCodes.count { (dateText, code) ->
-            if (code !in setOf("GO", "BO", "PD")) {
-                false
-            } else {
-                val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
-                date != null && YearMonth.from(date) == month && date !in workedDates
+        val compensatedAbsenceDates = mutableSetOf<java.time.LocalDate>()
+        scheduleCodes.forEach { (dateText, code) ->
+            if (code !in setOf("GO", "BO", "PD")) return@forEach
+            val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
+                ?: return@forEach
+            if (YearMonth.from(date) == month && date !in workedDates) {
+                compensatedAbsenceDates += date
             }
         }
-        val compensatedAbsenceMinutes = compensatedAbsenceDays * 8L * 60L
+
+        val holidayCompensatedDates = (1..month.lengthOfMonth())
+            .map(month::atDay)
+            .filter { date ->
+                date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
+                    holidays.containsKey(date) &&
+                    date !in workedDates &&
+                    date !in compensatedAbsenceDates
+            }
+            .toSet()
+
+        val compensatedAbsenceMinutes = compensatedAbsenceDates.size * 8L * 60L
+        val holidayCompensatedMinutes = holidayCompensatedDates.size * 8L * 60L
         val overtime = (
-            worked + compensatedAbsenceMinutes - monthlyFundHours(month) * 60L
+            worked +
+                compensatedAbsenceMinutes +
+                holidayCompensatedMinutes -
+                monthlyFundHours(month) * 60L
         ).coerceAtLeast(0L)
         return PayrollEvidence(
             workedMinutes = worked,
@@ -566,6 +584,8 @@ object PublicSectorPayroll {
             standbyMinutes = standby,
             calloutMinutes = callout,
             compensatedAbsenceMinutes = compensatedAbsenceMinutes,
+            holidayCompensatedMinutes = holidayCompensatedMinutes,
+            holidayCompensatedDays = holidayCompensatedDates.size,
             goDays = goDays,
             boDays = boDays,
             pdDays = pdDays,

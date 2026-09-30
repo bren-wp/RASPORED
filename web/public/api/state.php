@@ -91,9 +91,8 @@ function storage_directory(): string
     return $dir;
 }
 
-function storage_file(string $token): string
+function storage_file(string $token, ?array $account): string
 {
-    $account = raspored_current_account();
     if ($account !== null && isset($account['id'])) {
         return raspored_account_state_path((string) $account['id']);
     }
@@ -363,7 +362,12 @@ function read_state(string $file): array
     return clean_state($decoded, $revision);
 }
 
-function write_state(string $file, array $state): array
+function write_state(
+    string $file,
+    array $state,
+    ?array $account,
+    ?int $expectedRevision = null
+): array
 {
     $dir = dirname($file);
     $lockPath = $dir . '/.write.lock';
@@ -377,8 +381,15 @@ function write_state(string $file, array $state): array
 
     try {
         $current = read_state($file);
-        $next = clean_state($state, ((int) ($current['revision'] ?? 0)) + 1);
-        $next = enforce_account_scope($next, raspored_current_account());
+        $currentRevision = (int) ($current['revision'] ?? 0);
+        if ($expectedRevision !== null && $expectedRevision !== $currentRevision) {
+            fail_json(
+                409,
+                'Podaci su izmijenjeni na drugom uređaju. Najprije preuzmi najnovije stanje pa ponovi spremanje.'
+            );
+        }
+        $next = clean_state($state, $currentRevision + 1);
+        $next = enforce_account_scope($next, $account);
         $json = json_encode($next, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         if ($json === false) {
             fail_json(500, 'Podatke nije moguće kodirati.');
@@ -401,12 +412,34 @@ function write_state(string $file, array $state): array
     }
 }
 
+function merge_state_patch(array $current, mixed $rawPatch): array
+{
+    if (!is_array($rawPatch)) {
+        return $current;
+    }
+    foreach (['schedule', 'evidence', 'profile', 'colleagues', 'teamMembers', 'settings', 'payroll'] as $key) {
+        if (array_key_exists($key, $rawPatch)) {
+            $current[$key] = $rawPatch[$key];
+        }
+    }
+    return $current;
+}
+
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-$token = client_token();
-$file = storage_file($token);
+$mobile = raspored_mobile_client_request();
+if ($mobile && !raspored_secure_api_transport_ok()) {
+    fail_json(403, 'Android sinkronizacija zahtijeva HTTPS.');
+}
+$account = $mobile
+    ? raspored_mobile_account_from_token(raspored_bearer_token())
+    : raspored_current_account();
+if ($mobile && $account === null) {
+    fail_json(401, 'Prijava za Android sinkronizaciju nije valjana ili je istekla.');
+}
+$token = $account === null ? client_token() : '';
+$file = storage_file($token, $account);
 
 if ($method === 'GET') {
-    $account = raspored_current_account();
     $state = enforce_account_scope(read_state($file), $account);
     echo json_encode([
         'ok' => true,
@@ -426,13 +459,14 @@ if ((string) ($_SERVER['HTTP_X_RASPORED_REQUEST'] ?? '') !== '1') {
     fail_json(403, 'Zahtjev nije dopušten.');
 }
 
-$origin = rtrim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
-if ($origin !== '') {
-    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-    $expectedOrigin = ($secure ? 'https://' : 'http://') . (string) ($_SERVER['HTTP_HOST'] ?? '');
-    if (!hash_equals(strtolower($expectedOrigin), strtolower($origin))) {
-        fail_json(403, 'Izvor zahtjeva nije dopušten.');
+if (!$mobile) {
+    $origin = rtrim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
+    if ($origin !== '') {
+        $secure = raspored_is_https();
+        $expectedOrigin = ($secure ? 'https://' : 'http://') . (string) ($_SERVER['HTTP_HOST'] ?? '');
+        if (!hash_equals(strtolower($expectedOrigin), strtolower($origin))) {
+            fail_json(403, 'Izvor zahtjeva nije dopušten.');
+        }
     }
 }
 
@@ -451,5 +485,25 @@ if (!is_array($payload)) {
     fail_json(400, 'Neispravan JSON.');
 }
 
-$next = write_state($file, $payload['state'] ?? $payload);
-echo json_encode(['ok' => true, 'state' => $next], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$incoming = $payload['state'] ?? $payload;
+if (($payload['patch'] ?? false) === true) {
+    $incoming = merge_state_patch(read_state($file), $incoming);
+}
+$expectedRevision = isset($payload['expectedRevision']) && is_numeric($payload['expectedRevision'])
+    ? max(0, (int) $payload['expectedRevision'])
+    : null;
+if ($mobile && $expectedRevision === null) {
+    fail_json(428, 'Android sinkronizacija zahtijeva poznatu reviziju stanja. Najprije preuzmi podatke.');
+}
+$next = write_state(
+    $file,
+    is_array($incoming) ? $incoming : [],
+    $account,
+    $expectedRevision
+);
+echo json_encode([
+    'ok' => true,
+    'state' => $next,
+    'authenticated' => $account !== null,
+    'account' => raspored_public_account($account),
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -207,8 +207,13 @@ async function cropScheduleTable(file){
     if(!bounds)return file;
     var width=Math.max(1,bounds.right-bounds.left);
     var height=Math.max(1,bounds.bottom-bounds.top);
-    var areaRatio=(width*height)/(bitmap.width*bitmap.height);
-    if(areaRatio>=.92)return file;
+    var widthRatio=width/bitmap.width;
+    var heightRatio=height/bitmap.height;
+    var areaRatio=widthRatio*heightRatio;
+    // Never trade completeness for a tighter crop. Weak/glared grid lines can
+    // make a partial 10–15-row rectangle look valid; in that case keep the
+    // whole source so later stripe/focused passes can still recover every row.
+    if(widthRatio<.60||heightRatio<.45||areaRatio>=.92)return file;
 
     var canvas=document.createElement("canvas");
     canvas.width=width;

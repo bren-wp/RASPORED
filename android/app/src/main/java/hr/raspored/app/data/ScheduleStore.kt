@@ -22,6 +22,16 @@ class ScheduleStore(context: Context) {
             }
             .toMap()
 
+    fun replaceAll(schedule: Map<String, String>) {
+        val editor = preferences.edit().clear()
+        schedule.toSortedMap().forEach { (date, code) ->
+            if (DATE.matches(date) && code in VALID_CODES) {
+                editor.putString(date, code)
+            }
+        }
+        editor.apply()
+    }
+
     fun saveMonth(month: YearMonth, shifts: Map<Int, String>) {
         val editor = preferences.edit()
         (1..month.lengthOfMonth()).forEach { day ->
