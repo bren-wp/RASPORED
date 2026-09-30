@@ -225,6 +225,79 @@ function findHeader(lines,maxDay){
     observedDays:Object.keys(observed).map(Number)
   };
 }
+function inferDayCentersFromShiftXs(rawXs,maxDay){
+  if(maxDay<28||maxDay>31||!Array.isArray(rawXs)||rawXs.length<12)return null;
+  var sorted=rawXs.slice().map(Number).filter(Number.isFinite).sort(function(a,b){return a-b});
+  if(sorted.length<12)return null;
+  var span=sorted[sorted.length-1]-sorted[0];
+  if(!(span>0))return null;
+
+  var tolerance=Math.max(3,span/(maxDay*5.5));
+  var clusters=[];
+  sorted.forEach(function(x){
+    var current=clusters[clusters.length-1];
+    var mean=current&&current.length
+      ?current.reduce(function(sum,v){return sum+v},0)/current.length
+      :null;
+    if(current&&mean!=null&&Math.abs(x-mean)<=tolerance)current.push(x);
+    else clusters.push([x]);
+  });
+
+  var observed=clusters.map(function(cluster){
+    return cluster.reduce(function(sum,v){return sum+v},0)/cluster.length;
+  });
+  if(observed.length<Math.max(12,Math.floor(maxDay/2)))return null;
+
+  var candidates=[];
+  for(var leading=0;leading<=3;leading++){
+    for(var trailing=0;trailing<=3;trailing++){
+      var firstDay=1+leading,lastDay=maxDay-trailing,daySpan=lastDay-firstDay;
+      if(daySpan<=0)continue;
+      var slope=(observed[observed.length-1]-observed[0])/daySpan;
+      if(!(slope>=3))continue;
+      var intercept=observed[0]-(firstDay-1)*slope;
+      var assigned=observed.map(function(x){
+        return Math.max(1,Math.min(maxDay,Math.round((x-intercept)/slope)+1));
+      });
+      var strictlyIncreasing=true;
+      for(var i=1;i<assigned.length;i++)if(assigned[i]<=assigned[i-1]){strictlyIncreasing=false;break}
+      if(!strictlyIncreasing)continue;
+      var residual=observed.reduce(function(sum,x,index){
+        return sum+Math.abs(x-(intercept+(assigned[index]-1)*slope));
+      },0)/observed.length/slope;
+      residual+=(leading+trailing)*.025;
+      candidates.push({slope:slope,intercept:intercept,residual:residual,assigned:assigned});
+    }
+  }
+  if(!candidates.length)return null;
+  candidates.sort(function(a,b){return a.residual-b.residual});
+  var best=candidates[0];
+  if(best.residual>.24)return null;
+  var unique=Array.from(new Set(best.assigned));
+  if(unique.length<Math.max(12,Math.floor(maxDay/2)))return null;
+  if(Math.max.apply(null,unique)-Math.min.apply(null,unique)<maxDay-7)return null;
+
+  var centers={};
+  for(var day=1;day<=maxDay;day++)centers[day]=best.intercept+(day-1)*best.slope;
+  return {centers:centers,spacing:best.slope};
+}
+function inferHeaderFromShiftColumns(lines,maxDay){
+  var words=allWords(lines);
+  var shiftWords=words.filter(function(word){return !!canonicalShift(word.text)});
+  if(shiftWords.length<12)return null;
+  var inferred=inferDayCentersFromShiftXs(
+    shiftWords.map(function(word){return centerX(word.bbox)}),
+    maxDay
+  );
+  if(!inferred)return null;
+  return {
+    centers:inferred.centers,
+    spacing:inferred.spacing,
+    minX:Math.min.apply(null,Object.values(inferred.centers)),
+    bottom:-Infinity,
+    observedDays:[]
+  };
+}
 function clusterByY(tokens,tolerance){
   var clusters=[];
   tokens.slice().sort(function(a,b){return centerY(a.bbox)-centerY(b.bbox)}).forEach(function(token){
@@ -305,7 +378,8 @@ function anchoredRows(tokens,geometry,tolerance){
 function parseGeometry(blocks,maxDay){
   var lines=flattenLines(blocks);
   if(!lines.length)return [];
-  var header=findHeader(lines,maxDay||31);
+  var resolvedMaxDay=maxDay||31;
+  var header=findHeader(lines,resolvedMaxDay)||inferHeaderFromShiftColumns(lines,resolvedMaxDay);
   if(!header)return [];
   var linesBelow=lines.filter(function(line){
     return line.bbox&&centerY(line.bbox)>header.bottom;
@@ -407,6 +481,7 @@ window.RasporedWebOcr={
   parseText:parseText,
   parseGeometry:parseGeometry,
   detectMonth:detectMonth,
-  inferDayCenters:inferDayCenters
+  inferDayCenters:inferDayCenters,
+  inferDayCentersFromShiftXs:inferDayCentersFromShiftXs
 };
 })();
