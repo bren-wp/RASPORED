@@ -59,6 +59,9 @@ class AccountSyncStore(private val context: Context) {
     val isAuthenticated: Boolean
         get() = account != null && secureToken.read().isNotBlank()
 
+    val lastSyncedRevision: Int
+        get() = preferences.getInt(KEY_REVISION, REVISION_UNKNOWN)
+
     suspend fun register(
         firstName: String,
         lastName: String,
@@ -132,6 +135,7 @@ class AccountSyncStore(private val context: Context) {
         }
         val snapshot = parseSnapshot(response.second)
         snapshot.account?.let(::saveAccount)
+        saveRevision(snapshot.revision)
         CloudResult.Success(snapshot)
     }
 
@@ -153,7 +157,16 @@ class AccountSyncStore(private val context: Context) {
         if (currentAccount.isManager) {
             state.put("teamMembers", teamJson(teamMembers))
         }
-        val payload = JSONObject().put("patch", true).put("state", state)
+        val revision = lastSyncedRevision
+        if (revision == REVISION_UNKNOWN) {
+            return@withContext CloudResult.Error(
+                "Prije prvog spremanja na postojeći račun odaberi Preuzmi kako se podaci s drugog uređaja ne bi prepisali."
+            )
+        }
+        val payload = JSONObject()
+            .put("patch", true)
+            .put("expectedRevision", revision)
+            .put("state", state)
         val response = request("/api/state.php", "PUT", token, payload)
         if (response.first !in 200..299) {
             if (response.first == 401) clearSession()
@@ -163,6 +176,7 @@ class AccountSyncStore(private val context: Context) {
         }
         val snapshot = parseSnapshot(response.second)
         snapshot.account?.let(::saveAccount)
+        saveRevision(snapshot.revision)
         CloudResult.Success(snapshot)
     }
 
@@ -182,6 +196,11 @@ class AccountSyncStore(private val context: Context) {
             }
             secureToken.write(token)
             saveAccount(parsed)
+            if (payload.optString("action") == "register") {
+                saveRevision(0)
+            } else {
+                clearRevision()
+            }
             CloudResult.Success(parsed)
         }
 
@@ -413,17 +432,30 @@ class AccountSyncStore(private val context: Context) {
         preferences.edit().putString(KEY_ACCOUNT, json.toString()).apply()
     }
 
+    private fun saveRevision(revision: Int) {
+        preferences.edit().putInt(KEY_REVISION, revision.coerceAtLeast(0)).apply()
+    }
+
+    private fun clearRevision() {
+        preferences.edit().remove(KEY_REVISION).apply()
+    }
+
     private fun parseAccount(raw: String): CloudAccount? =
         runCatching { accountFromJson(JSONObject(raw)) }.getOrNull()
 
     private fun clearSession() {
         secureToken.clear()
-        preferences.edit().remove(KEY_ACCOUNT).apply()
+        preferences.edit()
+            .remove(KEY_ACCOUNT)
+            .remove(KEY_REVISION)
+            .apply()
     }
 
     private companion object {
         const val SERVER_BASE = "https://raspored.eu"
         const val KEY_ACCOUNT = "account"
+        const val KEY_REVISION = "revision"
+        const val REVISION_UNKNOWN = -1
         const val DAY_MILLIS = 86_400_000L
         val DATE = Regex("""\d{4}-\d{2}-\d{2}""")
         val VALID_CODES = setOf("D", "N", "GO", "BO", "PD", "SD")
