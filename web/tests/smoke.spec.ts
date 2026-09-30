@@ -151,6 +151,78 @@ test("profile, notifications and colleagues controls work", async ({page}) => {
   await expect(page.locator("#profileNameInput")).toHaveValue("Sara Kovač");
 });
 
+test("Web account registration stays optional and manager import keeps employees separate", async ({page},testInfo) => {
+  await mockOcr(page);
+  await page.goto("/");
+  await page.locator('[data-route="settings"]:visible').first().click();
+  await expect(page.locator("#accountStatusBadge")).toHaveText("Gost");
+  await page.locator("#registerAccountBtn").click();
+  const suffix=testInfo.project.name.replace(/[^a-z0-9]+/gi,"-").toLowerCase();
+  await page.locator("#registerFirstName").fill("Maja");
+  await page.locator("#registerLastName").fill("Perić");
+  await page.locator("#registerEmail").fill("voditelj-"+suffix+"@example.test");
+  await page.locator("#registerPhone").fill("+385 91 555 0101");
+  await page.locator("#registerPassword").fill("RasporedTest2026");
+  await page.locator("#registerAccountType").selectOption("manager");
+  await Promise.all([
+    page.waitForLoadState("domcontentloaded"),
+    page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click()
+  ]);
+  await page.locator('[data-route="settings"]:visible').first().click();
+  await expect(page.locator("#accountStatusBadge")).toHaveText("Prijavljen");
+  await expect(page.locator("#accountDetails")).toContainText("Voditelj tima");
+
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#galleryInput").setInputFiles({
+    name:"tim.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
+  });
+  await expect(page.locator("#saveTeamSchedules")).toBeVisible();
+  await page.locator("#saveTeamSchedules").click();
+  await expect(page.locator("#teamSchedulesCard")).toBeVisible();
+  await expect(page.locator("#teamMembersList .team-member-row")).toHaveCount(3);
+  await expect(page.locator("#teamMembersList")).toContainText("ANA HORVAT");
+  await expect(page.locator("#teamMembersList")).toContainText("LUKA BABIĆ");
+  const team=await page.evaluate(()=>JSON.parse((window as any).RasporedDataStore.get("raspored.team.v1")||"[]"));
+  expect(team).toHaveLength(3);
+  expect(Object.keys(team[0].schedule).length).toBeGreaterThan(0);
+  expect(team[0].schedule).not.toEqual(team[1].schedule);
+});
+
+test("individual Web account can import only its own recognized row", async ({page},testInfo) => {
+  await mockOcr(page);
+  await page.goto("/");
+  await page.locator('[data-route="settings"]:visible').first().click();
+  await page.locator("#registerAccountBtn").click();
+  const suffix=testInfo.project.name.replace(/[^a-z0-9]+/gi,"-").toLowerCase();
+  await page.locator("#registerFirstName").fill("Ana");
+  await page.locator("#registerLastName").fill("Horvat");
+  await page.locator("#registerEmail").fill("ana-"+suffix+"@example.test");
+  await page.locator("#registerPhone").fill("+385 91 555 0102");
+  await page.locator("#registerPassword").fill("RasporedTest2026");
+  await Promise.all([
+    page.waitForLoadState("domcontentloaded"),
+    page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click()
+  ]);
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#galleryInput").setInputFiles({
+    name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
+  });
+  await expect(page.locator("#scanPersonLabel")).toContainText("ANA HORVAT");
+  await expect(page.locator('#scanPersonMenu [data-scan-person="1"]')).toBeDisabled();
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
+  await expect(page.locator("#saveTeamSchedules")).toBeHidden();
+});
+
+test("Web export offers JSON backup and truthful print-to-PDF action", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-route="settings"]:visible').first().click();
+  const downloadPromise=page.waitForEvent("download");
+  await page.locator("#exportJsonBtn").click();
+  const download=await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^RASPORED-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  await expect(page.locator("#printPdfBtn")).toHaveText("Ispis / spremi kao PDF");
+});
+
 test("no demo or development labels ship in production UI", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).not.toContainText("Demo korisnik");
