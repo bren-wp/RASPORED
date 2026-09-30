@@ -393,17 +393,21 @@ test("salary estimator switches between police, fire and manual local regimes", 
   await openPayroll(page);
 
   await page.locator("#payrollSector").selectOption("Policija");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
+  await page.locator("#payrollInstitutionCustom").fill("Policijska postaja Primjer");
   await expect(page.locator("#payrollRole")).toHaveValue("police-station");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.70");
   await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
 
   await page.locator("#payrollSector").selectOption("Vatrogastvo");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
   await expect(page.locator("#payrollRole")).toHaveValue("firefighter");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.10");
   await expect(page.locator("#payrollSecondShift")).toBeDisabled();
   await expect(page.locator("#payrollTurnus")).toBeDisabled();
 
   await page.locator("#payrollSector").selectOption("Lokalna i regionalna uprava");
+  await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
   await expect(page.locator("#payrollCustomBase")).toHaveAttribute("required","");
   await page.locator("#payrollCustomBase").fill("900");
   await page.locator("#payrollCoefficient").fill("2.10");
