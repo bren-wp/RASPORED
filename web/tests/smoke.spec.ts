@@ -268,6 +268,19 @@ test("no demo or development labels ship in production UI", async ({page}) => {
 });
 
 
+test("web OCR filters distant row-number noise from a dense roster", async ({page}) => {
+  await page.goto("/");
+  const rows=await page.evaluate(() => {
+    const api=(window as any).RasporedWebOcr;
+    const lines=[];
+    for(let row=1;row<=12;row++)lines.push(row+" OSOBA PRIMJER "+row+" 1 D");
+    lines.push("80 LAŽNI RUBNI TEKST 1 D");
+    return api.parseText(lines.join("\n"));
+  });
+  expect(rows).toHaveLength(12);
+  expect(rows.map((row:any)=>row.row)).toEqual(Array.from({length:12},(_,index)=>index+1));
+});
+
 test("web OCR parser keeps exact day columns and normalizes common OCR errors", async ({page}) => {
   await page.goto("/");
   const parsed=await page.evaluate(() => {
