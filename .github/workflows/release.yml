@@ -101,7 +101,15 @@ jobs:
               -x "storage/data/client-*.json" \
               -x "storage/data/.write.lock"
           )
-          sha256sum dist/RASPORED.apk dist/RASPORED.aab "dist/RASPORED-web-v${VERSION}.zip" > "dist/SHA256SUMS-v${VERSION}.txt"
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab "dist/RASPORED-web-v${VERSION}.zip" > dist/SHA256SUMS
+          test -s dist/RASPORED.apk
+          test -s dist/RASPORED.aab
+          test -s "dist/RASPORED-web-v${VERSION}.zip"
+          test -s dist/SHA256SUMS
+          unzip -tq dist/RASPORED.apk
+          unzip -tq dist/RASPORED.aab
+          unzip -tq "dist/RASPORED-web-v${VERSION}.zip"
+          sha256sum -c dist/SHA256SUMS
 
       - name: Create GitHub release
         env:
@@ -115,7 +123,7 @@ jobs:
             dist/RASPORED.apk \
             dist/RASPORED.aab \
             "dist/RASPORED-web-v${VERSION}.zip" \
-            "dist/SHA256SUMS-v${VERSION}.txt" \
+            dist/SHA256SUMS \
             --target "$RELEASE_SHA" \
             --title "RASPORED v${VERSION}" \
             --notes "Produkcijsko izdanje RASPORED-a. Sadrži instalabilni Android APK, release AAB za završnu Play Console obradu i Web/PWA paket. APK je automatski potpisan standardnim Android debug potpisom. AAB se gradi kao release bundle bez trajnog upload ključa; za stvarno slanje u Google Play potreban je stabilan upload potpis izvan repozitorija."
