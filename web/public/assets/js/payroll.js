@@ -154,7 +154,12 @@ function evidenceForMonth(year,monthIndex){
     else if(code==="PD")result.pdDays++;
     else if(code==="SD")result.sdDays++;
   });
-  result.compensated=(result.goDays+result.boDays+result.pdDays)*8*60;
+  var compensatedDays=0;
+  Object.keys(schedule).forEach(function(dateKey){
+    var code=schedule[dateKey];
+    if((code==="GO"||code==="BO"||code==="PD")&&!result.workedDates[dateKey])compensatedDays++;
+  });
+  result.compensated=compensatedDays*8*60;
   result.workedDays=Object.keys(result.workedDates).length;
   return result;
 }
