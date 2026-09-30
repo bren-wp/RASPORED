@@ -361,7 +361,7 @@ function activeTimeEntry(entries){
 }
 function currentTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey&&!entries[i].out)return entries[i]}return null}
 function latestTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey)return entries[i]}return null}
-function shiftMeta(code){return {D:{name:"Dnevna smjena",time:"07:00 – 19:00 (12h)",hours:12},N:{name:"Noćna smjena",time:"19:00 – 07:00 (12h)",hours:12},GO:{name:"Godišnji odmor",time:"—",hours:0},BO:{name:"Bolovanje",time:"—",hours:0},PD:{name:"Plaćeni dopust",time:"—",hours:0},SD:{name:"Slobodan dan",time:"—",hours:0}}[code]||{name:"Slobodno",time:"—",hours:0}}
+function shiftMeta(code){return {D:{name:"Dnevna smjena",time:"07:00 – 19:00 (12h)",hours:12},N:{name:"Noćna smjena",time:"19:00 – 07:00 (12h)",hours:12},GO:{name:"Godišnji odmor",time:"—",hours:0},BO:{name:"Bolovanje",time:"—",hours:0},PD:{name:"Plaćeni dopust",time:"—",hours:0},SD:{name:"Slobodan dan (odobreno)",time:"—",hours:0}}[code]||{name:"Redovni slobodni dan",time:"—",hours:0}}
 function hoursText(minutes){
   var mins=Math.max(0,Math.round(minutes||0)),h=Math.floor(mins/60),m=mins%60;
   return m===0?h+"h":h+"h "+String(m).padStart(2,"0")+"min";
@@ -579,8 +579,8 @@ function renderRecognition(){
     var code=selected?(selected[i]||""):"",x=document.createElement("button");
     x.type="button";x.className="recognition-day"+(state.editRecognition?" is-editing":"");
     x.dataset.scanDay=String(i);x.disabled=!selected||!state.editRecognition;
-    x.setAttribute("aria-label",String(i)+". "+months[m]+" "+y+". "+(code?shiftMeta(code).name:"Slobodan dan"));
-    x.innerHTML="<b>"+String(i).padStart(2,"0")+"."+String(m+1).padStart(2,"0")+".</b><small>"+weekdays[new Date(y,m,i).getDay()].toLowerCase()+"</small>"+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift">slobodno</i>');
+    x.setAttribute("aria-label",String(i)+". "+months[m]+" "+y+". "+(code?shiftMeta(code).name:"Redovni slobodni dan"));
+    x.innerHTML="<b>"+String(i).padStart(2,"0")+"."+String(m+1).padStart(2,"0")+".</b><small>"+weekdays[new Date(y,m,i).getDay()].toLowerCase()+"</small>"+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift" aria-label="Redovni slobodni dan"></i>');
     el.appendChild(x);
   }
   var edit=document.getElementById("editRecognitionBtn");
