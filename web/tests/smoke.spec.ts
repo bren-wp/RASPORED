@@ -573,19 +573,11 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
 
-  if(width>820){
-    const before=await page.locator("#monthTitle").textContent();
-    await page.locator("#nextMonth").click();
-    await expect(page.locator("#monthTitle")).not.toHaveText(before||"");
-    await page.locator("#prevMonth").click();
-    await page.locator("#todayBtn").click();
-  }else{
-    await page.locator('[data-route="calendar"]:visible').first().click();
-    const before=await page.locator("#calMonthTitle").textContent();
-    await page.locator("#calNext").click();
-    await expect(page.locator("#calMonthTitle")).not.toHaveText(before||"");
-    await page.locator("#calPrev").click();
-  }
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  const before=await page.locator("#calMonthTitle").textContent();
+  await page.locator("#calNext").click();
+  await expect(page.locator("#calMonthTitle")).not.toHaveText(before||"");
+  await page.locator("#calPrev").click();
 
   await page.locator('[data-route="scan"]:visible').first().click();
   await page.locator("#scanHelpBtn").click();
@@ -641,6 +633,8 @@ test("PWA manifest and install assets are available", async ({request}) => {
 test("shift cards and chevrons open the expected destination", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
+  await page.locator('[data-route="home"]:visible').first().click();
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
   if(width<=820){
     const note=page.locator("#mobileCurrentShift .mobile-shift-info-action").filter({hasText:"Bilješka"});
     await note.click();
