@@ -586,7 +586,7 @@ async function prepareDayBandComposite(tableSource,startRatio,endRatio){
     var gridEnd=Math.max(gridStart+1,Math.min(bitmap.width,Math.round(bitmap.width*endRatio)));
     var gridWidth=gridEnd-gridStart;
     var rawWidth=rosterWidth+gridWidth;
-    var pixelScale=Math.sqrt(7500000/(rawWidth*bitmap.height));
+    var pixelScale=Math.sqrt(8500000/(rawWidth*bitmap.height));
     var edgeScale=4600/rawWidth;
     var scale=Math.max(.75,Math.min(2.85,pixelScale,edgeScale));
     var canvas=document.createElement("canvas");
@@ -754,7 +754,7 @@ async function recognizeScheduleNow(file,onProgress){
 
     var stripes=[[0,.30],[.18,.48],[.36,.66],[.54,.84],[.72,1]];
     for(var i=0;i<stripes.length;i++){
-      if(onProgress)onProgress(.80+i*.025,"table-stripe-"+(i+1));
+      if(onProgress)onProgress(.80+i*.012,"table-stripe-"+(i+1));
       var stripeSource=await prepareStripe(tableSource,stripes[i][0],stripes[i][1]);
       var stripe=parsedResult(
         await worker.recognize(stripeSource,{}, {text:true,blocks:true}),
@@ -773,7 +773,7 @@ async function recognizeScheduleNow(file,onProgress){
     if(mappedAfterStripes<dayBandTarget||missingNumberedRows(merged)||sparseNumberedRow){
       var dayBands=[[.12,.28],[.22,.38],[.32,.48],[.42,.58],[.52,.68],[.62,.78],[.72,.88],[.82,1]];
       for(var b=0;b<dayBands.length;b++){
-        if(onProgress)onProgress(.88+b*.02,"day-band-"+(b+1));
+        if(onProgress)onProgress(.86+b*.012,"day-band-"+(b+1));
         var bandSource=await prepareDayBandComposite(tableSource,dayBands[b][0],dayBands[b][1]);
         var band=parsedResult(
           await worker.recognize(bandSource,{}, {text:true,blocks:true}),
@@ -783,7 +783,7 @@ async function recognizeScheduleNow(file,onProgress){
       }
     }
 
-    if(onProgress)onProgress(.97,"roster-column");
+    if(onProgress)onProgress(.96,"roster-column");
     var rosterSource=await prepareRosterColumn(tableSource);
     var rosterResult=await worker.recognize(rosterSource,{}, {text:true,blocks:true});
     var rosterRows=parseRosterRows(rosterResult&&rosterResult.data?rosterResult.data.blocks:null);
@@ -791,7 +791,7 @@ async function recognizeScheduleNow(file,onProgress){
 
     var rosterBands=[[0,.28],[.18,.46],[.36,.64],[.54,.82],[.72,1]];
     for(var r=0;r<rosterBands.length;r++){
-      if(onProgress)onProgress(.98+r*.006,"roster-band-"+(r+1));
+      if(onProgress)onProgress(.965+r*.005,"roster-band-"+(r+1));
       var rosterBandSource=await prepareRosterBand(tableSource,rosterBands[r][0],rosterBands[r][1]);
       var rosterBandResult=await worker.recognize(rosterBandSource,{}, {text:true,blocks:true});
       var rosterBandRows=parseRosterRows(
