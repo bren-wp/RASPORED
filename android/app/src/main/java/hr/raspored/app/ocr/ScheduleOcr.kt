@@ -69,6 +69,7 @@ object ScheduleOcrParser {
             .toList()
         if (shifts.isEmpty()) return null
 
+        val rowNumber = rowNumberRegex.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull()
         val withoutNumber = line.replaceFirst(rowNumberRegex, "")
         val name = withoutNumber
             .replace(shiftRegex, " ")
@@ -77,7 +78,7 @@ object ScheduleOcrParser {
             .trim(' ', '-', '|', ':', ';')
 
         if (name.length < 3 || name.count(Char::isLetter) < 3) return null
-        return RecognizedScheduleRow(name = name, shifts = shifts)
+        return RecognizedScheduleRow(rowNumber = rowNumber, name = name, dayShifts = shifts.mapIndexed { index, code -> (index + 1) to code }.toMap())
     }
 
     internal fun detectMonth(text: String): YearMonth? {
