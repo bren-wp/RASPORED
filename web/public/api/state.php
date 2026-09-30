@@ -11,7 +11,7 @@ header('Referrer-Policy: no-referrer');
 header('X-Frame-Options: DENY');
 
 const RASPORED_SCHEMA_VERSION = 4;
-const RASPORED_MAX_BODY_BYTES = 524288;
+const RASPORED_MAX_BODY_BYTES = 2097152;
 
 function default_state(): array
 {
@@ -151,7 +151,7 @@ function clean_evidence(mixed $raw): array
         return [];
     }
     $clean = [];
-    foreach (array_slice($raw, -366) as $entry) {
+    foreach (array_slice($raw, -3000) as $entry) {
         if (!is_array($entry)) {
             continue;
         }
