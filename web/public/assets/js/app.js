@@ -710,6 +710,7 @@ async function initApp(){
   if(window.RasporedPayroll)await window.RasporedPayroll.init();
   loadSchedule();loadScanSession();configureProfile();bind();
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
+  if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
   document.body.dataset.routeCurrent=state.route;
   renderAll();
   setInterval(function(){if(state.route==="hours")renderHours()},60000);
