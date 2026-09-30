@@ -214,8 +214,9 @@ if ($action === 'register') {
         auth_fail(422, 'Lozinka mora imati najmanje 10 znakova, slovo i broj.');
     }
 
-    $path = raspored_account_path_from_email($email);
-    if (is_file($path)) {
+    $paths = raspored_account_paths_from_email($email);
+    $path = $paths['current'];
+    if (is_file($paths['current']) || is_file($paths['legacy'])) {
         auth_fail(409, 'Korisnički račun s tom e-mail adresom već postoji.');
     }
     $id = bin2hex(random_bytes(16));
@@ -252,7 +253,10 @@ if ($action === 'login') {
     if ($email === '' || $password === '') {
         auth_fail(422, 'Unesi e-mail i lozinku.');
     }
-    $path = raspored_account_path_from_email($email);
+    $paths = raspored_account_paths_from_email($email);
+    $path = is_file($paths['current'])
+        ? $paths['current']
+        : (is_file($paths['legacy']) ? $paths['legacy'] : $paths['current']);
     $account = is_file($path) ? json_decode((string) @file_get_contents($path), true) : null;
     $valid = is_array($account)
         && isset($account['passwordHash'])
@@ -262,6 +266,27 @@ if ($action === 'login') {
         usleep(180000);
         auth_fail(401, 'E-mail ili lozinka nisu ispravni.');
     }
+
+    if ($path === $paths['legacy'] && !is_file($paths['current'])) {
+        $lockPath = raspored_storage_directory() . '/.auth.lock';
+        $lock = @fopen($lockPath, 'c');
+        if ($lock !== false && flock($lock, LOCK_EX)) {
+            try {
+                if (!is_file($paths['current']) && is_file($paths['legacy'])
+                    && @rename($paths['legacy'], $paths['current'])
+                ) {
+                    @chmod($paths['current'], 0600);
+                    $path = $paths['current'];
+                }
+            } finally {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
+        } elseif (is_resource($lock)) {
+            fclose($lock);
+        }
+    }
+
     session_regenerate_id(true);
     $_SESSION['account_id'] = (string) $account['id'];
     $_SESSION['account_path'] = $path;
