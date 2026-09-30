@@ -291,3 +291,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   .scan-month-field{grid-template-columns:1fr;gap:6px}
   .scan-month-field input{width:100%}
 }
+
+/* Prevent scan subcomponents from widening the mobile document; internal day review remains horizontally scrollable. */
+#view-scan,.scan-copy,.scan-preview,.scan-card,.scan-person-picker,.recognition-days,.scan-edit-actions,.primary-btn--full{min-width:0;max-width:100%;box-sizing:border-box}
+#view-scan{overflow-x:clip}
+.scan-card{overflow:hidden}
+.recognition-days{width:100%;contain:inline-size}
+.select-row{min-width:0}
+.select-row b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:820px){
+  #view-scan{width:100%}
+  .scan-actions{min-width:0}
+  .scan-actions button{min-width:0;padding-inline:8px}
+  .scan-actions button span,.scan-actions button{font-size:11px}
+}
