@@ -146,7 +146,18 @@ if ($base === '.') { $base = ''; }
         <input class="visually-hidden" type="file" id="cameraInput" accept="image/*" capture="environment">
         <input class="visually-hidden" type="file" id="galleryInput" accept="image/*">
       </section>
-      <section class="card scan-card"><h2>Odaberi moj redak</h2><p>Provjeri je li ispravno prepoznat tvoj redak.</p><button class="select-row"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-user"></use></svg><b>6. MARIO EGIMOVIĆ</b><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-down"></use></svg></button></section>
+      <section class="card scan-card">
+        <h2>Odaberi osobu</h2>
+        <p>Ako raspored sadrži više djelatnika, odaberi samo ime i prezime osobe čiji raspored želiš uvesti.</p>
+        <div class="scan-person-picker">
+          <button class="select-row" id="scanPersonButton" aria-haspopup="listbox" aria-expanded="false">
+            <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-user"></use></svg>
+            <b id="scanPersonLabel">Odaberi ime i prezime</b>
+            <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-down"></use></svg>
+          </button>
+          <div class="scan-person-menu" id="scanPersonMenu" role="listbox" hidden></div>
+        </div>
+      </section>
       <section class="card scan-card"><div class="card-head"><div><h2>Provjera rasporeda</h2><p>Pregledaj prepoznate smjene i po potrebi ih ispravi.</p></div><span class="success-pill">✓ Prepoznato 31 dan</span></div><div class="recognition-days" id="recognitionDays"></div><div class="scan-edit-actions"><button><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-edit"></use></svg>Uredi</button><button id="rescanSecondary"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>Ponovno skeniraj</button></div></section>
       <button class="primary-btn primary-btn--full" id="saveSchedule"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Spremi raspored</button>
     </section>
