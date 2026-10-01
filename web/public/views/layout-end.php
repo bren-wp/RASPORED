@@ -1,6 +1,6 @@
   <nav class="bottom-nav" aria-label="Mobilna navigacija">
-    <button class="is-active" data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><small>Kalendar</small></button>
-    <button data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg><small>Evidencija</small></button>
+    <button class="is-active" data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-home"></use></svg><small>Početna</small></button>
+    <button data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><small>Kalendar</small></button>
     <button class="scan-nav" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><small>Skeniraj</small></button>
     <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><small>Statistika</small></button>
     <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><small>Više</small></button>
@@ -35,7 +35,7 @@
 <dialog class="app-dialog" id="searchDialog">
   <form class="dialog-card" method="dialog">
     <div class="dialog-head">
-      <div><h2>Pretraži RASPORED</h2><p>Brzo otvori željeni dio aplikacije.</p></div>
+      <div><h2>Pretraži Takto</h2><p>Brzo otvori željeni dio aplikacije.</p></div>
       <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
     </div>
     <label class="dialog-field">
@@ -49,7 +49,7 @@
 <dialog class="app-dialog" id="loginDialog">
   <form class="dialog-card" id="loginForm">
     <div class="dialog-head">
-      <div><h2>Prijava</h2><p>Pristupi svom RASPORED računu i spremljenim podacima.</p></div>
+      <div><h2>Prijava</h2><p>Pristupi svom Takto računu i spremljenim podacima.</p></div>
       <button class="icon-btn" type="button" data-close-auth aria-label="Zatvori">×</button>
     </div>
     <label class="dialog-field"><span>E-mail</span><input id="loginEmail" type="email" maxlength="160" autocomplete="email" required></label>
@@ -92,7 +92,7 @@
 <dialog class="app-dialog" id="colleagueDialog">
   <form class="dialog-card" id="colleagueForm">
     <div class="dialog-head">
-      <div><h2>Dodaj kolegu</h2><p>Spremi ime i kratku napomenu u ovu instalaciju RASPORED-a.</p></div>
+      <div><h2>Dodaj kolegu</h2><p>Spremi ime i kratku napomenu u ovu instalaciju Takto aplikacije.</p></div>
       <button class="icon-btn" type="button" id="closeColleagueDialog" aria-label="Zatvori">×</button>
     </div>
     <label class="dialog-field"><span>Ime i prezime</span><input id="colleagueNameInput" maxlength="80" autocomplete="name" required></label>
