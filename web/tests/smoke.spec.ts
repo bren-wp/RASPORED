@@ -79,7 +79,8 @@ test("scan performs OCR and exposes multiple invented employees", async ({page})
   });
   await expect(page.locator("#scanStatus")).toContainText("Prepoznate su 3 osobe");
   await expect(page.locator("#scanPersonMenu [data-scan-person]")).toHaveCount(3);
-  await expect(page.locator("#saveSchedule")).toBeDisabled();
+  await expect(page.locator("#scanPersonLabel")).not.toHaveText("Odaberi ime i prezime");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
 test("scan imports only the explicitly selected employee schedule", async ({page}) => {
@@ -197,39 +198,43 @@ test("recognized schedule can be corrected before import", async ({page}) => {
   await expect(first).toContainText("N");
 });
 
-test("time evidence records and persists check-in and check-out", async ({page}) => {
+test("time evidence is derived automatically from the calendar", async ({page}) => {
   await page.goto("/");
-  const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-
-  await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
-  await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
-  await page.locator("#hoursNote").fill("Redovna smjena");
-  await page.getByRole("button",{name:"Evidentiraj izlaz"}).click();
-  await expect(page.locator("#hoursStatus")).toContainText("spremljena");
-
+  await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    store.set("raspored.schedule",JSON.stringify({
+      "2026-10-01":"D",
+      "2026-10-02":"N",
+      "2026-10-03":"GO",
+      "2026-10-04":"J"
+    }));
+    await store.flush();
+  });
   await page.reload();
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-  await expect(page.locator("#hoursHistory")).toContainText("Redovna smjena");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.locator('[data-route="home"]:visible').first().click();
+    await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
+  }else await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.locator("#hoursMonthTotal")).toContainText("24h");
+  await expect(page.locator("#hoursNightTotal")).toContainText("8h");
+  await expect(page.locator("#hoursHistory")).toContainText("D · Dnevna smjena");
+  await expect(page.locator("#hoursHistory")).toContainText("N · Noćna smjena");
+  await expect(page.locator("#hoursHistory")).toContainText("J · Vlastita oznaka J");
+  await expect(page.locator("#hoursHistory")).toContainText("Nije definirano");
 });
 
-test("time evidence stores selected work type without inventing a special-duty rate", async ({page}) => {
+test("time evidence no longer exposes manual clock-in controls", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-
-  await page.locator("#hoursWorkType").selectOption("duty");
-  await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
-  await expect(page.locator("#hoursHistory")).toContainText("Dežurstvo");
-
-  const stored=await page.evaluate(() => {
-    const rows=JSON.parse((window as any).RasporedDataStore.get("raspored.timeEntries.v1")||"[]");
-    return rows[rows.length-1];
-  });
-  expect(stored.workType).toBe("duty");
+  if(width<=820){
+    await page.locator('[data-route="home"]:visible').first().click();
+    await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
+  }else await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.getByRole("button",{name:"Evidentiraj ulaz"})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Evidentiraj izlaz"})).toHaveCount(0);
+  await expect(page.locator("#hoursWorkType")).toHaveCount(0);
+  await expect(page.locator("#hoursNote")).toHaveCount(0);
 });
 
 test("web OCR infers a dense full-month grid when header numbers are missed", async ({page}) => {
