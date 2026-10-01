@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
+import hr.raspored.app.BuildConfig
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
 import hr.raspored.app.data.TeamStore
@@ -91,7 +92,20 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val scope = rememberCoroutineScope()
     LaunchedEffect(store) {
         scheduleCodes.clear()
-        scheduleCodes.putAll(store.load())
+        var loaded = store.load()
+        if (BuildConfig.DEMO_MODE && loaded.isEmpty()) {
+            val month = YearMonth.from(appDate())
+            store.saveMonth(
+                month,
+                mapOf(
+                    1 to "D", 2 to "N", 5 to "D", 7 to "GO", 9 to "N",
+                    12 to "D", 14 to "PD", 17 to "N", 20 to "D", 23 to "BO",
+                    26 to "D", 28 to "SD", month.lengthOfMonth() to "N"
+                )
+            )
+            loaded = store.load()
+        }
+        scheduleCodes.putAll(loaded)
     }
     BackHandler(enabled = screen != Screen.Calendar) {
         screen = when (screen) {
@@ -209,6 +223,9 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                             store.saveMonth(month, shifts)
                             (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
                             shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
+                            scope.launch{
+                                snackbarHostState.showSnackbar("Raspored je uvezen u kalendar.")
+                            }
                             screen = Screen.Calendar
                         }
                     )
@@ -246,8 +263,16 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
             BrandMark()
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)){
-                Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
-                Text("Shift planner & evidencija sati",color=Color(0xFFC6D4EA),fontSize=10.sp)
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
+                    if(BuildConfig.DEMO_MODE){
+                        Spacer(Modifier.width(8.dp))
+                        Surface(shape=RoundedCornerShape(8.dp),color=Cyan){
+                            Text("DEMO",color=Navy,fontSize=9.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp))
+                        }
+                    }
+                }
+                Text("Shift planner & automatska evidencija",color=Color(0xFFC6D4EA),fontSize=10.sp)
             }
             if(screen==Screen.Calendar){
                 IconButton(onClick=onScan){
