@@ -574,7 +574,7 @@ test("Web export offers JSON backup and truthful print-to-PDF action", async ({p
   const downloadPromise=page.waitForEvent("download");
   await page.locator("#exportJsonBtn").click();
   const download=await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/^RASPORED-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(download.suggestedFilename()).toMatch(/^Takto-backup-\d{4}-\d{2}-\d{2}\.json$/);
   await expect(page.locator("#printPdfBtn")).toHaveText("Ispis / spremi kao PDF");
 });
 
