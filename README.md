@@ -41,30 +41,20 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 - **Statistika** — dnevni/noćni sati, saldo, vikendi, blagdani i raspodjela po tjednima.
 - **Android + Web/PWA** — isti vizualni identitet i ista semantika podataka na obje platforme.
 
-## Stvarna aplikacija
+## Stvarna Android aplikacija
 
-> Slike ispod su **stvarni screenshotovi pokrenute Web/PWA aplikacije**, generirani automatski u GitHub Actions / Playwright QA procesu. Nisu mockupovi, renderi ni dizajnerske reference. Screenshotovi koriste izmišljene testne podatke i izmišljena imena; ne koriste stvarne osobe ni rasporede iz korisničkih fotografija.
-
-<img src="docs/media/app-home-desktop.png" alt="RASPORED Web/PWA početna — stvarni screenshot aplikacije" width="100%">
-
-### Mobilni prikaz
+> Slike ispod su **stvarni screenshotovi pokrenute Android aplikacije** snimljeni na API 36 emulatoru tijekom GitHub Actions instrumentation QA procesa. Nisu mockupovi, renderi ni screenshotovi Web/PWA stranice. Prikazani podaci nastaju isključivo kroz testni scenarij.
 
 <table>
 <tr>
-<td width="33%" align="center"><b>Početna</b></td>
-<td width="33%" align="center"><b>Skeniranje rasporeda</b></td>
-<td width="33%" align="center"><b>Evidencija sati</b></td>
+<td width="50%" align="center"><b>Mjesečni kalendar</b></td>
+<td width="50%" align="center"><b>Skeniranje rasporeda</b></td>
 </tr>
 <tr>
-<td><img src="docs/media/app-home-mobile.png" alt="RASPORED mobilna početna"></td>
-<td><img src="docs/media/app-scan-mobile.png" alt="RASPORED mobilno skeniranje"></td>
-<td><img src="docs/media/app-hours-mobile.png" alt="RASPORED mobilna evidencija sati"></td>
+<td><img src="docs/media/android-calendar.png" alt="RASPORED Android mjesečni kalendar — stvarni emulator screenshot"></td>
+<td><img src="docs/media/android-scan.png" alt="RASPORED Android skeniranje rasporeda — stvarni emulator screenshot"></td>
 </tr>
 </table>
-
-### Statistika rada
-
-<img src="docs/media/app-stats-desktop.png" alt="RASPORED statistika — stvarni screenshot aplikacije" width="100%">
 
 ## Što RASPORED radi
 
