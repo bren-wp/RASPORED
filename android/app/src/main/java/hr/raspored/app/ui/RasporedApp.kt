@@ -1387,7 +1387,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Text("Developer",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     SupportAction(
                         icon=Icons.Outlined.Language,
-                        title="Brendigo Studio",
+                        title="Brendigo",
                         value="brendigo.com",
                         onClick={openExternal("https://brendigo.com")}
                     )
