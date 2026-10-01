@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanOriginalFile:null,scanSingleMode:false,scanCropTop:34,scanCropBottom:38,scanDetectedRows:[],scanDetectedRowIndex:-1,scanDetectedFrame:null,scanLocalRawText:"",aiConsentGranted:false};
+var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanOriginalFile:null,scanSingleMode:false,scanCropTop:34,scanCropBottom:38,scanDetectedRows:[],scanDetectedRowIndex:-1,scanDetectedFrame:null,scanLocalRawText:"",aiConsentGranted:false};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -101,8 +101,9 @@ function configureProfile(){
   if(nameEl)nameEl.textContent=display;
   if(initialEl)initialEl.textContent=initials;
   if(welcome){
-    if(name&&name!=="Korisnik")welcome.textContent="Dobro došao, "+parts[0]+"!";
-    else welcome.textContent="Dobro došao!";
+    var hour=appNow().getHours();
+    var greeting=hour>=5&&hour<12?"Dobro jutro":hour>=12&&hour<18?"Dobar dan":"Dobra večer";
+    welcome.textContent=name&&name!=="Korisnik"?greeting+", "+parts[0]+"!":greeting+"!";
   }
   if(input&&document.activeElement!==input)input.value=name;
 }
@@ -716,6 +717,18 @@ function renderMobileHome(){
   var date=appNow(),entry=currentShiftFor(date),code=entry?entry.code:null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
   var title=document.getElementById("mobileTodayTitle");
   if(title){var dateText=punctuatedDate(date,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)}
+  var greeting=document.getElementById("mobileGreeting");
+  if(greeting){
+    var hour=date.getHours();
+    greeting.textContent=(hour>=5&&hour<12?"Dobro jutro":hour>=12&&hour<18?"Dobar dan":"Dobra večer")+"!";
+  }
+  var monday=addDays(date,-((date.getDay()+6)%7)),week=document.getElementById("mobileWeekStrip");
+  if(week){
+    week.innerHTML=Array.from({length:7},function(_,index){
+      var day=addDays(monday,index),dayCode=state.schedule[iso(day)]||"",cls=scheduleCodeClass(dayCode);
+      return '<button type="button" class="takto-week-day '+(iso(day)===iso(date)?'is-today ':'')+(dayCode?'has-shift '+cls:'')+'" data-open-date="'+iso(day)+'"><small>'+weekdays[day.getDay()]+'</small><b>'+day.getDate()+'</b><i>'+escapeHtml(dayCode||"—")+'</i></button>';
+    }).join("");
+  }
   var currentEl=document.getElementById("mobileCurrentShift");
   if(currentEl){currentEl.innerHTML='<button type="button" class="mobile-shift-card-head mobile-shift-card-head--button" data-route-dynamic="calendar"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</button><div class="mobile-shift-card-body">'+(code?'<i class="shift '+scheduleCodeClass(code)+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code?'<span class="shift-countdown">'+shiftStatus(entry?entry.date:date,code)+'</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("clock")+'<span>Otvori evidenciju</span>'+icon("chevron-right")+'</button></div>'}
   var next=null;
@@ -1162,7 +1175,7 @@ function route(name){
   state.route=name;document.body.dataset.routeCurrent=name;
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
   var desktopNavRoute=name==="payroll"?"stats":name;
-  var mobileNavRoute=name==="home"?"calendar":name==="payroll"?"stats":name;
+  var mobileNavRoute=name==="hours"?"home":name==="payroll"?"stats":name;
   document.querySelectorAll(".side-nav [data-route]").forEach(function(x){
     x.classList.toggle("is-active",x.dataset.route===desktopNavRoute);
   });
@@ -1187,9 +1200,10 @@ function applyStoredAppearance(){
   if(motion)motion.checked=reduced;
   document.body.dataset.reducedMotion=reduced?"true":"false";
   var th=storageGet("raspored.theme");
-  document.documentElement.dataset.theme=th==="dark"?"dark":"light";
+  var selectedTheme=th==="light"?"light":"dark";
+  document.documentElement.dataset.theme=selectedTheme;
   var theme=document.getElementById("themeToggle");
-  if(theme)theme.checked=th==="dark";
+  if(theme)theme.checked=selectedTheme==="dark";
 }
 function bind(){
   if(appBound)return;
