@@ -191,7 +191,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     Screen.Home->HomeScreen(scheduleCodes,evidenceEntries){screen=it}
                     Screen.Calendar->CalendarScreen(
                         scheduleCodes=scheduleCodes,
-                        evidenceEntries=evidenceEntries,
                         onShiftChange={date,code->
                             store.record(date,code)
                             if(code==null) scheduleCodes.remove(date.toString())
@@ -397,13 +396,6 @@ private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>
     }.toMap()
     return persisted
 }
-private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
-    (0..4).map { week ->
-        val first=week*7+1
-        val last=minOf(month.lengthOfMonth(),first+6)
-        if(first>month.lengthOfMonth()) 0 else (first..last).sumOf { data[it]?.hours ?: 0 }
-    }
-
 private fun codesForMonth(month:YearMonth,data:Map<Int,Shift>):Map<String,String> =
     data.mapKeys { (day,_) -> month.atDay(day).toString() }.mapValues { it.value.code }
 
@@ -546,7 +538,6 @@ private fun largeMinutesLabel(minutes:Long):String {
 
 @Composable private fun CalendarScreen(
     scheduleCodes: Map<String, String>,
-    evidenceEntries: List<TimeEvidenceEntry>,
     onShiftChange: (LocalDate, String?) -> Unit
 ) {
     val today = appDate()
