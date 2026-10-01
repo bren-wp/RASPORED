@@ -69,6 +69,7 @@ internal fun OcrScanScreen(
     var reviewConflictIndex by remember { mutableIntStateOf(-1) }
     var customConflictCode by remember { mutableStateOf("") }
     var ocrGeneration by remember { mutableIntStateOf(0) }
+    var rosterIncomplete by remember { mutableStateOf(false) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule, keepReviewCells: Boolean = false) {
@@ -106,6 +107,12 @@ internal fun OcrScanScreen(
         val severeIncomplete = expectedRows?.let { expected ->
             foundRows * 100 < expected * 65
         } == true
+        rosterIncomplete = expectedRows?.let { expected ->
+            foundRows * 100 < expected * 88
+        } == true
+        val bestRowIndex = recognized.rows.indices.maxByOrNull { index ->
+            recognized.rows[index].dayShifts.size
+        } ?: -1
         val rosterWarning = expectedRows?.let { expected ->
             if (foundRows * 100 < expected * 88) {
                 " Upozorenje: tablica izgleda kao raspored s približno $expected redaka, a pouzdano je očitano $foundRows. Za potpuni uvoz ponovi fotografiju tako da cijela tablica i svi stupci ostanu oštri."
@@ -125,10 +132,13 @@ internal fun OcrScanScreen(
                 message = "Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."
             }
             severeIncomplete -> {
-                selectedRow = -1
-                phase = OcrPhase.Error
-                message = "Skeniranje nije dovoljno potpuno." + rosterWarning +
-                    " Rezultat nije označen kao dovršen kako se ne bi tiho izgubile osobe ili smjene."
+                selectedRow = bestRowIndex
+                if (bestRowIndex >= 0) {
+                    editedShifts.putAll(recognized.rows[bestRowIndex].dayShifts)
+                }
+                phase = OcrPhase.Success
+                message = "Skeniranje cijelog tima nije dovoljno potpuno." + rosterWarning +
+                    " Osobni raspored najpotpunije prepoznate osobe možeš provjeriti i spremiti; timski uvoz je blokiran dok roster nije potpun."
             }
             recognized.rows.size == 1 -> {
                 selectedRow = 0
@@ -139,13 +149,16 @@ internal fun OcrScanScreen(
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
             else -> {
-                selectedRow = -1
+                selectedRow = bestRowIndex
+                if (bestRowIndex >= 0) {
+                    editedShifts.putAll(recognized.rows[bestRowIndex].dayShifts)
+                }
                 phase = OcrPhase.Success
                 val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
                 message = "Prepoznate su $countLabel i ukupno $totalRecognizedDays oznaka dana." +
                     rosterWarning +
                     if (emptyRows > 0) " $emptyRows numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih." else "" +
-                    " Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                    " Automatski je odabrana najpotpunije prepoznata osoba; izbor možeš promijeniti." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }
@@ -160,6 +173,7 @@ internal fun OcrScanScreen(
         bitmap = source
         result = null
         selectedRow = -1
+        rosterIncomplete = false
         editedShifts.clear()
         editMode = false
         employeeMenu = false
@@ -737,7 +751,9 @@ internal fun OcrScanScreen(
                             val rows = result?.rows.orEmpty().filter { it.dayShifts.isNotEmpty() }
                             if (rows.isNotEmpty()) onSaveTeamSchedules(recognizedMonth, rows)
                         },
-                        enabled = result?.rows.orEmpty().any { it.dayShifts.isNotEmpty() } && unresolvedConflicts == 0,
+                        enabled = !rosterIncomplete &&
+                            result?.rows.orEmpty().any { it.dayShifts.isNotEmpty() } &&
+                            unresolvedConflicts == 0,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
                     ) {
                         Icon(Icons.Outlined.Groups, null)
