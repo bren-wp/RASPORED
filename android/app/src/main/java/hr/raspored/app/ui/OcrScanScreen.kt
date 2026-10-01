@@ -1144,19 +1144,16 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
         "D" -> RasporedTokens.CyanSoft
         "N" -> RasporedTokens.NavyAlt
         "GO" -> RasporedTokens.TealSoft
-        "BO" -> RasporedTokens.RedSoft
-        "PD" -> Color(0xFFFFF3D6)
-        "SD" -> Color(0xFFE9EEF5)
-        else -> Color(0xFFF1F5F9)
+        "BO" -> RasporedTokens.Amber
+        "PD" -> RasporedTokens.RedSoft
+        "SD" -> Color(0xFF20314A)
+        else -> Color(0xFF20314A)
     }
     val fg = when (code) {
-        "D" -> Color(0xFF087BC9)
-        "N" -> Color.White
-        "GO" -> Color(0xFF07865F)
-        "BO" -> Color(0xFFD22333)
-        "PD" -> Color(0xFF9A6500)
-        "SD" -> Color(0xFF475569)
-        else -> RasporedTokens.Slate
+        "D", "N", "GO", "PD" -> Color.White
+        "BO" -> RasporedTokens.Navy
+        "SD" -> Color(0xFFD7E3F4)
+        else -> Color(0xFFD7E3F4)
     }
     Surface(
         shape = RoundedCornerShape(12.dp),
