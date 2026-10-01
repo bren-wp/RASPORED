@@ -573,7 +573,6 @@ function activeTimeEntry(entries){
   for(var i=entries.length-1;i>=0;i--)if(!entries[i].out)return entries[i];
   return null;
 }
-function currentTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey&&!entries[i].out)return entries[i]}return null}
 function latestTimeEntry(entries,dateKey){for(var i=entries.length-1;i>=0;i--){if(entries[i].date===dateKey)return entries[i]}return null}
 function shiftMeta(code){
   var normalized=normalizeScheduleCode(code);
