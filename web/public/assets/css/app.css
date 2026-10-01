@@ -480,4 +480,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .scan-crop-controls button{grid-column:1/-1;width:100%;background:#fff}
 @media(max-width:540px){.scan-row-crop{left:0;right:0}.scan-crop-controls{grid-template-columns:1fr}.scan-crop-controls>span{margin-top:2px}}
 
-.scan-image-stage{display:none}
+.scan-image-stage{display:none;position:relative;width:100%}
+.scan-preview.has-image .scan-image-stage{display:block}
