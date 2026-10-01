@@ -1,8 +1,10 @@
 <resources>
-    <style name="Theme.Raspored" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.Raspored" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#0B1F44</item>
-        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:statusBarColor">#07111F</item>
+        <item name="android:navigationBarColor">#07111F</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">#07111F</item>
     </style>
 </resources>
