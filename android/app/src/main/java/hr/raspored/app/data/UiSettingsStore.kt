@@ -7,7 +7,7 @@ class UiSettingsStore(context: Context) {
         context.getSharedPreferences("raspored.ui_settings", Context.MODE_PRIVATE)
 
     var darkMode: Boolean
-        get() = preferences.getBoolean(KEY_DARK_MODE, false)
+        get() = preferences.getBoolean(KEY_DARK_MODE, true)
         set(value) { preferences.edit().putBoolean(KEY_DARK_MODE, value).apply() }
 
     var reducedMotion: Boolean
