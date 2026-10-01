@@ -1428,7 +1428,7 @@ function bind(){
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
 }
 async function initApp(){
-  if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
+  if(!window.RasporedDataStore){throw new Error("Takto podatkovni sloj nije učitan.");}
   document.body.dataset.appReady="loading";
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
 
