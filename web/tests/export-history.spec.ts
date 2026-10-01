@@ -32,6 +32,47 @@ test("guest storage cannot persist manager-only team schedules", async ({page}) 
 });
 
 
+test("schedule storage and state API normalize OCR zero variants", async ({page}) => {
+  await openReady(page);
+  const result=await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    store.set("raspored.schedule",JSON.stringify({
+      "2026-10-01":"g0",
+      "2026-10-02":"B0"
+    }));
+    await store.flush();
+    const client=JSON.parse(store.get("raspored.schedule")||"{}");
+
+    const response=await fetch((document.body.dataset.base||"")+"/api/state.php",{
+      method:"PUT",
+      credentials:"same-origin",
+      cache:"no-store",
+      headers:{
+        "Content-Type":"application/json",
+        "X-Raspored-Request":"1"
+      },
+      body:JSON.stringify({
+        patch:true,
+        state:{
+          schedule:{
+            "2026-10-03":"G0",
+            "2026-10-04":"b0"
+          }
+        }
+      })
+    });
+    const payload=await response.json();
+    return {status:response.status,client:client,server:payload.state&&payload.state.schedule};
+  });
+
+  expect(result.status).toBe(200);
+  expect(result.client["2026-10-01"]).toBe("GO");
+  expect(result.client["2026-10-02"]).toBe("BO");
+  expect(result.server["2026-10-03"]).toBe("GO");
+  expect(result.server["2026-10-04"]).toBe("BO");
+});
+
+
 test("legacy evidence without millisecond timestamps keeps its worked duration", async ({page}) => {
   await openReady(page);
   const width=page.viewportSize()?.width ?? 1440;
