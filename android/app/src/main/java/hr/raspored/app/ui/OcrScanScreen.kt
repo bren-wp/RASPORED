@@ -1048,7 +1048,7 @@ internal fun mergeForAiReview(
                             day = day,
                             localCode = localCode,
                             aiCode = aiCode,
-                            selectedCode = localCode,
+                            selectedCode = null,
                             source = "local+ai",
                             confidence = null,
                             conflict = true,
