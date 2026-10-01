@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanLocalRawText:"",aiConsentGranted:false};
+var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanOriginalFile:null,scanSingleMode:false,scanCropTop:34,scanCropBottom:44,scanLocalRawText:"",aiConsentGranted:false};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -303,7 +303,7 @@ function releaseScanPreview(){
 }
 function clearScanSession(){
   state.scanGeneration++;
-  state.scanPeople=[];state.scanReviewCells=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;state.scanSourceFile=null;state.scanLocalRawText="";
+  state.scanPeople=[];state.scanReviewCells=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;state.scanSourceFile=null;state.scanOriginalFile=null;state.scanLocalRawText="";
   releaseScanPreview();
   storageRemove("raspored.scan.v1");
 }
@@ -897,17 +897,61 @@ function renderHours(){
   if(history)history.innerHTML=rows.length?rows.join(""):'<div class="hours-empty">'+icon("clock")+'<p>Za ovaj mjesec nema oznaka u kalendaru.</p></div>';
 }
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
-async function handleScanFile(file){
+function updateScanCropOverlay(){
+  var band=document.getElementById("scanRowCrop"),controls=document.getElementById("scanCropControls");
+  var topInput=document.getElementById("scanCropTop"),bottomInput=document.getElementById("scanCropBottom");
+  if(topInput)state.scanCropTop=Math.max(0,Math.min(95,Number(topInput.value)||34));
+  if(bottomInput)state.scanCropBottom=Math.max(5,Math.min(100,Number(bottomInput.value)||44));
+  if(state.scanCropBottom<state.scanCropTop+3)state.scanCropBottom=Math.min(100,state.scanCropTop+3);
+  if(band){
+    band.hidden=!state.scanSingleMode||!state.scanOriginalFile;
+    band.style.top=state.scanCropTop+"%";
+    band.style.height=Math.max(3,state.scanCropBottom-state.scanCropTop)+"%";
+  }
+  if(controls)controls.hidden=!state.scanSingleMode||!state.scanOriginalFile;
+}
+async function createSinglePersonScanFile(file){
+  var bitmap=await createImageBitmap(file),header=Math.max(1,Math.round(bitmap.height*0.24));
+  var top=Math.max(0,Math.min(bitmap.height-1,Math.round(bitmap.height*state.scanCropTop/100)));
+  var bottom=Math.max(top+1,Math.min(bitmap.height,Math.round(bitmap.height*state.scanCropBottom/100)));
+  var gap=Math.max(4,Math.round(bitmap.height*0.01)),rowHeight=bottom-top;
+  var canvas=document.createElement("canvas");
+  canvas.width=bitmap.width;canvas.height=header+gap+rowHeight;
+  var ctx=canvas.getContext("2d");
+  if(!ctx){bitmap.close();throw new Error("Canvas nije dostupan")}
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(bitmap,0,0,bitmap.width,header,0,0,canvas.width,header);
+  ctx.drawImage(bitmap,0,top,bitmap.width,rowHeight,0,header+gap,canvas.width,rowHeight);
+  bitmap.close();
+  var blob=await new Promise(function(resolve,reject){
+    canvas.toBlob(function(value){value?resolve(value):reject(new Error("Crop slike nije moguće izraditi"))},"image/jpeg",0.96);
+  });
+  return new File([blob],"raspored-jedna-osoba.jpg",{type:"image/jpeg"});
+}
+async function handleScanFile(file,forceOcr,keepPreview){
   if(!file||!/^image\//.test(file.type)){toast("Odaberi valjanu slikovnu datoteku.");return}
   if(file.size>10*1024*1024){toast("Slika je prevelika. Najveća dopuštena veličina je 10 MB.");return}
-  clearScanSession();
-  state.scanSourceFile=file;
+  if(!forceOcr){
+    clearScanSession();
+    state.scanSourceFile=file;
+    state.scanOriginalFile=file;
+  }
   var generation=++state.scanGeneration;
   var preview=document.getElementById("scanPreview"),img=document.getElementById("scanPreviewImage"),status=document.getElementById("scanStatus"),progress=status.querySelector(".scan-progress i");
-  var url=URL.createObjectURL(file);img.dataset.objectUrl=url;img.src=url;preview.classList.add("has-image");
+  if(!keepPreview){
+    releaseScanPreview();
+    var url=URL.createObjectURL(file);img.dataset.objectUrl=url;img.src=url;preview.classList.add("has-image");
+  }
+  updateScanCropOverlay();
   renderScanPersonPicker();renderRecognition();
-  status.classList.remove("is-success","is-error");status.classList.add("is-scanning");
-  status.querySelector("span").textContent="Automatsko prepoznavanje rasporeda...";
+  status.classList.remove("is-success","is-error","is-scanning");
+  if(state.scanSingleMode&&!forceOcr){
+    status.querySelector("span").textContent="Namjesti plavi pojas preko jednog cijelog retka osobe, zatim klikni “Skeniraj označenu osobu”.";
+    if(progress)progress.style.width="0%";
+    return;
+  }
+  status.classList.add("is-scanning");
+  status.querySelector("span").textContent=state.scanSingleMode?"Prepoznavanje označene osobe...":"Automatsko prepoznavanje rasporeda...";
   if(progress)progress.style.width="4%";
   try{
     if(!window.RasporedWebOcr||typeof window.RasporedWebOcr.recognizeSchedule!=="function")throw new Error("OCR modul nije dostupan");
@@ -941,9 +985,9 @@ async function handleScanFile(file){
       }
       var expectedRows=Math.max(state.scanExpectedRows||0,inferredExpected);
       state.scanExpectedRows=expectedRows;
-      state.scanIncomplete=expectedRows>=8&&state.scanPeople.length*100<expectedRows*65;
+      state.scanIncomplete=!state.scanSingleMode&&expectedRows>=8&&state.scanPeople.length*100<expectedRows*65;
       var rosterWarning="";
-      if(expectedRows>=8&&state.scanPeople.length*100<expectedRows*88){
+      if(!state.scanSingleMode&&expectedRows>=8&&state.scanPeople.length*100<expectedRows*88){
         rosterWarning=" Tablica izgleda kao raspored s približno "+expectedRows+" redaka, a pouzdano je očitano "+state.scanPeople.length+". Za potpuni uvoz ponovi fotografiju tako da cijela tablica ostane oštra.";
       }
       saveScanSession();
@@ -960,7 +1004,7 @@ async function handleScanFile(file){
           ?" "+emptyRows+" numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih."
           :"";
         status.querySelector("span").textContent=(state.scanPeople.length===1
-          ?"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja."
+          ?(state.scanSingleMode?"Prepoznat je označeni redak jedne osobe i "+recognizedDays+" oznaka dana. Provjeri prije spremanja.":"Prepoznata je 1 osoba i "+recognizedDays+" oznaka dana. Provjeri raspored prije spremanja.")
           :"Prepoznate su "+state.scanPeople.length+" osobe i ukupno "+recognizedDays+" oznaka dana."+rosterWarning+emptyWarning+" Odaberi ime i prezime osobe čiji raspored želiš uvesti.")+monthWarning;
       }
     }else{
@@ -1093,6 +1137,38 @@ function bind(){
   document.getElementById("rescanBtn").addEventListener("click",function(){document.getElementById("cameraInput").click()});
   document.getElementById("rescanSecondary").addEventListener("click",function(){document.getElementById("cameraInput").click()});
   document.getElementById("galleryBtn").addEventListener("click",function(){document.getElementById("galleryInput").click()});
+  document.getElementById("scanSinglePersonToggle").addEventListener("change",function(){
+    state.scanSingleMode=!!this.checked;
+    state.scanPeople=[];state.scanReviewCells=[];state.scanSelected=-1;state.scanIncomplete=false;
+    renderScanPersonPicker();renderRecognition();updateScanCropOverlay();
+    var status=document.getElementById("scanStatus");
+    if(status&&state.scanOriginalFile){
+      status.classList.remove("is-success","is-error","is-scanning");
+      status.querySelector("span").textContent=state.scanSingleMode
+        ?"Namjesti plavi pojas preko jednog cijelog retka osobe, zatim pokreni skeniranje."
+        :"Način cijele tablice je uključen. Ponovno učitaj ili skeniraj fotografiju.";
+    }
+  });
+  ["scanCropTop","scanCropBottom"].forEach(function(id){
+    document.getElementById(id).addEventListener("input",function(){
+      var top=document.getElementById("scanCropTop"),bottom=document.getElementById("scanCropBottom");
+      if(Number(bottom.value)<Number(top.value)+3){
+        if(id==="scanCropTop")bottom.value=String(Math.min(100,Number(top.value)+3));
+        else top.value=String(Math.max(0,Number(bottom.value)-3));
+      }
+      updateScanCropOverlay();
+    });
+  });
+  document.getElementById("scanSinglePersonBtn").addEventListener("click",async function(){
+    if(!state.scanOriginalFile){toast("Najprije učitaj fotografiju rasporeda.");return}
+    this.disabled=true;
+    try{
+      var focused=await createSinglePersonScanFile(state.scanOriginalFile);
+      await handleScanFile(focused,true,true);
+    }catch(e){
+      toast("Označeni redak nije moguće pripremiti za OCR.");
+    }finally{this.disabled=false}
+  });
   ["cameraInput","galleryInput"].forEach(function(id){var input=document.getElementById(id);input.addEventListener("change",function(){if(this.files&&this.files[0])handleScanFile(this.files[0])})});
   var period=document.getElementById("statsPeriod"),menu=document.getElementById("statsPeriodMenu");
   if(period&&menu){
