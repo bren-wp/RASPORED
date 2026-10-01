@@ -23,6 +23,8 @@ jobs:
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION"; exit 1; }
           grep -q "\"version\":\"$VERSION\"" web/package.json || { echo "web/package.json version differs from VERSION"; exit 1; }
           grep -q "^$VERSION$" web/public/version.txt || { echo "web/public/version.txt differs from VERSION"; exit 1; }
+          grep -Fq "const CACHE=\"raspored-v$VERSION\";" web/public/sw.js || { echo "PWA cache version differs from VERSION"; exit 1; }
+          grep -Fq "\$version = '$VERSION';" web/public/includes/bootstrap.php || { echo "Web bootstrap fallback version differs from VERSION"; exit 1; }
           if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
             echo "Release v$VERSION already exists. Bump VERSION before merging new changes." >&2
             exit 1
