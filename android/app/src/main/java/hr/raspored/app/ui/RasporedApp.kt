@@ -669,7 +669,9 @@ private fun largeMinutesLabel(minutes:Long):String {
                                         onShiftChange(date, shift.code)
                                         editingDate = null
                                     },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("calendar-dialog-code-" + shift.code.lowercase(Locale.ROOT)),
                                     colors = ButtonDefaults.filledTonalButtonColors(
                                         containerColor = shiftBg(shift),
                                         contentColor = shiftFg(shift)
