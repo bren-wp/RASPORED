@@ -25,17 +25,6 @@ export async function seedApp(page: Page, options:{withScan?:boolean}={}) {
       {name:"Nikola Jurić",note:"Dnevne i noćne smjene"},
       {name:"Maja Perić",note:"Odjel B"}
     ]));
-    localStorage.setItem("raspored.timeEntries.v1",JSON.stringify([
-      {id:"1",date:"2026-10-01",in:"07:00",out:"19:00",note:"Redovna smjena"},
-      {id:"2",date:"2026-10-02",in:"19:00",out:"07:00",note:"Noćna smjena"},
-      {id:"3",date:"2026-10-06",in:"07:00",out:"19:00",note:"Redovna smjena"},
-      {id:"4",date:"2026-10-07",in:"07:00",out:"19:00",note:"Redovna smjena"},
-      {id:"5",date:"2026-10-09",in:"07:00",out:"19:00",note:"Redovna smjena"},
-      {id:"6",date:"2026-10-10",in:"19:00",out:"07:00",note:"Noćna smjena"},
-      {id:"7",date:"2026-10-13",in:"07:00",out:"19:00",note:"Redovna smjena"},
-      {id:"8",date:"2026-10-14",in:"19:00",out:"07:00",note:"Noćna smjena"},
-      {id:"9",date:"2026-10-15",in:"07:00",out:"19:00",note:"Redovna smjena"}
-    ]));
     if(withScan){
       sessionStorage.setItem("raspored.scan.v1",JSON.stringify({
         people:scanPeople,
