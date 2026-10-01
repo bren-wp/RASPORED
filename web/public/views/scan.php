@@ -1,5 +1,5 @@
     <section class="view" id="view-scan" data-view="scan">
-      <div class="scan-header"><button class="back-btn" data-route="home" aria-label="Natrag"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-left"></use></svg></button><div class="brand-inline"><img src="assets/brand/logo.svg" alt="" width="40"><b>RASPORED</b></div></div>
+      <div class="scan-header"><button class="back-btn" data-route="home" aria-label="Natrag"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-left"></use></svg></button><div class="brand-inline"><img src="assets/brand/logo.svg" alt="" width="40"><b>Takto</b></div></div>
       <div class="scan-copy scan-copy--with-help"><div><h1>Skeniraj raspored</h1><p>Slikaj cijelu tablicu ili učitaj fotografiju.<br>Moraju biti vidljivi svi redci osoba i svi stupci dana.</p></div><button class="icon-btn scan-help-btn" id="scanHelpBtn" aria-label="Pomoć za skeniranje">?</button></div>
       <section class="scan-preview" id="scanPreview">
         <div class="scan-corners" aria-hidden="true"></div>
@@ -63,7 +63,7 @@
           <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>
           <span id="scanAiVerifyLabel">AI provjera cijelog rasporeda</span>
         </button>
-        <p>Opcionalna druga provjera za guste tablice. Slika se šalje RASPORED poslužitelju i OpenAI API-ju samo kad ovo izričito pokreneš. API ključ ostaje isključivo na poslužitelju.</p>
+        <p>Opcionalna druga provjera za guste tablice. Slika se šalje Takto poslužitelju i OpenAI API-ju samo kad ovo izričito pokreneš. API ključ ostaje isključivo na poslužitelju.</p>
       </div>
       <div class="scan-conflict-panel" id="scanConflictPanel" hidden>
         <strong id="scanConflictCount">Za provjeru: 0 nejasnih stavki</strong>
@@ -73,7 +73,7 @@
       <dialog class="app-dialog" id="scanAiConsentDialog">
         <div class="dialog-card">
           <div class="dialog-head"><div><h2>AI analiza fotografije</h2><p>Opcionalna mrežna provjera.</p></div><form method="dialog"><button class="icon-btn" aria-label="Zatvori">×</button></form></div>
-          <p>Fotografija rasporeda napušta uređaj: šalje se RASPORED backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere.</p>
+          <p>Fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere.</p>
           <div class="dialog-actions"><form method="dialog"><button class="secondary-btn">Ostani na lokalnom OCR-u</button></form><button class="primary-btn" id="scanAiConsentConfirm">Pošalji na AI provjeru</button></div>
         </div>
       </dialog>
