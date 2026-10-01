@@ -53,6 +53,14 @@
           </a>
         </div>
       </section>
+      <section class="card settings-card about-takto">
+        <div class="about-takto-brand">
+          <img src="assets/brand/logo.svg" alt="" width="52" height="52">
+          <div><h2>Takto</h2><small>Verzija <?= htmlspecialchars($version, ENT_QUOTES) ?></small></div>
+        </div>
+        <p class="about-takto-tagline">Dodirni. Označi. Radi.</p>
+        <p class="settings-help">Izradio <b>Brendigo</b> · brendigo.com · info@brendigo.com</p>
+      </section>
     </section>
   </main>
 
