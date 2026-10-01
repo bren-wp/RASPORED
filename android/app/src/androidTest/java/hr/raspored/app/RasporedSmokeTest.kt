@@ -17,9 +17,9 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
         val currentMonth=YearMonth.now()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(1)).performClick()
-        composeRule.onNodeWithText("D").performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(2)).performClick()
-        composeRule.onNodeWithText("N").performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
 
         composeRule.onNodeWithTag("nav-hours").performClick()
         composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
