@@ -4,6 +4,7 @@
       <section class="scan-preview" id="scanPreview">
         <div class="scan-corners" aria-hidden="true"></div>
         <img id="scanPreviewImage" class="scan-preview-image" alt="Odabrana fotografija rasporeda">
+        <div class="scan-row-crop" id="scanRowCrop" hidden aria-hidden="true"><i></i></div>
         <div class="scan-empty-state" id="scanEmptyState">
           <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>
           <b>Raspored nije učitan</b>
@@ -12,6 +13,14 @@
         <div class="scan-actions">
           <button id="rescanBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Ponovno skeniraj</button>
           <button id="galleryBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-image"></use></svg>Odaberi iz galerije</button>
+        </div>
+        <div class="scan-single-mode">
+          <label><input type="checkbox" id="scanSinglePersonToggle"><span><b>Samo jedna osoba</b><small>Označi vodoravni redak: ime i prezime + svi dani</small></span></label>
+          <div class="scan-crop-controls" id="scanCropControls" hidden>
+            <span>Gornja granica</span><input type="range" id="scanCropTop" min="0" max="95" value="34">
+            <span>Donja granica</span><input type="range" id="scanCropBottom" min="5" max="100" value="44">
+            <button type="button" class="secondary-btn" id="scanSinglePersonBtn">Skeniraj označenu osobu</button>
+          </div>
         </div>
         <div class="scan-status" id="scanStatus" role="status" aria-live="polite">
           <span>Spremno za učitavanje rasporeda.</span>
