@@ -19,8 +19,8 @@
         <div class="scan-single-mode">
           <label><input type="checkbox" id="scanSinglePersonToggle"><span><b>Samo jedna osoba</b><small>Označi vodoravni redak: ime i prezime + svi dani</small></span></label>
           <div class="scan-crop-controls" id="scanCropControls" hidden>
-            <span>Gornja granica</span><input type="range" id="scanCropTop" min="0" max="95" value="34">
-            <span>Donja granica</span><input type="range" id="scanCropBottom" min="2" max="100" value="38">
+            <span>Gornja granica</span><input type="range" id="scanCropTop" min="0" max="98" step="0.1" value="34">
+            <span>Donja granica</span><input type="range" id="scanCropBottom" min="2" max="100" step="0.1" value="38">
             <div class="scan-crop-row-nav" id="scanCropRowNav" hidden>
               <button type="button" class="secondary-btn" id="scanCropPrev" aria-label="Prethodni prepoznati redak">↑ Prethodni</button>
               <b id="scanCropRowLabel">Redak —</b>
