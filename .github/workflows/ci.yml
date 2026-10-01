@@ -38,6 +38,9 @@ jobs:
             exit 1
           fi
 
+      - name: Dead-code audit
+        run: python3 scripts/dead_code_audit.py --strict
+
       - name: Validate workflow syntax and release structure
         shell: bash
         run: |
