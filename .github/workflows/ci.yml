@@ -175,7 +175,7 @@ jobs:
           emulator-build: 15917651
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             gradle -p android :app:connectedDebugAndroidTest --stacktrace
             mkdir -p android-readme-screenshots
             adb pull /sdcard/Android/data/hr.raspored.app/files/readme/. android-readme-screenshots/
