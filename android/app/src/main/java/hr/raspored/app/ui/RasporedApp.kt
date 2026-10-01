@@ -468,7 +468,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
                 MetricCard("Ovaj mjesec",minutesLabel(analytics.workedMinutes),"Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f))
-                MetricCard("Saldo sati",signedMinutesLabel(analytics.balanceMinutes),"Ukupni saldo",Icons.Outlined.BarChart,Modifier.weight(1f))
+                MetricCard("Broj smjena",data.values.count{it.code=="D"||it.code=="N"}.toString(),"D + N ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
             }
         }
         item{
@@ -1118,9 +1118,9 @@ private fun largeMinutesLabel(minutes:Long):String {
                     )
                     DetailLine(
                         Icons.Outlined.Balance,
-                        "Saldo sati",
-                        "Prema evidenciji",
-                        signedMinutesLabel(analytics.balanceMinutes)
+                        "Ukupno sati",
+                        "Automatski iz kalendara",
+                        minutesLabel(analytics.workedMinutes)
                     )
                 }
             }
