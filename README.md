@@ -6,7 +6,7 @@
 
 ### Smjene, evidencija sati i statistika — u jednoj modernoj aplikaciji.
 
-**RASPORED** pretvara papirnate rasporede u pregledan digitalni kalendar, povezuje planirane smjene sa stvarno odrađenim vremenom i daje jasan mjesečni pregled rada na **Androidu** i kao **Web/PWA** aplikacija.
+**RASPORED** pretvara papirnate rasporede u pregledan digitalni kalendar, automatski izvodi evidenciju sati iz potvrđenog kalendara i daje jasan mjesečni pregled rada na **Androidu** i kao **Web/PWA** aplikacija.
 
 [![CI](https://github.com/bren-wp/RASPORED/actions/workflows/ci.yml/badge.svg)](https://github.com/bren-wp/RASPORED/actions/workflows/ci.yml)
 
@@ -22,7 +22,7 @@ Svako produkcijsko izdanje objavljuje gotove artefakte:
 
 - **RASPORED.apk** — uvijek instalabilni Android artefakt. Bez dodatne konfiguracije release koristi standardni debug potpis; ako je upload signing opcionalno konfiguriran, objavljuje se release-potpisani APK.
 - **RASPORED.aab** — release Android App Bundle. GitHub Secrets nisu uvjet za izradu ili objavu; opcionalni upload signing koristi se samo kada su sva četiri signing podatka već konfigurirana.
-- **raspored_demo.apk** — zasebna demonstracijska Android aplikacija iz korijenske mape `/demo`, s interaktivnim kalendarom i unosom oznake klikom na dan.
+- **raspored_demo.apk** — isti produkcijski Android UI i funkcionalni source kao glavna aplikacija, ali s application ID-em `hr.raspored.demo`, jasnom DEMO oznakom i izmišljenim demo rasporedom pri prvom pokretanju.
 - **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
 - **SHA256SUMS** — SHA-256 kontrolne vrijednosti za glavni APK, AAB, `raspored_demo.apk` i Web/PWA paket; release ih provjerava prije objave.
 
@@ -32,14 +32,14 @@ GitHub Secrets nisu obavezni za release. Ako su sva četiri opcionalna signing s
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
-RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima, koliko je stvarno odradio i kakav mu je saldo sati**.
+RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**.
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 - **Kalendar smjena** — glavni početni ekran i najveći dio Android sučelja. Mjesečna 7-stupčana mreža koristi velike ćelije; klik na ćeliju otvara unos oznake baš za taj datum. U istom dijalogu moguće je odabrati D, N, GO, BO, PD ili SD, upisati vlastitu oznaku do 8 znakova ili očistiti dan. Stari blok brzog unosa i višestrukog odabira ispod kalendara uklonjen je u potpunosti.
 - **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
-- **Evidencija sati** — ulaz, izlaz, bilješka, trajanje rada i mjesečna povijest.
-- **Statistika** — dnevni/noćni sati, saldo, vikendi, blagdani i raspodjela po tjednima.
+- **Evidencija sati** — detaljni mjesečni ledger automatski izveden iz kalendara; nema ručnog clock-in/clock-out toka.
+- **Statistika** — odvojeni zbirni analitički ekran za dnevne/noćne sate, vikende, blagdane, broj smjena i raspodjelu po tjednima.
 - **Android + Web/PWA** — isti vizualni identitet i ista semantika podataka na obje platforme.
 
 ## Stvarna Android aplikacija
@@ -64,8 +64,8 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Mjesečni kalendar** | Početni Android ekran s velikom 7-stupčanom mrežom preko gotovo cijelog dostupnog prostora. Klik na dan otvara uređivanje te ćelije: standardna ili vlastita kratka oznaka do 8 slova/brojeva, uz mogućnost brisanja. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
 | **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, stvarne horizontalne linije mreže, točni pojasevi redaka zaposlenika, preklapajući pojasevi, zasebni roster prolazi i fokusirani recovery tileovi. Za guste 27–31 redne tablice sustav može raditi i završni OCR **redak po redak** uz izvorno zaglavlje dana te blokira očito nepotpun uvoz kada geometrija tablice pokazuje više djelatnika nego što je OCR pouzdano pročitao. |
-| **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
-| **Saldo sati** | Razlika između planiranih i stvarno evidentiranih minuta. |
+| **Automatska evidencija sati** | D i N smjene iz potvrđenog kalendara automatski daju 12 sati; noćni dio N smjene računa se prema stvarnom intervalu 22:00–06:00. GO/BO/PD/SD ne stvaraju izmišljene radne sate, a custom oznake ostaju bez satnice dok se njihovo značenje ne definira. |
+| **Odvojena statistika** | Statistika agregira kalendarske sate i smjene, ali nije duplikat dnevnog evidencijskog ledgera. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
 | **Tjedna statistika** | Vizualna raspodjela rada po tjednima u mjesecu. |
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
@@ -80,11 +80,11 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
 3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. U dokazanoj ćeliji kalendarske mreže čuva i kratke oznake specifične radnom mjestu (npr. **J, S, P1, 1, 2, 3**) bez izmišljanja njihova značenja. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
-4. U osobni kalendar uvozi se **točno jedna odabrana osoba**. Za lokalni OCR nije potreban račun. Ako je puni raspored gust, OCR koristi broj retka kao primarni identitet i dodatne roster prolaze za ime kako ne bi stvarao duplikate ili gubio smjene.
+4. U osobni kalendar uvozi se **točno jedna osoba**. Nakon skeniranja automatski se odabire najpotpunije prepoznati redak kako gumb za uvoz ne bi ostao zaključan; korisnik taj izbor može promijeniti. Ako cijeli roster izgleda nepotpuno, osobni uvoz odabranog retka ostaje moguć nakon provjere, dok se timski uvoz blokira dok roster nije dovoljno potpun.
 5. Android bez registracije može iz istog skeniranja spremiti više prepoznatih djelatnika kao **odvojene lokalne rasporede tima**. Registrirani korisnik može dodatno pokrenuti **AI provjeru cijelog rasporeda**; AI rezultat dopunjava nedostajuće podatke, a svaka nesuglasica lokalnog OCR-a i AI-ja ostaje zasebna konfliktna ćelija za ciljanu ručnu odluku. Rasporedi se nikada ne spajaju među osobama.
 6. Prije spremanja moguće je ručno ispraviti svaki dan i oznaku; bez pouzdane geometrije stupaca aplikacija traži ponovno skeniranje umjesto tihog pomicanja dana ulijevo ili udesno.
 
-Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Fotografija se obrađuje u pregledniku, a potvrđeni raspored i evidencija spremaju se kroz isti-origin PHP API u per-instalacijski JSON pod `storage/data`.
+Web OCR pri prvom korištenju može trebati internetsku vezu za učitavanje OCR modela. Fotografija se obrađuje u pregledniku, a potvrđeni raspored sprema se kroz isti-origin PHP API u per-instalacijski JSON pod `storage/data`. Evidencija sati računa se iz tog rasporeda i ne zahtijeva zasebno ručno bilježenje ulaza/izlaza.
 
 ### Opcionalna AI provjera rasporeda
 
@@ -94,30 +94,25 @@ Za guste tablice AI mora pokušati vratiti sve numerirane redove i točne stupce
 
 Produkcijski server konfigurira `OPENAI_API_KEY` i opcionalno `OPENAI_RASPORED_MODEL`; bez ključa aplikacija nastavlja normalno raditi lokalnim OCR-om.
 
-## Evidencija sati je odvojena od plana
+## Evidencija sati iz kalendara
 
-Planirana smjena govori **što bi trebalo biti odrađeno**. Evidencija sati govori **što je stvarno odrađeno**.
+Kalendar je izvor istine za evidenciju. Korisnik više ne mora pokretati i zaustavljati timer niti ručno evidentirati ulaz i izlaz.
 
-RASPORED zato odvojeno vodi:
+- **D** se računa kao 07:00–19:00, ukupno 12 h.
+- **N** se računa kao 19:00–07:00, ukupno 12 h; sati 22:00–06:00 ulaze u noćni rad.
+- Vikend, blagdan i prijelaz mjeseca računaju se prema stvarnom datumu svakog dijela smjene.
+- **GO / BO / PD / SD** ostaju statusi kalendara i ne stvaraju izmišljene odrađene sate.
+- Vlastite oznake poput J, S ili P1 ostaju sačuvane, ali ne dobivaju automatsku satnicu bez definiranog pravila.
 
-- vrijeme ulaza,
-- vrijeme izlaza,
-- trajanje rada,
-- bilješku uz evidenciju,
-- mjesečni zbroj,
-- dnevne i noćne minute,
-- vikend i blagdan minute,
-- saldo u odnosu na plan.
-
-Home i Statistika koriste stvarnu Evidenciju sati. Planirane smjene i stvarno odrađeno vrijeme vode se odvojeno.
+**Evidencija** prikazuje dnevni ledger i sate po datumima. **Statistika** je zaseban ekran koji te iste potvrđene kalendarske podatke agregira u mjesečne pokazatelje i trendove.
 
 ## Oznake rasporeda i Evidencija sati
 
-RASPORED razlikuje planirani raspored od stvarne Evidencije sati. Podržane semantičke oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. Kratke oznake koje ustanova koristi, a RASPORED im nema potvrđenu semantiku, čuvaju se kao vlastite oznake umjesto da se odbace ili pogrešno prevedu. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
+RASPORED izvodi evidenciju iz potvrđenog kalendara. Podržane semantičke oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. Kratke oznake koje ustanova koristi, a RASPORED im nema potvrđenu semantiku, čuvaju se kao vlastite oznake umjesto da se odbace ili pogrešno prevedu. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
 
 Blagdan je svojstvo datuma, a ne posebna oznaka rasporeda. Prazna ćelija na blagdan ostaje prazna i prikazuje se kao blagdan/neradni dan; aplikacija ne dodaje +150 % dodatka ako na taj datum nema stvarno odrađenog rada. Za javne službe TKU predviđa pravo na naknadu plaće kada zaposlenik ne radi zbog državnog blagdana ili neradnog dana, pa taj slučaj ne pretvaramo u BO, SD ili izmišljenu smjenu.
 
-Evidencija sati dodatno razlikuje **redovni rad, 1./2./3. smjenu, turnus, dežurstvo, pripravnost, rad po pozivu i drugi oblik rada**. Trajanje uvijek dolazi iz stvarnog ulaza/izlaza; posebna naknada ne pretpostavlja se ako za nju nema provjerljivog pravila.
+RASPORED ne izmišlja trajanje ni dodatke za ustanovne/custom oznake. Posebni obrasci rada i dodaci u kalkulatoru plaće primjenjuju se samo kada postoji odgovarajući korisnički odabir i provjerljivo pravilo; osnovni sati i kategorije rada dolaze iz kalendarskih D/N smjena.
 
 ## Okvirna plaća — javni sektor i ručni način za ostale poslodavce
 
@@ -127,7 +122,7 @@ Za 2026. ugrađene su službene osnovice javnih i državnih službi po razdoblji
 
 Vrtići, lokalna i regionalna uprava, privatni poslodavci te drugi slučajevi gdje ne postoji jedna službena državna osnovica/koeficijent koriste **ručni unos**. Privatni sektor je zato dostupan kao zaseban ručni režim: korisnik unosi poznate ugovorene parametre, a aplikacija ne izmišlja nacionalnu vrijednost. Ako radno mjesto nije u katalogu, postoji **Drugo / ručni unos**.
 
-Procjena koristi stvarnu Evidenciju sati za noćni, subotnji, nedjeljni, blagdanski i okvirni prekovremeni rad tamo gdje je stopa za odabrani režim provjerena. Okvirni neto koristi uneseni osobni odbitak i stope grada/općine prebivališta; porez se ne veže uz županiju poslodavca. Prikaz “po radnom danu” samo je prosjek plaće po evidentiranom radnom danu i **nije službena dnevnica za službeni put**.
+Procjena koristi sate automatski izvedene iz kalendara za noćni, subotnji, nedjeljni, blagdanski i okvirni prekovremeni rad tamo gdje je stopa za odabrani režim provjerena. Okvirni neto koristi uneseni osobni odbitak i stope grada/općine prebivališta; porez se ne veže uz županiju poslodavca. Prikaz “po radnom danu” samo je prosjek plaće po evidentiranom radnom danu i **nije službena dnevnica za službeni put**.
 
 Kalkulator je pomoćni informativni sloj, ne obračunska isprava. Bolovanje, godišnji odmor po prosjeku, pripravnost, dežurstva, posebni uvjeti rada, neoporezivi primici, prijevoz, obustave i individualna porezna prava ne dodaju se bez odgovarajućeg podatka ili provjerljivog pravila.
 
@@ -168,7 +163,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 
 ## Demo Android aplikacija
 
-Mapa `/demo` je zaseban Android application modul (`hr.raspored.demo`) koji demonstrira glavni kalendarski UX bez korisničkih podataka. Demo koristi veliki mjesečni kalendar i isti model **klik na dan → odaberi ili upiši oznaku**. Svaki release objavljuje ga kao **`raspored_demo.apk`** i uključuje u `SHA256SUMS`.
+Mapa `/demo` je zaseban Android application modul samo na razini pakiranja (`hr.raspored.demo`), ali **ne održava zasebnu mini-aplikaciju**. Kompilira isti produkcijski Kotlin/Compose UI, OCR, Kalendar, Evidenciju, Statistiku, Plaću, Postavke i resurse kao glavna aplikacija. Razlikuje se po DEMO oznaci, application ID-u i izmišljenim početnim podacima. Svaki release objavljuje ga kao **`raspored_demo.apk`** i uključuje u `SHA256SUMS`.
 
 ## Dead-code audit
 
@@ -183,7 +178,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 - Material 3
 - Android 16 / targetSdk 36 za aktualni Google Play zahtjev
 - ML Kit Text Recognition
-- lokalna pohrana rasporeda i evidencije
+- SQLite pohrana rasporeda i automatska evidencija izvedena iz kalendara
 - okvirna bruto/neto procjena uz službene javne presete i ručni način za ostale sektore
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
@@ -219,7 +214,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 
 - **Android:** kalendar, raspored, ML Kit OCR, evidencija, statistika, procjena plaće i PDF izvoz rade lokalno bez registracije. Postavke nemaju ime/prezime, prijavu ni registraciju. Postojeći šifrirani token iz ranijih verzija može se validirati radi kompatibilnosti, ali lokalne funkcije ne ovise o mreži.
 - **Android pohrana rasporeda:** osobna povijest rasporeda primarno se čuva u SQLite bazi bez automatskog brisanja starih mjeseci. Pri nadogradnji se postojeći `SharedPreferences` raspored transakcijski prenosi u bazu, uz kompatibilni write-through mirror kako prekid nadogradnje ili povratak na stariju verziju ne bi ostavio podatke nedostupnima.
-- **Android povijest evidencije:** evidencija vremena više nema automatski limit od 3000 zapisa; višegodišnja povijest ostaje sačuvana dok je korisnik sam ne ukloni.
+- **Android evidencija sati:** ne postoji zasebna baza ručnih ulaza/izlaza; evidencija se deterministički ponovno izračunava iz sačuvane povijesti kalendara, pa višegodišnji rasporedi ostaju jedini izvor podataka za taj prikaz.
 - **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
 - **Računi:** Web lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify` i HttpOnly/SameSite session cookie. Android više nema account UI; eventualni token iz ranije verzije ostaje u Keystore-backed šifriranoj pohrani samo radi kompatibilnosti i briše se kada je istekao ili opozvan.
 - **Zaštita Web spremišta:** runtime prvenstveno sprema JSON u privatni direktorij izvan document root-a; put se može eksplicitno zadati s `RASPORED_STORAGE_DIR`. `storage/.htaccess` ostaje kompatibilni fallback za Apache. Zapis ide kroz API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
@@ -240,7 +235,7 @@ Svaki ozbiljniji razvojni pass provjerava:
 - Calendar i Statistics navigaciju,
 - stvarni image-upload tok,
 - produkcijski Scan empty state,
-- evidenciju ulaza/izlaza i perzistenciju,
+- automatsku Evidenciju sati iz kalendara i njezinu odvojenost od Statistike,
 - data-driven statistiku,
 - JSON storage API, migraciju i zaštitu zapisa,
 - okvirnu plaću i perzistenciju odabranog radnog mjesta,
@@ -283,7 +278,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED je pripremljen kao **v1.0.14** aplikacija za Android i Web/PWA. Runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika. QA podaci postoje samo u automatiziranim testovima i ne ulaze u produkcijski UI.
+RASPORED se verzionira zajednički za Android, Web/PWA i demo paket. Produkcijski runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika; samo `hr.raspored.demo` pri prvom pokretanju dobiva izmišljene demo podatke. QA podaci postoje samo u automatiziranim testovima.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 
