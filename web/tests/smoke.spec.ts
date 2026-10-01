@@ -83,6 +83,32 @@ test("scan performs OCR and exposes multiple invented employees", async ({page})
   await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
+test("single-person crop waits for confirmation and imports only that focused row", async ({page}) => {
+  await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").check();
+
+  const tinyPng=Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAD0lEQVR42mP8z8AARMAgYKSgAAMAJQABf2m7WQAAAABJRU5ErkJggg==",
+    "base64"
+  );
+  await page.locator("#galleryInput").setInputFiles({
+    name:"raspored.png",
+    mimeType:"image/png",
+    buffer:tinyPng
+  });
+
+  await expect(page.locator("#scanStatus")).toContainText("Namjesti plavi pojas");
+  await expect(page.locator("#scanRowCrop")).toBeVisible();
+  await expect(page.locator("#saveSchedule")).toBeDisabled();
+
+  await page.locator("#scanSinglePersonBtn").click();
+  await expect(page.locator("#scanStatus")).toContainText("Prepoznat je označeni redak jedne osobe");
+  await expect(page.locator("#scanPersonLabel")).toContainText("ANA HORVAT");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
+});
+
 test("scan imports only the explicitly selected employee schedule", async ({page}) => {
   await mockOcr(page);
   await page.goto("/");
