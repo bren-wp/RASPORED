@@ -512,7 +512,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
                 MetricCard("Ovaj mjesec",minutesLabel(analytics.workedMinutes),"Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f))
-                MetricCard("Broj smjena",data.values.count{it.code=="D"||it.code=="N"}.toString(),"D + N ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
+                MetricCard("Radne smjene",data.values.count{it.code=="D"||it.code=="N"}.toString(),"Ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
             }
         }
         item{
