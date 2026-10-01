@@ -467,7 +467,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .scan-conflict-actions{display:grid;gap:8px;margin-top:14px}
 .scan-conflict-actions>*{width:100%;min-height:44px}
 
-.scan-image-stage{position:relative;width:100%}.scan-row-crop{position:absolute;left:0;right:0;top:34%;height:10%;border:3px solid var(--cyan);background:rgba(0,194,255,.12);box-shadow:0 0 0 9999px rgba(0,0,0,.48);z-index:4;pointer-events:none;border-radius:8px}
+.scan-image-stage{position:relative;width:100%;cursor:crosshair;touch-action:manipulation}.scan-row-crop{position:absolute;left:0;right:0;top:34%;height:4%;border:3px solid var(--cyan);background:rgba(0,194,255,.12);box-shadow:0 0 0 9999px rgba(0,0,0,.48);z-index:4;pointer-events:none;border-radius:8px}
 .scan-row-crop i{position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.85);transform:translateY(-50%)}
 .scan-single-mode{margin-top:10px;background:rgba(8,27,57,.96);border-radius:14px;padding:10px 12px;color:#fff}
 .scan-single-mode>label{display:flex;align-items:center;gap:10px;cursor:pointer}
@@ -482,3 +482,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 
 .scan-image-stage{display:none;position:relative;width:100%}
 .scan-preview.has-image .scan-image-stage{display:block}
+
+.scan-crop-row-nav{grid-column:1/-1;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.scan-crop-row-nav b{text-align:center;font-size:12px;color:#fff;white-space:nowrap}
+.scan-crop-row-nav .secondary-btn{grid-column:auto;width:auto;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.22)}
+#scanCropHint{grid-column:1/-1;color:#C6D4EA;line-height:1.4}
+.scan-image-stage.is-row-detected::after{content:"Dodirni redak osobe";position:absolute;right:10px;top:10px;z-index:5;background:rgba(8,27,57,.88);color:#fff;padding:5px 8px;border-radius:8px;font-size:10px;pointer-events:none}
+
+.scan-crop-row-nav[hidden]{display:none!important}

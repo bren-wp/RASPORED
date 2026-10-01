@@ -95,6 +95,13 @@ class ScheduleTableDetectorInstrumentedTest {
             canvas.drawLine(x, top, x, bottom, paint)
         }
 
+        val singleRows = ScheduleTableDetector.detectEmployeeRowBands(bitmap, rowsPerBand = 1)
+        assertTrue("Expected nearly all 27 single-employee rows", singleRows.size >= 25)
+        assertTrue(singleRows.all { band ->
+            band.bodyBottom > band.bodyTop &&
+                band.bodyBottom - band.bodyTop < (bottom - top) / 10f
+        })
+
         val bands = ScheduleTableDetector.detectEmployeeRowBands(bitmap, rowsPerBand = 4)
         assertTrue("Expected several exact employee bands", bands.size >= 6)
         assertTrue(bands.first().headerTop <= top + 35f)

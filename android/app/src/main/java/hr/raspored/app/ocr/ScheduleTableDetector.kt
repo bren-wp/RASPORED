@@ -48,7 +48,10 @@ internal object ScheduleTableDetector {
                 if (sampleWidth == cropped.width && sampleHeight == cropped.height) {
                     cropped
                 } else {
-                    Bitmap.createScaledBitmap(cropped, sampleWidth, sampleHeight, true).also {
+                    // Keep thin schedule grid rules crisp for geometry detection.
+                    // Bilinear filtering can erase 1–2 px horizontal lines after
+                    // downscaling and make a dense roster look artificially short.
+                    Bitmap.createScaledBitmap(cropped, sampleWidth, sampleHeight, false).also {
                         if (it !== cropped && !cropped.isRecycled) cropped.recycle()
                     }
                 }
@@ -325,9 +328,29 @@ internal object ScheduleTableDetector {
                 }.thenBy { frequencies[it] ?: 0 }
             )
             ?: return null
-        val spacingSeeds = (dominantGap - 2..dominantGap + 2)
-            .map(Int::toDouble)
-            .filter { it in 8.0..80.0 }
+        val spacingSeeds = buildList {
+            addAll(
+                (dominantGap - 2..dominantGap + 2)
+                    .map(Int::toDouble)
+                    .filter { it in 8.0..80.0 }
+            )
+
+            // A dense roster often scales to a fractional row spacing. Integer
+            // seeds accumulate drift across 20–30 employees and can skip rows
+            // that are actually visible. Derive a fractional seed from the
+            // locally dominant gaps and from the full detected span.
+            val localGaps = gaps.filter { gap -> abs(gap - dominantGap) <= 2 }
+            if (localGaps.isNotEmpty()) {
+                val averageGap = localGaps.average()
+                if (averageGap in 8.0..80.0) add(averageGap)
+            }
+            if (sorted.size >= 10) {
+                val spanGap =
+                    (sorted.last() - sorted.first()).toDouble() /
+                        (sorted.size - 1).toDouble()
+                if (spanGap in 8.0..80.0) add(spanGap)
+            }
+        }.distinctBy { spacing -> (spacing * 100.0).roundToInt() }
 
         var best: GridFit? = null
         spacingSeeds.forEach { spacing ->

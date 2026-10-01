@@ -99,13 +99,57 @@ test("single-person crop waits for confirmation and imports only that focused ro
     buffer:tinyPng
   });
 
-  await expect(page.locator("#scanStatus")).toContainText("Namjesti plavi pojas");
+  await expect(page.locator("#scanStatus")).toContainText("Mreža redaka nije dovoljno jasna");
   await expect(page.locator("#scanRowCrop")).toBeVisible();
   await expect(page.locator("#saveSchedule")).toBeDisabled();
 
   await page.locator("#scanSinglePersonBtn").click();
   await expect(page.locator("#scanStatus")).toContainText("Prepoznat je označeni redak jedne osobe");
   await expect(page.locator("#scanPersonLabel")).toContainText("ANA HORVAT");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
+});
+
+test("smart single-person crop snaps to detected employee rows and supports tap selection", async ({page}) => {
+  await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").check();
+
+  const left=135,top=180,right=1510,bottom=820,nameWidth=245;
+  const horizontal=Array.from({length:29},(_,line)=>{
+    const y=top+(bottom-top)*line/28;
+    return '<line x1="'+left+'" y1="'+y+'" x2="'+right+'" y2="'+y+'" />';
+  }).join("");
+  const vertical=[
+    '<line x1="'+left+'" y1="'+top+'" x2="'+left+'" y2="'+bottom+'" />',
+    '<line x1="'+(left+nameWidth)+'" y1="'+top+'" x2="'+(left+nameWidth)+'" y2="'+bottom+'" />',
+    ...Array.from({length:32},(_,day)=>{
+      const x=left+nameWidth+(right-left-nameWidth)*day/31;
+      return '<line x1="'+x+'" y1="'+top+'" x2="'+x+'" y2="'+bottom+'" />';
+    })
+  ].join("");
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200"><rect width="1600" height="1200" fill="#f7f7f7"/><g stroke="#242424" stroke-width="2">'+horizontal+vertical+'</g></svg>';
+
+  await page.locator("#galleryInput").setInputFiles({
+    name:"gusti-raspored.svg",
+    mimeType:"image/svg+xml",
+    buffer:Buffer.from(svg)
+  });
+
+  await expect(page.locator("#scanStatus")).toContainText("Pronađeno je");
+  await expect(page.locator("#scanCropRowNav")).toBeVisible();
+  await expect(page.locator("#scanCropRowLabel")).toContainText("/");
+  const before=await page.locator("#scanCropRowLabel").textContent();
+
+  const stage=page.locator("#scanImageStage");
+  const box=await stage.boundingBox();
+  expect(box).not.toBeNull();
+  await stage.click({position:{x:Math.max(2,(box?.width||100)/2),y:Math.max(2,(box?.height||100)*0.76)}});
+  const after=await page.locator("#scanCropRowLabel").textContent();
+  expect(after).not.toBe(before);
+
+  await page.locator("#scanSinglePersonBtn").click();
+  await expect(page.locator("#scanStatus")).toContainText("Prepoznat je označeni redak jedne osobe");
   await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
@@ -303,15 +347,21 @@ test("web OCR table detector removes page margins while keeping the whole monthl
       const x=left+nameWidth+(right-left-nameWidth)*day/31;
       ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();
     }
-    return (window as any).RasporedOcrTableCrop.detectGridBounds(canvas);
+    const api=(window as any).RasporedOcrTableCrop;
+    return {
+      bounds:api.detectGridBounds(canvas),
+      rows:api.detectEmployeeRowBandsFromBitmap(canvas,1)
+    };
   });
-  expect(bounds).not.toBeNull();
-  expect(bounds.left).toBeLessThanOrEqual(230);
-  expect(bounds.top).toBeLessThanOrEqual(230);
-  expect(bounds.right).toBeGreaterThanOrEqual(1450);
-  expect(bounds.bottom).toBeGreaterThanOrEqual(790);
-  expect(bounds.right-bounds.left).toBeLessThan(1500);
-  expect(bounds.bottom-bounds.top).toBeLessThan(900);
+  expect(bounds.bounds).not.toBeNull();
+  expect(bounds.bounds.left).toBeLessThanOrEqual(230);
+  expect(bounds.bounds.top).toBeLessThanOrEqual(230);
+  expect(bounds.bounds.right).toBeGreaterThanOrEqual(1450);
+  expect(bounds.bounds.bottom).toBeGreaterThanOrEqual(790);
+  expect(bounds.bounds.right-bounds.bounds.left).toBeLessThan(1500);
+  expect(bounds.bounds.bottom-bounds.bounds.top).toBeLessThan(900);
+  expect(bounds.rows.length).toBeGreaterThanOrEqual(25);
+  expect(bounds.rows.every((row:any)=>row.bodyBottom>row.bodyTop)).toBeTruthy();
 });
 
 test("web OCR rejects an ambiguous leading blank day without a header anchor", async ({page}) => {
