@@ -5,29 +5,32 @@ test.beforeEach(async ({page}) => {
   await seedApp(page);
 });
 
-test("responsive home uses production composition", async ({page}) => {
+test("responsive Takto home uses production composition", async ({page}) => {
   await page.goto("/");
-  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
-  await page.locator('[data-route="home"]:visible').first().click();
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
-    await expect(page.getByText("Današnja smjena")).toBeVisible();
+    await expect(page.getByText("Tvoj raspored.")).toBeVisible();
+    await expect(page.getByText("Na prvi pogled.")).toBeVisible();
+    await expect(page.getByText("Dobro jutro!")).toBeVisible();
     await expect(page.getByRole("button",{name:/Skeniraj raspored/i}).last()).toBeVisible();
     const mobileNav=page.locator(".bottom-nav");
+    await expect(mobileNav).toContainText("Početna");
     await expect(mobileNav).toContainText("Kalendar");
-    await expect(mobileNav).toContainText("Evidencija");
     await expect(mobileNav).toContainText("Skeniraj");
     await expect(mobileNav).toContainText("Statistika");
     await expect(mobileNav).toContainText("Više");
-    await expect(mobileNav).not.toContainText("Početna");
+    await expect(mobileNav).not.toContainText("Evidencija");
   }else{
-    await expect(page.getByRole("heading",{name:/Dobro došao, Ivana/})).toBeVisible();
+    await expect(page.getByRole("heading",{name:/Dobro jutro, Ivana/})).toBeVisible();
     await expect(page.locator("#calendarGrid")).toBeVisible();
   }
 });
 
 test("calendar and statistics remain interactive", async ({page}) => {
   await page.goto("/");
+  await page.locator('[data-route="calendar"]:visible').first().click();
   await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   await expect(page.locator("#calendarGridMobile")).toBeVisible();
   await page.locator('[data-route="stats"]:visible').first().click();
@@ -40,8 +43,10 @@ test("calendar and statistics remain interactive", async ({page}) => {
   await expect(page.locator("#statsPeriodMenu")).toBeVisible();
 });
 
-test("calendar is the start view and manual status editing persists", async ({page}) => {
+test("home is the start view and manual calendar editing persists", async ({page}) => {
   await page.goto("/");
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
+  await page.locator('[data-route="calendar"]:visible').first().click();
   await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   await page.locator('[data-manual-shift="PD"]').click();
   const selectedDate=await page.locator("#selectedDayCard").evaluate((el:any) => {
@@ -51,7 +56,8 @@ test("calendar is the start view and manual status editing persists", async ({pa
   }).catch(()=>null);
   await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
   await page.reload();
-  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
+  await page.locator('[data-route="calendar"]:visible').first().click();
   await expect(page.locator('[data-manual-shift="PD"]')).toHaveAttribute("aria-pressed","true");
   expect(selectedDate===null||typeof selectedDate==="string").toBeTruthy();
 });
@@ -59,6 +65,7 @@ test("calendar is the start view and manual status editing persists", async ({pa
 
 test("blank calendar cell remains a regular day off and is not SD", async ({page}) => {
   await page.goto("/");
+  await page.locator('[data-route="calendar"]:visible').first().click();
   await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   const blank=page.locator('[data-date="2026-10-18"]:visible').first();
   await blank.click();
@@ -907,6 +914,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
 
+  await page.locator('[data-route="calendar"]:visible').first().click();
   await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   const before=await page.locator("#calMonthTitle").textContent();
   await page.locator("#calNext").click();
@@ -926,7 +934,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await page.locator("#motionToggle").check();
   await expect(page.locator("body")).toHaveAttribute("data-reduced-motion","true");
   await expect(page.locator('a[href="https://wa.me/385919010092"]')).toBeVisible();
-  await expect(page.locator('a[href="mailto:info@raspored.eu"]')).toBeVisible();
+  await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
 });
 
@@ -948,7 +956,7 @@ test("PWA manifest and install assets are available", async ({request}) => {
   const manifest=await request.get("/manifest.webmanifest");
   expect(manifest.ok()).toBeTruthy();
   const data=await manifest.json();
-  expect(data.name).toContain("RASPORED");
+  expect(data.name).toContain("Takto");
   expect(data.start_url).toBe("./");
   expect(data.scope).toBe("./");
   for(const path of [
@@ -1006,7 +1014,7 @@ test("server JSON storage works when browser Storage APIs are unavailable", asyn
     Storage.prototype.removeItem=blocked;
   });
   await page.goto("/");
-  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
+  await expect(page.locator('[data-view="home"]')).toBeVisible();
   await page.locator('[data-route="settings"]:visible').first().click();
   await expect(page.locator('[data-view="settings"]')).toBeVisible();
   await page.locator("#themeToggle").check();
