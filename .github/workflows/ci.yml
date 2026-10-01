@@ -116,7 +116,7 @@ jobs:
         with:
           gradle-version: 8.13
       - name: Android debug build
-        run: gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease --stacktrace
+        run: gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease :demo:assembleDebug :demo:lintDebug --stacktrace
       - name: Prepare installable APK
         if: success()
         shell: bash
@@ -125,6 +125,7 @@ jobs:
           mkdir -p dist
           cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
           cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          cp demo/build/outputs/apk/debug/demo-debug.apk dist/raspored_demo.apk
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -132,6 +133,7 @@ jobs:
           path: |
             dist/RASPORED.apk
             dist/RASPORED.aab
+            dist/raspored_demo.apk
           if-no-files-found: error
 
   artifact-verify:
@@ -149,13 +151,15 @@ jobs:
           set -euo pipefail
           test -s dist/RASPORED.apk
           test -s dist/RASPORED.aab
+          test -s dist/raspored_demo.apk
           WEB_ZIP="$(find dist -maxdepth 1 -type f -name 'RASPORED-web-v*.zip' -print -quit)"
           test -n "$WEB_ZIP"
           test -s "$WEB_ZIP"
           unzip -tq dist/RASPORED.apk
           unzip -tq dist/RASPORED.aab
+          unzip -tq dist/raspored_demo.apk
           unzip -tq "$WEB_ZIP"
-          sha256sum dist/RASPORED.apk dist/RASPORED.aab "$WEB_ZIP"
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab dist/raspored_demo.apk "$WEB_ZIP"
 
   android-ui:
     needs: [version, android]
