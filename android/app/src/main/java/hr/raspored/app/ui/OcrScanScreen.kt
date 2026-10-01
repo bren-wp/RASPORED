@@ -110,9 +110,7 @@ internal fun OcrScanScreen(
         rosterIncomplete = expectedRows?.let { expected ->
             foundRows * 100 < expected * 88
         } == true
-        val bestRowIndex = recognized.rows.indices.maxByOrNull { index ->
-            recognized.rows[index].dayShifts.size
-        } ?: -1
+        val bestRowIndex = bestRecognizedRowIndex(recognized.rows)
         val rosterWarning = expectedRows?.let { expected ->
             if (foundRows * 100 < expected * 88) {
                 " Upozorenje: tablica izgleda kao raspored s približno $expected redaka, a pouzdano je očitano $foundRows. Za potpuni uvoz ponovi fotografiju tako da cijela tablica i svi stupci ostanu oštri."
@@ -948,6 +946,12 @@ private fun nextShiftCode(current: String): String {
     return order[(index + 1) % order.size]
 }
 
+
+internal fun bestRecognizedRowIndex(rows: List<RecognizedScheduleRow>): Int =
+    rows.indices.maxWithOrNull(
+        compareBy<Int> { rows[it].dayShifts.size }
+            .thenByDescending { rows[it].rowNumber ?: Int.MAX_VALUE }
+    ) ?: -1
 
 internal data class AiMergeResult(
     val schedule: RecognizedSchedule,
