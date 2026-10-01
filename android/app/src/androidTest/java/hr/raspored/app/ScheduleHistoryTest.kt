@@ -20,14 +20,12 @@ class ScheduleHistoryTest {
     @Before
     fun clearStores() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("raspored.schedule", Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences("raspored.team", Context.MODE_PRIVATE).edit().clear().commit()
+        resetStores()
     }
 
     @After
     fun cleanup() {
-        context.getSharedPreferences("raspored.schedule", Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences("raspored.team", Context.MODE_PRIVATE).edit().clear().commit()
+        resetStores()
     }
 
     @Test
@@ -47,7 +45,13 @@ class ScheduleHistoryTest {
             store.saveMonth(month, mapOf(1 to if (offset % 2 == 0) "D" else "N"))
         }
 
-        // Re-create the store to verify persisted data, not in-memory state.
+        // Remove the SharedPreferences compatibility mirror: persistence must
+        // continue to work from SQLite alone after process/store recreation.
+        context.getSharedPreferences("raspored.schedule", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+
         val reloaded = ScheduleStore(context).load()
         assertEquals("D", reloaded[first.atDay(1).toString()])
         assertEquals("N", reloaded[middle.atDay(17).toString()])
@@ -85,5 +89,11 @@ class ScheduleHistoryTest {
         assertEquals("D", member.schedule["2016-01-01"])
         assertEquals("P1", member.schedule["2026-10-17"])
         assertEquals("N", member.schedule["2036-12-31"])
+    }
+
+    private fun resetStores() {
+        context.getSharedPreferences("raspored.schedule", Context.MODE_PRIVATE).edit().clear().commit()
+        context.deleteDatabase(ScheduleStore.DATABASE_NAME)
+        context.getSharedPreferences("raspored.team", Context.MODE_PRIVATE).edit().clear().commit()
     }
 }
