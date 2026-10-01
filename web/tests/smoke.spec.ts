@@ -794,6 +794,7 @@ test("salary estimator applies residence tax presets independently from institut
 
 test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime base separately", async ({page}) => {
   await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     const schedule:any={};
