@@ -1,46 +1,76 @@
-# RASPORED — dizajnerske reference
+# Takto — dizajnerske reference
 
-Priložene slike su glavni vizualni source of truth. Ne smiju se koristiti kao bitmap UI niti kao runtime dependency.
+Generirane Takto reference iz razgovora su vizualni source of truth za korisničko sučelje. Ne koriste se kao bitmap UI niti kao runtime dependency; izgled se rekonstruira stvarnim Compose/Web komponentama.
 
-## Mapiranje referenci
+## Vizualni smjer
 
-| Datoteka reference | Uloga |
-|---|---|
-| C60E4119-A213-46F5-AE0A-9D5149764962.jpeg | Web desktop dashboard + mobilni kalendar |
-| FF22BE20-A7A8-4388-8E94-93BF0A024A01.jpeg | Android — Statistika |
-| 3777D297-1936-4EAA-AEF5-DE386625B102.jpeg | Android — Skeniraj raspored / OCR pregled |
-| 172645F9-50E0-4FC5-A041-EB989F643BA3.jpeg | Android — Kalendar |
-| 2E3EFCF3-0DD6-4E4B-A438-CC09B6E68274.jpeg | Android — Početna |
-| 7A1A1C11-CA90-4677-A5E0-95D91D0B846B.jpeg | Brand board, paleta, tipografija, ikone i više UI primjera |
+- Primarna tema je **tamna**: vrlo tamni navy/ink background, nešto svjetlije površine kartica i jasan bijeli tekst.
+- Brand koristi kompaktni **T** znak s prijelazom **teal → plava → ljubičasta** i naziv **Takto**.
+- Slogan: **„Dodirni. Označi. Radi.”**
+- Kalendar je vizualno najvažniji radni ekran: velike ćelije, kratke oznake i dovoljno visok kontrast za brzo skeniranje.
+- Početna služi kao pregled: pozdrav prema dobu dana, tjedni raspored, brze akcije, mjesečni sažeci i pristup kalendaru.
+- Statistika koristi velike numeričke vrijednosti, jednostavne grafikone i kartice s jasnom hijerarhijom.
+- Postavke grupiraju personalizaciju, izvoz, podršku i informacije o aplikaciji.
+- Svijetli način ostaje dostupan, ali nije primarni Takto izgled.
 
-## Zajednički zaključci iz svih referenci
+## Navigacija
 
-- Navy brand header, bijele/light kartice, vrlo lagan border/shadow.
-- Veliki radius kartica i kontrola; bez glassmorphisma i agresivnih gradijenata.
-- Inter tipografija, snažna hijerarhija naslova i numeričkih vrijednosti.
-- Mobilno: kompaktni brand header i bottom navigation s naglašenim centralnim Scan actionom.
-- Desktop: lijevi sidebar, glavni kalendar i desni summary panel.
-- D/N/GO/BO nikada nisu preneseni samo bojom: oznaka i tekst ostaju vidljivi.
-- Layout se rekonstruira po viewportu; desktop se ne smanjuje mehanički na mobilni ekran.
+Mobilna primarna navigacija:
+
+1. Početna
+2. Kalendar
+3. Skeniraj
+4. Statistika
+5. Više
+
+Evidencija sati i okvirna plaća ostaju dostupne kao brze akcije i iz pripadajućih ekrana, bez pretrpavanja donje navigacije.
+
+Desktop/Web koristi lijevi sidebar s istim informacijskim rasporedom.
+
+## Kodovi rasporeda
+
+Kod uvijek ostaje vidljiv tekstom; boja je dodatna informacija, nikad jedini signal.
+
+| Kod | Značenje | Takto boja |
+|---|---|---|
+| D | Dan / dnevna smjena | plava `#147DF5` |
+| N | Noć / noćna smjena | ljubičasta `#6D28D9` |
+| GO | Godišnji odmor | teal/zelena `#0CC58E` |
+| BO | Bolovanje | jantarna `#FFB51F` |
+| PD | Plaćeni dopust | koraljno crvena `#E53648` |
+| SD | Slobodan dan | slate `#20314A` |
+
+Prazna ćelija ostaje prazna i ne smije se automatski pretvarati u SD.
 
 ## Design tokeni
 
-```text
-navy        #0B1F44
-cyan        #00C2FF
-teal        #14B8A6
-slate       #94A3B8
-background  #F6F8FB
-amber       #F59E0B
-red         #EF4444
-```
+- background `#07111F`
+- surface `#0B1A2C`
+- surface-2 `#10253D`
+- border `#1B3553`
+- text `#F7FAFF`
+- muted `#A9B7CB`
+- blue `#0A8CFF`
+- purple `#8B5CF6`
+- teal `#12D6A0`
+- amber `#FFB51F`
+- red `#FF4655`
 
 Radijusi: 12 / 16 / 20 / 24 px.  
-Kontrole: 44–52 px touch target.  
-Desktop content gap: 20–24 px.  
-Mobile content margin: 16 px.  
-Card shadow: vrlo diskretan, hladni navy tint.
+Touch target: najmanje 44–48 px.  
+Mobile content margin: 12–16 px.  
+Kartice: diskretan border, bez teškog glassmorphisma.  
+Gradijenti: samo na brandu i primarnim CTA elementima.
+
+## UX pravila
+
+- Pozdrav se računa prema lokalnom dobu dana: **Dobro jutro / Dobar dan / Dobra večer**.
+- Korisnik mora do kalendara i unosa smjene doći u najviše jednom dodiru s Početne.
+- Kalendar mora ostati čitljiv na 375 px širine bez horizontalnog scrolla.
+- Velike količine podataka moraju ostati skenirljive: kratke oznake, sekundarni tekst i jasni vizualni razmaci.
+- Nema demo/dev teksta u produkcijskom runtimeu.
+- Skeniranje, spremanje i izvoz moraju imati vidljiv status i grešku koja objašnjava sljedeći korak.
 
 ## QA pravilo
 
-Reference se uspoređuju sa stvarnim buildom. README smije prikazivati samo screenshotove stvarne aplikacije iz `docs/screenshots/`. Reference mogu biti pohranjene u `docs/design/reference/` kada se binarni asseti dodaju u repozitorij.
+Reference se uspoređuju sa stvarnim buildom. README smije prikazivati samo screenshotove stvarne aplikacije snimljene u CI-ju ili na emulatoru, ne promotivne mockupove.
