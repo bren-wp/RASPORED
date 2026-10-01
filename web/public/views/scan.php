@@ -3,8 +3,10 @@
       <div class="scan-copy scan-copy--with-help"><div><h1>Skeniraj raspored</h1><p>Slikaj cijelu tablicu ili učitaj fotografiju.<br>Moraju biti vidljivi svi redci osoba i svi stupci dana.</p></div><button class="icon-btn scan-help-btn" id="scanHelpBtn" aria-label="Pomoć za skeniranje">?</button></div>
       <section class="scan-preview" id="scanPreview">
         <div class="scan-corners" aria-hidden="true"></div>
-        <img id="scanPreviewImage" class="scan-preview-image" alt="Odabrana fotografija rasporeda">
-        <div class="scan-row-crop" id="scanRowCrop" hidden aria-hidden="true"><i></i></div>
+        <div class="scan-image-stage">
+          <img id="scanPreviewImage" class="scan-preview-image" alt="Odabrana fotografija rasporeda">
+          <div class="scan-row-crop" id="scanRowCrop" hidden aria-hidden="true"><i></i></div>
+        </div>
         <div class="scan-empty-state" id="scanEmptyState">
           <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>
           <b>Raspored nije učitan</b>
