@@ -131,6 +131,11 @@ function clean_schedule_code(mixed $raw): string
     $value = function_exists('mb_strtoupper')
         ? mb_strtoupper($value, 'UTF-8')
         : strtoupper($value);
+    if ($value === 'G0') {
+        $value = 'GO';
+    } elseif ($value === 'B0') {
+        $value = 'BO';
+    }
     return preg_match('/^[\p{L}\p{N}]{1,8}$/u', $value) === 1 ? $value : '';
 }
 
