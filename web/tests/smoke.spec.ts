@@ -1115,6 +1115,8 @@ test("calendar keeps a schedule entry from ten years earlier when editing a curr
   });
   await page.reload();
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  await page.locator('[data-route="calendar"]:visible').first().click();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
 
   const input=page.locator("#calendarCustomCode");
   await input.fill("P1");
@@ -1131,6 +1133,8 @@ test("calendar keeps a schedule entry from ten years earlier when editing a curr
 test("calendar saves and reloads a custom per-date schedule label", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  await page.locator('[data-route="calendar"]:visible').first().click();
+  await expect(page.locator('[data-view="calendar"]')).toBeVisible();
 
   const input=page.locator("#calendarCustomCode");
   await expect(input).toBeVisible();
