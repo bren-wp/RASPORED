@@ -420,11 +420,14 @@ async function runAiScanVerification(){
   if(status){
     status.classList.remove("is-success","is-error");
     status.classList.add("is-scanning");
-    status.querySelector("span").textContent="AI provjera cijele tablice...";
+    status.querySelector("span").textContent=state.scanSingleMode?"AI provjera označene osobe...":"AI provjera cijele tablice...";
   }
   try{
+    var aiFile=state.scanSingleMode&&state.scanOriginalFile
+      ?await createSinglePersonScanFile(state.scanOriginalFile)
+      :state.scanSourceFile;
     var data=new FormData();
-    data.append("image",state.scanSourceFile,state.scanSourceFile.name||"raspored.jpg");
+    data.append("image",aiFile,aiFile.name||"raspored.jpg");
     if(state.scanMonth)data.append("monthHint",state.scanMonth.year+"-"+String(state.scanMonth.month).padStart(2,"0"));
     if(state.scanLocalRawText)data.append("localOcr",state.scanLocalRawText.slice(0,12000));
     var base=document.body&&document.body.dataset?document.body.dataset.base||"":"";
@@ -445,7 +448,7 @@ async function runAiScanVerification(){
       state.scanExpectedRows||0,
       Math.max(0,Number(payload.result.expectedRows)||0)
     );
-    state.scanIncomplete=state.scanExpectedRows>=8&&state.scanPeople.length*100<state.scanExpectedRows*65;
+    state.scanIncomplete=!state.scanSingleMode&&state.scanExpectedRows>=8&&state.scanPeople.length*100<state.scanExpectedRows*65;
     state.scanSelected=bestScanPersonIndex();
     saveScanSession();
     renderScanPersonPicker();renderRecognition();renderScanReview();
@@ -453,7 +456,7 @@ async function runAiScanVerification(){
       status.classList.remove("is-scanning");
       status.classList.add(state.scanIncomplete?"is-error":"is-success");
       status.querySelector("span").textContent=
-        "AI provjera završena: "+state.scanPeople.length+" osoba. "+
+        (state.scanSingleMode?"AI provjera označene osobe završena: ":"AI provjera završena: ")+state.scanPeople.length+" osoba. "+
         (unresolvedScanReviewCells().length
           ?unresolvedScanReviewCells().length+" ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru. "
           :"Nisu pronađeni sukobi s lokalnim OCR-om. ")+
@@ -1260,28 +1263,55 @@ function bind(){
   document.getElementById("rescanBtn").addEventListener("click",function(){document.getElementById("cameraInput").click()});
   document.getElementById("rescanSecondary").addEventListener("click",function(){document.getElementById("cameraInput").click()});
   document.getElementById("galleryBtn").addEventListener("click",function(){document.getElementById("galleryInput").click()});
-  document.getElementById("scanSinglePersonToggle").addEventListener("change",function(){
+  document.getElementById("scanSinglePersonToggle").addEventListener("change",async function(){
     state.scanSingleMode=!!this.checked;
     state.scanPeople=[];state.scanReviewCells=[];state.scanSelected=-1;state.scanIncomplete=false;
+    state.scanDetectedRows=[];state.scanDetectedRowIndex=-1;state.scanDetectedFrame=null;
     renderScanPersonPicker();renderRecognition();updateScanCropOverlay();
     var status=document.getElementById("scanStatus");
+    var aiButton=document.getElementById("scanAiVerifyBtn");
+    if(aiButton)aiButton.textContent=state.scanSingleMode?"AI provjera označene osobe":"AI provjera cijelog rasporeda";
     if(status&&state.scanOriginalFile){
       status.classList.remove("is-success","is-error","is-scanning");
-      status.querySelector("span").textContent=state.scanSingleMode
-        ?"Namjesti plavi pojas preko jednog cijelog retka osobe, zatim pokreni skeniranje."
-        :"Način cijele tablice je uključen. Ponovno učitaj ili skeniraj fotografiju.";
+      if(state.scanSingleMode){
+        status.querySelector("span").textContent="Tražim retke tablice...";
+        var detected=await detectSinglePersonScanRows(state.scanOriginalFile);
+        status.querySelector("span").textContent=detected
+          ?"Pronađeno je "+detected+" redaka. Dodirni željenu osobu na fotografiji ili koristi prethodni/sljedeći redak."
+          :"Mreža redaka nije dovoljno jasna za automatsko poravnanje. Namjesti plavi pojas ručno.";
+      }else{
+        status.querySelector("span").textContent="Način cijele tablice je uključen. Ponovno učitaj ili skeniraj fotografiju.";
+      }
     }
   });
   ["scanCropTop","scanCropBottom"].forEach(function(id){
     document.getElementById(id).addEventListener("input",function(){
       var top=document.getElementById("scanCropTop"),bottom=document.getElementById("scanCropBottom");
-      if(Number(bottom.value)<Number(top.value)+3){
-        if(id==="scanCropTop")bottom.value=String(Math.min(100,Number(top.value)+3));
-        else top.value=String(Math.max(0,Number(bottom.value)-3));
+      if(Number(bottom.value)<Number(top.value)+2){
+        if(id==="scanCropTop")bottom.value=String(Math.min(100,Number(top.value)+2));
+        else top.value=String(Math.max(0,Number(bottom.value)-2));
       }
+      state.scanDetectedRowIndex=-1;
       updateScanCropOverlay();
     });
   });
+  var cropPrev=document.getElementById("scanCropPrev"),cropNext=document.getElementById("scanCropNext");
+  if(cropPrev)cropPrev.addEventListener("click",function(){selectDetectedScanRow(state.scanDetectedRowIndex-1)});
+  if(cropNext)cropNext.addEventListener("click",function(){selectDetectedScanRow(state.scanDetectedRowIndex+1)});
+  var scanImageStage=document.getElementById("scanImageStage");
+  if(scanImageStage){
+    scanImageStage.addEventListener("click",function(event){
+      if(!state.scanSingleMode||!state.scanOriginalFile)return;
+      var rect=scanImageStage.getBoundingClientRect();
+      if(rect.height<=0)return;
+      snapScanCropToPercent((event.clientY-rect.top)/rect.height*100);
+    });
+    scanImageStage.addEventListener("keydown",function(event){
+      if(!state.scanSingleMode||!state.scanOriginalFile)return;
+      if(event.key==="ArrowUp"&&state.scanDetectedRows.length){event.preventDefault();selectDetectedScanRow(state.scanDetectedRowIndex-1)}
+      if(event.key==="ArrowDown"&&state.scanDetectedRows.length){event.preventDefault();selectDetectedScanRow(state.scanDetectedRowIndex+1)}
+    });
+  }
   document.getElementById("scanSinglePersonBtn").addEventListener("click",async function(){
     if(!state.scanOriginalFile){toast("Najprije učitaj fotografiju rasporeda.");return}
     this.disabled=true;
