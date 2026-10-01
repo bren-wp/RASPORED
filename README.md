@@ -20,12 +20,14 @@
 
 Svako produkcijsko izdanje objavljuje gotove artefakte:
 
-- **RASPORED.apk** — instalabilna Android aplikacija za izravno testiranje i distribuciju izvan Play Storea.
-- **RASPORED.aab** — release Android App Bundle koji CI gradi i provjerava za završnu Play Console obradu; za stvarnu predaju Google Playu koristi se trajni privatni upload ključ izvan repozitorija.
+- **RASPORED.apk** — release APK potpisan stabilnim upload ključem iz GitHub Secrets, spreman za instalaciju/distribuciju izvan Play Storea.
+- **RASPORED.aab** — release Android App Bundle potpisan istim upload ključem za završnu Play Console obradu / Play App Signing.
 - **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
 - **SHA256SUMS** — SHA-256 kontrolne vrijednosti za APK, AAB i Web/PWA paket; release ih provjerava prije objave.
 
 Verzija Android aplikacije i Web/PWA paketa uvijek se čita iz zajedničke datoteke <code>VERSION</code>. CI ne dopušta novo izdanje s već korištenom verzijom.
+
+Za produkcijski Android release GitHub Actions očekuje četiri repozitorijska secreta: `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_UPLOAD_STORE_PASSWORD`, `ANDROID_UPLOAD_KEY_ALIAS` i `ANDROID_UPLOAD_KEY_PASSWORD`. Keystore se dekodira samo u privremeni runner direktorij, briše se zajedno s runnerom i nikada se ne commita niti prilaže releaseu. Ako bilo koji secret nedostaje, release se namjerno prekida prije objave.
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
@@ -248,6 +250,7 @@ Svaki ozbiljniji razvojni pass provjerava:
 - Android debug + release lint,
 - API 36 emulator launch/navigation smoke test,
 - zasebnu provjeru postojanja i ZIP integriteta APK/AAB/Web artefakata prije releasea.
+- release workflow provjerava APK potpis (`apksigner`), AAB potpis (`jarsigner`), ZIP integritet i SHA-256 prije objave.
 
 ### Viewporti
 
