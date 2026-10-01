@@ -150,6 +150,8 @@ test("statistics split overnight calendar shift at month and night boundaries", 
     store.set("raspored.schedule",JSON.stringify({"2026-09-30":"N"}));
     await store.flush();
   });
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.locator('[data-route="stats"]:visible').first().click();
   await expect(page.locator("#workedTotal")).toHaveText("7:00 h");
   await expect(page.locator("#statsCategories")).toContainText("Noćni sati");
