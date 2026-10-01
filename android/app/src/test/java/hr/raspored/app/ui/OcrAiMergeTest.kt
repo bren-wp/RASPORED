@@ -5,6 +5,7 @@ import hr.raspored.app.ocr.RecognizedScheduleRow
 import java.time.YearMonth
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -31,7 +32,7 @@ class OcrAiMergeTest {
         assertEquals(17, cell.day)
         assertEquals("D", cell.localCode)
         assertEquals("N", cell.aiCode)
-        assertEquals(null, cell.selectedCode)
+        assertNull(cell.selectedCode)
         assertTrue(cell.conflict)
         assertFalse(cell.manuallyConfirmed)
     }
