@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanOriginalFile:null,scanSingleMode:false,scanCropTop:34,scanCropBottom:44,scanLocalRawText:"",aiConsentGranted:false};
+var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanOriginalFile:null,scanSingleMode:false,scanCropTop:34,scanCropBottom:38,scanDetectedRows:[],scanDetectedRowIndex:-1,scanDetectedFrame:null,scanLocalRawText:"",aiConsentGranted:false};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -303,7 +303,7 @@ function releaseScanPreview(){
 }
 function clearScanSession(){
   state.scanGeneration++;
-  state.scanPeople=[];state.scanReviewCells=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;state.scanSourceFile=null;state.scanOriginalFile=null;state.scanLocalRawText="";
+  state.scanPeople=[];state.scanReviewCells=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;state.scanSourceFile=null;state.scanOriginalFile=null;state.scanDetectedRows=[];state.scanDetectedRowIndex=-1;state.scanDetectedFrame=null;state.scanLocalRawText="";
   releaseScanPreview();
   storageRemove("raspored.scan.v1");
 }
@@ -900,15 +900,62 @@ function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(ch){
 function updateScanCropOverlay(){
   var band=document.getElementById("scanRowCrop"),controls=document.getElementById("scanCropControls");
   var topInput=document.getElementById("scanCropTop"),bottomInput=document.getElementById("scanCropBottom");
-  if(topInput)state.scanCropTop=Math.max(0,Math.min(95,Number(topInput.value)||34));
-  if(bottomInput)state.scanCropBottom=Math.max(5,Math.min(100,Number(bottomInput.value)||44));
-  if(state.scanCropBottom<state.scanCropTop+3)state.scanCropBottom=Math.min(100,state.scanCropTop+3);
+  var nav=document.getElementById("scanCropRowNav"),label=document.getElementById("scanCropRowLabel");
+  var prev=document.getElementById("scanCropPrev"),next=document.getElementById("scanCropNext");
+  var hint=document.getElementById("scanCropHint"),stage=document.getElementById("scanImageStage");
+  if(topInput)state.scanCropTop=Math.max(0,Math.min(98,Number(topInput.value)||34));
+  if(bottomInput)state.scanCropBottom=Math.max(2,Math.min(100,Number(bottomInput.value)||38));
+  if(state.scanCropBottom<state.scanCropTop+2)state.scanCropBottom=Math.min(100,state.scanCropTop+2);
   if(band){
     band.hidden=!state.scanSingleMode||!state.scanOriginalFile;
     band.style.top=state.scanCropTop+"%";
-    band.style.height=Math.max(3,state.scanCropBottom-state.scanCropTop)+"%";
+    band.style.height=Math.max(2,state.scanCropBottom-state.scanCropTop)+"%";
   }
   if(controls)controls.hidden=!state.scanSingleMode||!state.scanOriginalFile;
+  var hasRows=state.scanSingleMode&&state.scanDetectedRows.length>0;
+  if(nav)nav.hidden=!hasRows;
+  if(label)label.textContent=hasRows&&state.scanDetectedRowIndex>=0
+    ?"Redak "+(state.scanDetectedRowIndex+1)+" / "+state.scanDetectedRows.length
+    :"Redak —";
+  if(prev)prev.disabled=!hasRows||state.scanDetectedRowIndex<=0;
+  if(next)next.disabled=!hasRows||state.scanDetectedRowIndex<0||state.scanDetectedRowIndex>=state.scanDetectedRows.length-1;
+  if(hint)hint.textContent=hasRows
+    ?"Pronađena je mreža tablice. Dodirni osobu na fotografiji ili koristi prethodni/sljedeći redak."
+    :"Dodirni osobu na fotografiji za brzo centriranje cropa; po potrebi fino prilagodi granice.";
+  if(stage)stage.classList.toggle("is-row-detected",hasRows);
+}
+function selectDetectedScanRow(index){
+  if(!state.scanDetectedRows.length)return;
+  index=Math.max(0,Math.min(state.scanDetectedRows.length-1,Number(index)||0));
+  var row=state.scanDetectedRows[index];
+  state.scanDetectedRowIndex=index;
+  state.scanCropTop=row.top;
+  state.scanCropBottom=row.bottom;
+  var top=document.getElementById("scanCropTop"),bottom=document.getElementById("scanCropBottom");
+  if(top)top.value=String(row.top);
+  if(bottom)bottom.value=String(row.bottom);
+  updateScanCropOverlay();
+}
+function snapScanCropToPercent(percent){
+  percent=Math.max(0,Math.min(100,Number(percent)||0));
+  if(state.scanDetectedRows.length){
+    var best=0,bestDistance=Infinity;
+    state.scanDetectedRows.forEach(function(row,index){
+      var center=(row.top+row.bottom)/2,distance=Math.abs(center-percent);
+      if(distance<bestDistance){best=index;bestDistance=distance}
+    });
+    selectDetectedScanRow(best);
+    return;
+  }
+  var half=2;
+  var top=Math.max(0,Math.min(100-half*2,percent-half));
+  state.scanDetectedRowIndex=-1;
+  state.scanCropTop=top;
+  state.scanCropBottom=top+half*2;
+  var topInput=document.getElementById("scanCropTop"),bottomInput=document.getElementById("scanCropBottom");
+  if(topInput)topInput.value=String(state.scanCropTop);
+  if(bottomInput)bottomInput.value=String(state.scanCropBottom);
+  updateScanCropOverlay();
 }
 function loadScanImage(file){
   return new Promise(function(resolve,reject){
@@ -918,23 +965,85 @@ function loadScanImage(file){
     image.src=url;
   });
 }
+async function detectSinglePersonScanRows(file){
+  state.scanDetectedRows=[];
+  state.scanDetectedRowIndex=-1;
+  state.scanDetectedFrame=null;
+  if(!window.RasporedOcrTableCrop||typeof window.RasporedOcrTableCrop.detectEmployeeRowBandsFromBitmap!=="function"){
+    updateScanCropOverlay();
+    return 0;
+  }
+  try{
+    var image=await loadScanImage(file);
+    var width=image.naturalWidth||image.width,height=image.naturalHeight||image.height;
+    if(!width||!height)return 0;
+    var canvas=document.createElement("canvas");
+    canvas.width=width;canvas.height=height;
+    var ctx=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
+    if(!ctx)return 0;
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,width,height);ctx.drawImage(image,0,0,width,height);
+    var bands=window.RasporedOcrTableCrop.detectEmployeeRowBandsFromBitmap(canvas,1)||[];
+    state.scanDetectedRows=bands.map(function(band){
+      return {
+        top:Math.max(0,Math.min(98,band.bodyTop/height*100)),
+        bottom:Math.max(2,Math.min(100,band.bodyBottom/height*100))
+      };
+    }).filter(function(row){return row.bottom-row.top>=.8});
+    if(bands.length){
+      var first=bands[0];
+      state.scanDetectedFrame={
+        left:Math.max(0,Math.min(100,first.left/width*100)),
+        right:Math.max(0,Math.min(100,first.right/width*100)),
+        headerTop:Math.max(0,Math.min(100,first.headerTop/height*100)),
+        headerBottom:Math.max(0,Math.min(100,first.headerBottom/height*100))
+      };
+    }
+    if(state.scanDetectedRows.length){
+      var current=(state.scanCropTop+state.scanCropBottom)/2,best=0,distance=Infinity;
+      state.scanDetectedRows.forEach(function(row,index){
+        var diff=Math.abs((row.top+row.bottom)/2-current);
+        if(diff<distance){distance=diff;best=index}
+      });
+      selectDetectedScanRow(best);
+    }else updateScanCropOverlay();
+    return state.scanDetectedRows.length;
+  }catch(error){
+    state.scanDetectedRows=[];
+    state.scanDetectedRowIndex=-1;
+    state.scanDetectedFrame=null;
+    updateScanCropOverlay();
+    return 0;
+  }
+}
 async function createSinglePersonScanFile(file){
   var image=await loadScanImage(file);
   var width=image.naturalWidth||image.width,height=image.naturalHeight||image.height;
   if(!width||!height)throw new Error("Fotografija nema valjane dimenzije");
-  var header=Math.max(1,Math.round(height*0.24));
+  var frame=state.scanDetectedFrame;
+  var left=frame?Math.round(width*frame.left/100):0;
+  var right=frame?Math.round(width*frame.right/100):width;
+  left=Math.max(0,Math.min(width-1,left));right=Math.max(left+1,Math.min(width,right));
+  var headerTop=frame?Math.round(height*frame.headerTop/100):0;
+  var fallbackHeaderBottom=Math.min(
+    Math.round(height*.24),
+    Math.max(headerTop+1,Math.round(height*Math.max(.06,state.scanCropTop/100-.015)))
+  );
+  var headerBottom=frame?Math.round(height*frame.headerBottom/100):fallbackHeaderBottom;
+  headerTop=Math.max(0,Math.min(height-1,headerTop));
+  headerBottom=Math.max(headerTop+1,Math.min(height,headerBottom));
   var top=Math.max(0,Math.min(height-1,Math.round(height*state.scanCropTop/100)));
   var bottom=Math.max(top+1,Math.min(height,Math.round(height*state.scanCropBottom/100)));
-  var gap=Math.max(4,Math.round(height*0.01)),rowHeight=bottom-top;
+  var headerHeight=headerBottom-headerTop,rowHeight=bottom-top,gap=Math.max(4,Math.round(height*0.008));
+  var cropWidth=right-left;
   var canvas=document.createElement("canvas");
-  canvas.width=width;canvas.height=header+gap+rowHeight;
+  canvas.width=cropWidth;canvas.height=headerHeight+gap+rowHeight;
   var ctx=canvas.getContext("2d");
   if(!ctx)throw new Error("Canvas nije dostupan");
   ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(image,0,0,width,header,0,0,width,header);
-  ctx.drawImage(image,0,top,width,rowHeight,0,header+gap,width,rowHeight);
+  ctx.drawImage(image,left,headerTop,cropWidth,headerHeight,0,0,cropWidth,headerHeight);
+  ctx.drawImage(image,left,top,cropWidth,rowHeight,0,headerHeight+gap,cropWidth,rowHeight);
   var blob=await new Promise(function(resolve,reject){
-    canvas.toBlob(function(value){value?resolve(value):reject(new Error("Crop slike nije moguće izraditi"))},"image/jpeg",0.96);
+    canvas.toBlob(function(value){value?resolve(value):reject(new Error("Crop slike nije moguće izraditi"))},"image/jpeg",0.97);
   });
   return new File([blob],"raspored-jedna-osoba.jpg",{type:"image/jpeg"});
 }
@@ -956,7 +1065,11 @@ async function handleScanFile(file,forceOcr,keepPreview){
   renderScanPersonPicker();renderRecognition();
   status.classList.remove("is-success","is-error","is-scanning");
   if(state.scanSingleMode&&!forceOcr){
-    status.querySelector("span").textContent="Namjesti plavi pojas preko jednog cijelog retka osobe, zatim klikni “Skeniraj označenu osobu”.";
+    status.querySelector("span").textContent="Tražim retke tablice...";
+    var detected=await detectSinglePersonScanRows(file);
+    status.querySelector("span").textContent=detected
+      ?"Pronađeno je "+detected+" redaka. Dodirni željenu osobu na fotografiji ili koristi prethodni/sljedeći redak."
+      :"Mreža redaka nije dovoljno jasna za automatsko poravnanje. Namjesti plavi pojas ručno preko jedne osobe.";
     if(progress)progress.style.width="0%";
     return;
   }
