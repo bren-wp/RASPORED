@@ -156,11 +156,6 @@ function raspored_account_paths_from_email(string $email): array
     ];
 }
 
-function raspored_account_path_from_email(string $email): string
-{
-    return raspored_account_paths_from_email($email)['current'];
-}
-
 function raspored_account_state_path(string $accountId): string
 {
     return raspored_storage_directory() . '/account-state-' . hash('sha256', $accountId) . '.json';
@@ -285,12 +280,6 @@ function raspored_mobile_account_from_token(string $token): ?array
         return null;
     }
     return $account;
-}
-
-function raspored_request_account(): ?array
-{
-    $token = raspored_bearer_token();
-    return $token !== '' ? raspored_mobile_account_from_token($token) : raspored_current_account();
 }
 
 function raspored_issue_mobile_token(string $accountPath, array $account): array
