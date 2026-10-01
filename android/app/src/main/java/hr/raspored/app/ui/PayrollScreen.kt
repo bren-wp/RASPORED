@@ -488,18 +488,18 @@ internal fun PayrollScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     PayrollLine(
-                        "Ukupno evidentirano",
+                        "Ukupno iz kalendara",
                         minutesLabelPayroll(estimate.evidence.workedMinutes),
                         null
                     )
                     if (estimate.evidence.shift1Minutes > 0L) {
-                        PayrollLine("1. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift1Minutes), null)
+                        PayrollLine("1. smjena — iz kalendara", minutesLabelPayroll(estimate.evidence.shift1Minutes), null)
                     }
                     if (estimate.evidence.shift2Minutes > 0L) {
-                        PayrollLine("2. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift2Minutes), null)
+                        PayrollLine("2. smjena — iz kalendara", minutesLabelPayroll(estimate.evidence.shift2Minutes), null)
                     }
                     if (estimate.evidence.shift3Minutes > 0L) {
-                        PayrollLine("3. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift3Minutes), null)
+                        PayrollLine("3. smjena — iz kalendara", minutesLabelPayroll(estimate.evidence.shift3Minutes), null)
                     }
                     if (regime.rates.night != null) {
                         PayrollLine(
@@ -562,7 +562,7 @@ internal fun PayrollScreen(
                     }
                     if (estimate.evidence.turnusMinutes > 0L) {
                         PayrollLine(
-                            if (turnus && regime.rates.turnus != null) "Rad u turnusu" else "Turnus — evidentirano",
+                            if (turnus && regime.rates.turnus != null) "Rad u turnusu" else "Turnus — iz kalendara",
                             minutesLabelPayroll(
                                 if (turnus && regime.rates.turnus != null) {
                                     estimate.turnusPaidMinutes
@@ -795,7 +795,7 @@ private fun PayrollResultCard(
             Text(
                 if (estimate.evidence.workedMinutes > 0L) {
                     "Iz " + minutesLabelPayroll(estimate.evidence.workedMinutes) +
-                        " evidentiranog rada."
+                        " rada iz kalendara."
                 } else {
                     "Nema evidencije za mjesec; dodaci iz rada nisu pretpostavljeni."
                 },
