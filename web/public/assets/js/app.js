@@ -910,19 +910,29 @@ function updateScanCropOverlay(){
   }
   if(controls)controls.hidden=!state.scanSingleMode||!state.scanOriginalFile;
 }
+function loadScanImage(file){
+  return new Promise(function(resolve,reject){
+    var image=new Image(),url=URL.createObjectURL(file);
+    image.onload=function(){URL.revokeObjectURL(url);resolve(image)};
+    image.onerror=function(){URL.revokeObjectURL(url);reject(new Error("Fotografiju nije moguće otvoriti za crop"))};
+    image.src=url;
+  });
+}
 async function createSinglePersonScanFile(file){
-  var bitmap=await createImageBitmap(file),header=Math.max(1,Math.round(bitmap.height*0.24));
-  var top=Math.max(0,Math.min(bitmap.height-1,Math.round(bitmap.height*state.scanCropTop/100)));
-  var bottom=Math.max(top+1,Math.min(bitmap.height,Math.round(bitmap.height*state.scanCropBottom/100)));
-  var gap=Math.max(4,Math.round(bitmap.height*0.01)),rowHeight=bottom-top;
+  var image=await loadScanImage(file);
+  var width=image.naturalWidth||image.width,height=image.naturalHeight||image.height;
+  if(!width||!height)throw new Error("Fotografija nema valjane dimenzije");
+  var header=Math.max(1,Math.round(height*0.24));
+  var top=Math.max(0,Math.min(height-1,Math.round(height*state.scanCropTop/100)));
+  var bottom=Math.max(top+1,Math.min(height,Math.round(height*state.scanCropBottom/100)));
+  var gap=Math.max(4,Math.round(height*0.01)),rowHeight=bottom-top;
   var canvas=document.createElement("canvas");
-  canvas.width=bitmap.width;canvas.height=header+gap+rowHeight;
+  canvas.width=width;canvas.height=header+gap+rowHeight;
   var ctx=canvas.getContext("2d");
-  if(!ctx){bitmap.close();throw new Error("Canvas nije dostupan")}
+  if(!ctx)throw new Error("Canvas nije dostupan");
   ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(bitmap,0,0,bitmap.width,header,0,0,canvas.width,header);
-  ctx.drawImage(bitmap,0,top,bitmap.width,rowHeight,0,header+gap,canvas.width,rowHeight);
-  bitmap.close();
+  ctx.drawImage(image,0,0,width,header,0,0,width,header);
+  ctx.drawImage(image,0,top,width,rowHeight,0,header+gap,width,rowHeight);
   var blob=await new Promise(function(resolve,reject){
     canvas.toBlob(function(value){value?resolve(value):reject(new Error("Crop slike nije moguće izraditi"))},"image/jpeg",0.96);
   });
