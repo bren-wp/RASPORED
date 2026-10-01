@@ -23,7 +23,7 @@ object ReportExporter {
         profileName: String = ""
     ): Uri {
         val directory = File(context.cacheDir, "reports").apply { mkdirs() }
-        val file = File(directory, "RASPORED-\${month}.pdf")
+        val file = File(directory, "RASPORED-${month}.pdf")
         val document = PdfDocument()
         val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -58,21 +58,21 @@ object ReportExporter {
             val monthName = month.month
                 .getDisplayName(TextStyle.FULL, Locale("hr", "HR"))
                 .replaceFirstChar { it.titlecase(Locale("hr", "HR")) }
-            canvas.drawText("Mjesečni izvještaj · \$monthName \${month.year}.", 36f, y, headingPaint)
+            canvas.drawText("Mjesečni izvještaj · $monthName ${month.year}.", 36f, y, headingPaint)
             y += 16f
             if (profileName.isNotBlank()) {
-                canvas.drawText("Profil: \${profileName.take(80)}", 36f, y, bodyPaint)
+                canvas.drawText("Profil: ${profileName.take(80)}", 36f, y, bodyPaint)
                 y += 14f
             }
             canvas.drawText(
-                "Sati iz kalendara: \${summary.workedMinutes / 60} h · noćni: \${summary.nightMinutes / 60} h",
+                "Sati iz kalendara: ${summary.workedMinutes / 60} h · noćni: ${summary.nightMinutes / 60} h",
                 36f,
                 y,
                 bodyPaint
             )
             y += 14f
             canvas.drawText(
-                "D \${counts["D"]} · N \${counts["N"]} · GO \${counts["GO"]} · BO \${counts["BO"]} · PD \${counts["PD"]} · SD \${counts["SD"]}",
+                "D ${counts["D"]} · N ${counts["N"]} · GO ${counts["GO"]} · BO ${counts["BO"]} · PD ${counts["PD"]} · SD ${counts["SD"]}",
                 36f,
                 y,
                 bodyPaint
@@ -111,7 +111,7 @@ object ReportExporter {
                 "BO" -> "BO · bolovanje"
                 "PD" -> "PD · plaćeni dopust"
                 "SD" -> "SD · slobodan dan"
-                else -> code.takeIf { it.isNotBlank() }?.let { "\$it · vlastita oznaka" } ?: "—"
+                else -> code.takeIf { it.isNotBlank() }?.let { "$it · vlastita oznaka" } ?: "—"
             }
             val evidence = when (code) {
                 "D" -> "07:00–19:00 · 12 h"
