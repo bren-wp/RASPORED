@@ -134,7 +134,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          COMMON_TASKS=":app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease"
+          COMMON_TASKS=":app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease :demo:assembleDebug :demo:lintDebug"
           if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
             gradle -p android :app:assembleRelease $COMMON_TASKS
           else
@@ -148,6 +148,7 @@ jobs:
             cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
           fi
           cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          cp demo/build/outputs/apk/debug/demo-debug.apk dist/raspored_demo.apk
 
           if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
             APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
@@ -202,13 +203,15 @@ jobs:
             zip -r "../RASPORED-web-v${VERSION}.zip" .               -x "*.DS_Store"               -x "__MACOSX/*"               -x "storage/data/client-*.json"               -x "storage/data/.write.lock"
           )
 
-          sha256sum dist/RASPORED.apk dist/RASPORED.aab "dist/RASPORED-web-v${VERSION}.zip" > dist/SHA256SUMS
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab dist/raspored_demo.apk "dist/RASPORED-web-v${VERSION}.zip" > dist/SHA256SUMS
           test -s dist/RASPORED.apk
           test -s dist/RASPORED.aab
+          test -s dist/raspored_demo.apk
           test -s "dist/RASPORED-web-v${VERSION}.zip"
           test -s dist/SHA256SUMS
           unzip -tq dist/RASPORED.apk
           unzip -tq dist/RASPORED.aab
+          unzip -tq dist/raspored_demo.apk
           unzip -tq "dist/RASPORED-web-v${VERSION}.zip"
           sha256sum -c dist/SHA256SUMS
 
@@ -227,7 +230,7 @@ jobs:
             SIGNING_NOTE="GitHub Secrets nisu potrebni: APK je instalabilni debug-signed artefakt, a AAB je release bundle za daljnju Play Console obradu."
           fi
 
-          gh release create "v${VERSION}"             dist/RASPORED.apk             dist/RASPORED.aab             "dist/RASPORED-web-v${VERSION}.zip"             dist/SHA256SUMS             --target "$RELEASE_SHA"             --title "RASPORED v${VERSION}"             --notes "Produkcijsko izdanje RASPORED-a za Android i Web/PWA. ${SIGNING_NOTE} Workflow prije objave provjerava build, testove, emulator smoke test, ZIP integritet i SHA-256 kontrolne vrijednosti."
+          gh release create "v${VERSION}"             dist/RASPORED.apk             dist/RASPORED.aab             dist/raspored_demo.apk             "dist/RASPORED-web-v${VERSION}.zip"             dist/SHA256SUMS             --target "$RELEASE_SHA"             --title "RASPORED v${VERSION}"             --notes "Produkcijsko izdanje RASPORED-a za Android i Web/PWA. ${SIGNING_NOTE} Workflow prije objave provjerava build, testove, emulator smoke test, ZIP integritet i SHA-256 kontrolne vrijednosti."
 
       - uses: actions/upload-artifact@v4
         with:
@@ -235,6 +238,7 @@ jobs:
           path: |
             dist/RASPORED.apk
             dist/RASPORED.aab
+            dist/raspored_demo.apk
             dist/RASPORED-web-v${{ steps.version.outputs.version }}.zip
             dist/SHA256SUMS
           if-no-files-found: error
