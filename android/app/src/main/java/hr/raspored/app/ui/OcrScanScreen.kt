@@ -935,7 +935,7 @@ internal fun OcrScanScreen(
                             Text(if (aiBusy) "AI provjera..." else "AI provjera cijelog rasporeda")
                         }
                         Text(
-                            "Opcionalno: slika se šalje RASPORED poslužitelju i OpenAI API-ju samo kad ovo pokreneš. API ključ nije spremljen u Android aplikaciji.",
+                            "Opcionalno: slika se šalje Takto poslužitelju i OpenAI API-ju samo kad ovo pokreneš. API ključ nije spremljen u Android aplikaciji.",
                             modifier = Modifier.padding(top = 5.dp),
                             color = RasporedTokens.Slate,
                             fontSize = 10.sp
@@ -1015,7 +1015,7 @@ internal fun OcrScanScreen(
             title = { Text("AI analiza fotografije") },
             text = {
                 Text(
-                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se RASPORED backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
+                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
                 )
             },
             confirmButton = {
