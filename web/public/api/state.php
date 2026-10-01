@@ -352,7 +352,7 @@ function clean_state(mixed $raw, int $revision): array
         'colleagues' => clean_colleagues($raw['colleagues'] ?? []),
         'teamMembers' => clean_team_members($raw['teamMembers'] ?? []),
         'settings' => [
-            'theme' => (($settings['theme'] ?? 'light') === 'dark') ? 'dark' : 'light',
+            'theme' => (($settings['theme'] ?? 'dark') === 'light') ? 'light' : 'dark',
             'reducedMotion' => (bool) ($settings['reducedMotion'] ?? false),
             'notificationReadKey' => clean_text($settings['notificationReadKey'] ?? '', 120),
         ],
