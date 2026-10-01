@@ -540,6 +540,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 [data-theme="dark"] .donut:after{background:#0B1A2C}
 [data-theme="dark"] .hours-shift-row,[data-theme="dark"] .hours-note textarea{background:#10253D}
 
+[data-theme="dark"] .week-bar .d{background:#147DF5}
+[data-theme="dark"] .week-bar .n{background:#6D28D9}
+[data-theme="dark"] .week-bar .other{background:#60738F}
+
 @media(max-width:820px){
   [data-theme="dark"] .topbar{background:rgba(7,17,31,.96);backdrop-filter:blur(18px)}
   .brand--mobile img{box-shadow:0 0 24px rgba(10,140,255,.16)}
