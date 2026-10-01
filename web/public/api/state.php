@@ -23,7 +23,7 @@ function default_state(): array
         'profile' => ['name' => ''],
         'colleagues' => [],
         'teamMembers' => [],
-        'settings' => ['theme' => 'light', 'reducedMotion' => false, 'notificationReadKey' => ''],
+        'settings' => ['theme' => 'dark', 'reducedMotion' => false, 'notificationReadKey' => ''],
         'scanSession' => [
             'people' => [],
             'reviewCells' => [],
