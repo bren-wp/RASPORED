@@ -87,17 +87,6 @@ function client_token(): string
     return $token;
 }
 
-function storage_directory(): string
-{
-    $sourceCandidate = dirname(__DIR__, 2) . '/storage/data';
-    $flatPackageCandidate = dirname(__DIR__) . '/storage/data';
-    $dir = is_dir($sourceCandidate) ? $sourceCandidate : $flatPackageCandidate;
-    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
-        fail_json(500, 'Spremište nije dostupno.');
-    }
-    return $dir;
-}
-
 function storage_file(string $token, ?array $account): string
 {
     if ($account !== null && isset($account['id'])) {
