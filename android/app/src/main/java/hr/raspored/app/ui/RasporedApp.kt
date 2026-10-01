@@ -1394,6 +1394,28 @@ private fun largeMinutesLabel(minutes:Long):String {
                 }
             }
         }
+        item{
+            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        BrandMark()
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)){
+                            Text("Takto",fontSize=22.sp,fontWeight=FontWeight.ExtraBold)
+                            Text("Verzija "+BuildConfig.VERSION_NAME,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Text("Dodirni. Označi. Radi.",fontWeight=FontWeight.Bold,color=Cyan)
+                    HorizontalDivider()
+                    Text("Izradio Brendigo",fontWeight=FontWeight.Bold)
+                    Text(
+                        "brendigo.com · info@brendigo.com",
+                        fontSize=12.sp,
+                        color=MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 
 
