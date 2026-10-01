@@ -1269,8 +1269,8 @@ function bind(){
     state.scanDetectedRows=[];state.scanDetectedRowIndex=-1;state.scanDetectedFrame=null;
     renderScanPersonPicker();renderRecognition();updateScanCropOverlay();
     var status=document.getElementById("scanStatus");
-    var aiButton=document.getElementById("scanAiVerifyBtn");
-    if(aiButton)aiButton.textContent=state.scanSingleMode?"AI provjera označene osobe":"AI provjera cijelog rasporeda";
+    var aiLabel=document.getElementById("scanAiVerifyLabel");
+    if(aiLabel)aiLabel.textContent=state.scanSingleMode?"AI provjera označene osobe":"AI provjera cijelog rasporeda";
     if(status&&state.scanOriginalFile){
       status.classList.remove("is-success","is-error","is-scanning");
       if(state.scanSingleMode){
