@@ -60,7 +60,7 @@ function downloadJson(){
   var blob=new Blob([JSON.stringify(clean,null,2)+"\n"],{type:"application/json;charset=utf-8"});
   var url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;
-  a.download="RASPORED-backup-"+new Date().toISOString().slice(0,10)+".json";
+  a.download="Takto-backup-"+new Date().toISOString().slice(0,10)+".json";
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(url)},0);
 }
@@ -87,7 +87,7 @@ function printReport(){
   var monthDate=new Date(parts.year,parts.month-1,1),section=document.createElement("section");
   section.id="printReport";section.className="print-report";
 
-  var title=document.createElement("h1");title.textContent="RASPORED";
+  var title=document.createElement("h1");title.textContent="Takto";
   var sub=document.createElement("p");
   sub.textContent="Mjesečni izvještaj · "+monthDate.toLocaleDateString("hr-HR",{month:"long",year:"numeric"});
   section.append(title,sub);
@@ -140,7 +140,7 @@ function printReport(){
 
   var note=document.createElement("p");
   note.className="print-report-note";
-  note.textContent="Izvještaj je informativan i temelji se na podacima spremljenima u aplikaciji RASPORED. Noćna evidencija koja prelazi granicu dana ili mjeseca razdvaja se prema stvarnom vremenu.";
+  note.textContent="Izvještaj je informativan i temelji se na podacima spremljenima u aplikaciji Takto. Noćna evidencija koja prelazi granicu dana ili mjeseca razdvaja se prema stvarnom vremenu.";
   section.appendChild(note);
 
   document.body.appendChild(section);document.body.classList.add("is-printing-report");
