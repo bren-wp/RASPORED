@@ -843,18 +843,18 @@ function renderStats(){
     }else trendEl.textContent="Nema podataka za prethodni mjesec";
   }
   var donut=document.getElementById("donut"),total=Math.max(1,d.workedMinutes),dayPct=Math.round(d.dayMinutes/total*100),nightPct=Math.round(d.nightMinutes/total*100);
-  if(donut)donut.style.background="conic-gradient(#20B7EB 0 "+dayPct+"%,#27388D "+dayPct+"% "+(dayPct+nightPct)+"%,#B8D0ED "+(dayPct+nightPct)+"% 100%)";
+  if(donut)donut.style.background="conic-gradient(#147DF5 0 "+dayPct+"%,#6D28D9 "+dayPct+"% "+(dayPct+nightPct)+"%,#60738F "+(dayPct+nightPct)+"% 100%)";
   var cats=[
-    ["#20B7EB","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
-    ["#27388D","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
-    ["#B8D0ED","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
-    ["#FF6B61","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
-    ["#F59E0B","Blagdani",hoursText(d.holidayMinutes),d.holidays+" smjena"],
-    ["#14B8A6","GO",d.go+" dana","Godišnji odmor"],
-    ["#FB7185","BO",d.bo+" dana","Bolovanje"],
-    ["#F59E0B","PD",d.pd+" dana","Plaćeni dopust"],
-    ["#94A3B8","SD",d.sd+" dana","Slobodan dan"],
-    ["#BFEFFF","Ukupno sati",hoursText(d.workedMinutes),"Automatski iz kalendara"]
+    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
+    ["#6D28D9","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
+    ["#60738F","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
+    ["#FF4655","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
+    ["#FFB51F","Blagdani",hoursText(d.holidayMinutes),d.holidays+" smjena"],
+    ["#12D6A0","GO",d.go+" dana","Godišnji odmor"],
+    ["#FFB51F","BO",d.bo+" dana","Bolovanje"],
+    ["#E53648","PD",d.pd+" dana","Plaćeni dopust"],
+    ["#60738F","SD",d.sd+" dana","Slobodan dan"],
+    ["#4CABFF","Ukupno sati",hoursText(d.workedMinutes),"Automatski iz kalendara"]
   ],el=document.getElementById("statsCategories");
   if(el)el.innerHTML=cats.map(function(x){return '<div class="stat-cat"><span><i style="background:'+x[0]+'"></i><b>'+x[2]+'</b></span><small>'+x[1]+' · '+x[3]+'</small></div>'}).join("");
   var max=1;d.weeks.forEach(function(w){max=Math.max(max,w.d+w.n+w.o)});
