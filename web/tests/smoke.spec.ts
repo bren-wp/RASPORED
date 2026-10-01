@@ -628,13 +628,15 @@ test("Web OCR late-month recovery band keeps roster names and exact days", async
 });
 
 test("overnight time evidence can be closed after midnight", async ({page}) => {
-  await page.goto("/");
   await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
-    (window as any).RasporedDataStore.set("raspored.timeEntries.v1",JSON.stringify([
+    const store=(window as any).RasporedDataStore;
+    if(!store.set("raspored.timeEntries.v1",JSON.stringify([
       {id:"night-active",date:"2026-10-16",in:"19:00",out:null,note:"Noćna smjena"}
-    ]));
-    await (window as any).RasporedDataStore.flush();
+    ])))throw new Error("Test evidence could not be queued after app readiness.");
+    await store.flush();
   });
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}

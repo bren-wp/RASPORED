@@ -23,10 +23,23 @@ jobs:
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION"; exit 1; }
           grep -q "\"version\":\"$VERSION\"" web/package.json || { echo "web/package.json version differs from VERSION"; exit 1; }
           grep -q "^$VERSION$" web/public/version.txt || { echo "web/public/version.txt differs from VERSION"; exit 1; }
+          grep -Fq "const CACHE=\"raspored-v$VERSION\";" web/public/sw.js || { echo "PWA cache version differs from VERSION"; exit 1; }
+          grep -Fq "\$version = '$VERSION';" web/public/includes/bootstrap.php || { echo "Web bootstrap fallback version differs from VERSION"; exit 1; }
           if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
             echo "Release v$VERSION already exists. Bump VERSION before merging new changes." >&2
             exit 1
           fi
+
+      - name: Validate workflow syntax and release structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -e 'require "yaml"; Dir[".github/workflows/*.{yml,yaml}"].each { |file| YAML.parse_file(file) }'
+          RELEASE=".github/workflows/release.yml"
+          [[ "$(grep -c 'name: Create GitHub release' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one GitHub release step"; exit 1; }
+          [[ "$(grep -c 'name: Android launch smoke test' "$RELEASE")" -eq 1 ]] || { echo "release.yml contains duplicate Android smoke-test steps"; exit 1; }
+          [[ "$(grep -c 'name: Web QA' "$RELEASE")" -eq 1 ]] || { echo "release.yml contains duplicate Web QA steps"; exit 1; }
+          [[ "$(grep -c 'name: Package and verify release artifacts' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one package/verify step"; exit 1; }
 
   web:
     needs: version
@@ -159,5 +172,6 @@ jobs:
           api-level: 36
           target: google_apis
           arch: x86_64
+          emulator-build: 15917651
           disable-animations: true
           script: gradle -p android :app:connectedDebugAndroidTest --stacktrace

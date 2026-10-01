@@ -10,7 +10,7 @@ var current={
   colleagues:[],
   teamMembers:[],
   settings:{theme:"light",reducedMotion:false,notificationReadKey:""},
-  scanSession:{people:[],selected:-1,month:null},
+  scanSession:{people:[],reviewCells:[],selected:-1,month:null,expectedRows:0,incomplete:false},
   payroll:{county:"Primorsko-goranska",residence:"Rijeka",taxLower:20,taxHigher:25,sector:"Zdravstvo",institution:"Klinički bolnički centar Rijeka",regimeId:"kbc-rijeka-2026",roleId:"health-transport-sss",coefficient:1.25,yearsService:0,personalAllowance:600,extraPercent:0,secondShift:false,turnus:false,customBase:null},
   updatedAt:null
 };
@@ -26,6 +26,8 @@ function endpoint(){return base()+"/api/state.php"}
 function normalizeScheduleCode(raw){
   if(typeof raw!=="string")return "";
   var value=raw.trim().toLocaleUpperCase("hr-HR");
+  if(value==="G0")value="GO";
+  else if(value==="B0")value="BO";
   return /^[\p{L}\p{N}]{1,8}$/u.test(value)?value:"";
 }
 function sanitizeSchedule(raw){
@@ -68,6 +70,30 @@ function sanitizePeople(raw){
     return {row:Number.isInteger(item.row)?item.row:null,name:name,dayShifts:shifts};
   }).filter(Boolean);
 }
+function sanitizeScanReviewCells(raw){
+  if(!Array.isArray(raw))return [];
+  return raw.slice(0,3100).map(function(item){
+    if(!item||typeof item.employeeName!=="string")return null;
+    var employeeName=item.employeeName.trim().replace(/\s+/g," ").slice(0,100);
+    var day=Number(item.day);
+    if(employeeName.length<2||!Number.isInteger(day)||day<1||day>31)return null;
+    var employeeRow=Number(item.employeeRow);
+    employeeRow=item.employeeRow!==null&&item.employeeRow!==""&&Number.isInteger(employeeRow)&&employeeRow>=1&&employeeRow<=100?employeeRow:null;
+    var source=["local","ai","local+ai","manual"].indexOf(item.source)>=0?item.source:"local";
+    return {
+      employeeRow:employeeRow,
+      employeeName:employeeName,
+      day:day,
+      localCode:normalizeScheduleCode(item.localCode||"")||null,
+      aiCode:normalizeScheduleCode(item.aiCode||"")||null,
+      selectedCode:normalizeScheduleCode(item.selectedCode||"")||null,
+      source:source,
+      confidence:null,
+      conflict:!!item.conflict,
+      manuallyConfirmed:!!item.manuallyConfirmed
+    };
+  }).filter(Boolean);
+}
 function sanitizeTeamMembers(raw){
   if(!Array.isArray(raw))return [];
   return raw.slice(0,100).map(function(item){
@@ -91,7 +117,10 @@ function sanitize(raw){
   var teamMembers=sanitizeTeamMembers(raw.teamMembers);
   var month=scan.month&&Number.isInteger(scan.month.year)&&Number.isInteger(scan.month.month)&&scan.month.month>=1&&scan.month.month<=12?{year:scan.month.year,month:scan.month.month}:null;
   var people=sanitizePeople(scan.people);
+  var reviewCells=sanitizeScanReviewCells(scan.reviewCells);
   var selected=Number.isInteger(scan.selected)&&scan.selected>=-1&&scan.selected<people.length?scan.selected:-1;
+  var expectedRows=Number.isInteger(Number(scan.expectedRows))?Math.max(0,Math.min(100,Number(scan.expectedRows))):0;
+  var incomplete=!!scan.incomplete;
   return {
     schema:4,
     revision:Number.isInteger(raw.revision)&&raw.revision>=0?raw.revision:0,
@@ -101,7 +130,7 @@ function sanitize(raw){
     colleagues:colleagues,
     teamMembers:teamMembers,
     settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
-    scanSession:{people:people,selected:selected,month:month},
+    scanSession:{people:people,reviewCells:reviewCells,selected:selected,month:month,expectedRows:expectedRows,incomplete:incomplete},
     payroll:{
       county:typeof payroll.county==="string"&&payroll.county?payroll.county.slice(0,80):"Primorsko-goranska",
       residence:typeof payroll.residence==="string"&&payroll.residence?payroll.residence.slice(0,100):"Rijeka",
@@ -235,7 +264,7 @@ function removeKey(key){
   else if(key==="raspored.profile.name")current.profile.name="";
   else if(key==="raspored.theme")current.settings.theme="light";
   else if(key==="raspored.reducedMotion")current.settings.reducedMotion=false;
-  else if(key==="raspored.scan.v1")current.scanSession={people:[],selected:-1,month:null};
+  else if(key==="raspored.scan.v1")current.scanSession={people:[],reviewCells:[],selected:-1,month:null,expectedRows:0,incomplete:false};
   else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey="";
   else if(key==="raspored.payroll.v1")current.payroll={county:"Primorsko-goranska",residence:"Rijeka",taxLower:20,taxHigher:25,sector:"Zdravstvo",institution:"Klinički bolnički centar Rijeka",regimeId:"kbc-rijeka-2026",roleId:"health-transport-sss",coefficient:1.25,yearsService:0,personalAllowance:600,extraPercent:0,secondShift:false,turnus:false,customBase:null};
   else return false;

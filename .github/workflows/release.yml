@@ -49,7 +49,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Prepare Android upload keystore
+      - name: Detect optional Android release signing
+        id: signing
         env:
           ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
           ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
@@ -58,32 +59,58 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          configured=0
           for name in ANDROID_UPLOAD_KEYSTORE_BASE64 ANDROID_UPLOAD_STORE_PASSWORD ANDROID_UPLOAD_KEY_ALIAS ANDROID_UPLOAD_KEY_PASSWORD; do
-            [[ -n "${!name:-}" ]] || { echo "Missing required GitHub Secret: $name" >&2; exit 1; }
+            [[ -n "${!name:-}" ]] && configured=$((configured + 1))
           done
-          KEYSTORE_PATH="${RUNNER_TEMP}/raspored-upload.jks"
-          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
-          test -s "$KEYSTORE_PATH"
-          chmod 600 "$KEYSTORE_PATH"
-          echo "RASPORED_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "RASPORED_RELEASE_STORE_PASSWORD=$ANDROID_UPLOAD_STORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "RASPORED_RELEASE_KEY_ALIAS=$ANDROID_UPLOAD_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "RASPORED_RELEASE_KEY_PASSWORD=$ANDROID_UPLOAD_KEY_PASSWORD" >> "$GITHUB_ENV"
 
-      - name: Android QA and signed release artifacts
+          if [[ "$configured" -eq 4 ]]; then
+            KEYSTORE_PATH="${RUNNER_TEMP}/raspored-upload.jks"
+            printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            test -s "$KEYSTORE_PATH"
+            chmod 600 "$KEYSTORE_PATH"
+            echo "RASPORED_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+            echo "RASPORED_RELEASE_STORE_PASSWORD=$ANDROID_UPLOAD_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "RASPORED_RELEASE_KEY_ALIAS=$ANDROID_UPLOAD_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "RASPORED_RELEASE_KEY_PASSWORD=$ANDROID_UPLOAD_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "$configured" -gt 0 ]]; then
+              echo "::warning::Android upload signing is only partially configured. Falling back to the non-secret release path."
+            fi
+            echo "mode=fallback" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Android QA and artifacts
+        shell: bash
         run: |
           set -euo pipefail
-          gradle -p android :app:assembleRelease :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease
+          COMMON_TASKS=":app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease"
+          if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
+            gradle -p android :app:assembleRelease $COMMON_TASKS
+          else
+            gradle -p android :app:assembleDebug $COMMON_TASKS
+          fi
+
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk dist/RASPORED.apk
+          if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
+            cp android/app/build/outputs/apk/release/app-release.apk dist/RASPORED.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+          fi
           cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
-          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
-          test -n "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs dist/RASPORED.apk
-          SIGNATURE_REPORT="${RUNNER_TEMP}/raspored-aab-signature.txt"
-          jarsigner -verify -verbose -certs dist/RASPORED.aab > "$SIGNATURE_REPORT"
-          grep -q "jar verified" "$SIGNATURE_REPORT"
-          unzip -l dist/RASPORED.aab | grep -Eq 'META-INF/[^/]+\.(RSA|DSA|EC)
+
+          if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
+            APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
+            test -n "$APKSIGNER"
+            "$APKSIGNER" verify --verbose --print-certs dist/RASPORED.apk
+
+            SIGNATURE_REPORT="${RUNNER_TEMP}/raspored-aab-signature.txt"
+            jarsigner -verify -verbose -certs dist/RASPORED.aab > "$SIGNATURE_REPORT"
+            grep -q "jar verified" "$SIGNATURE_REPORT"
+            unzip -l dist/RASPORED.aab | grep -Eq 'META-INF/[^/]+\.(RSA|DSA|EC)$'
+          fi
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -96,6 +123,7 @@ jobs:
           api-level: 36
           target: google_apis
           arch: x86_64
+          emulator-build: 15917651
           disable-animations: true
           script: gradle -p android :app:connectedDebugAndroidTest --stacktrace
 
@@ -110,7 +138,7 @@ jobs:
           npx playwright install --with-deps chromium
           npx playwright test tests/smoke.spec.ts tests/capture.spec.ts tests/export-history.spec.ts tests/ocr-parser.spec.ts
 
-      - name: Package Web/PWA
+      - name: Package and verify release artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -119,15 +147,12 @@ jobs:
           mkdir -p dist/web-package/storage/data
           cp -R web/public/. dist/web-package/
           cp web/storage/.htaccess dist/web-package/storage/.htaccess
-          printf '%s\\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
+          printf '%s\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
           (
             cd dist/web-package
-            zip -r "../RASPORED-web-v${VERSION}.zip" . \
-              -x "*.DS_Store" \
-              -x "__MACOSX/*" \
-              -x "storage/data/client-*.json" \
-              -x "storage/data/.write.lock"
+            zip -r "../RASPORED-web-v${VERSION}.zip" .               -x "*.DS_Store"               -x "__MACOSX/*"               -x "storage/data/client-*.json"               -x "storage/data/.write.lock"
           )
+
           sha256sum dist/RASPORED.apk dist/RASPORED.aab "dist/RASPORED-web-v${VERSION}.zip" > dist/SHA256SUMS
           test -s dist/RASPORED.apk
           test -s dist/RASPORED.aab
@@ -146,14 +171,14 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
           RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
-          gh release create "v${VERSION}" \
-            dist/RASPORED.apk \
-            dist/RASPORED.aab \
-            "dist/RASPORED-web-v${VERSION}.zip" \
-            dist/SHA256SUMS \
-            --target "$RELEASE_SHA" \
-            --title "RASPORED v${VERSION}" \
-            --notes "Produkcijsko izdanje RASPORED-a. Sadrži release-potpisani Android APK, upload-potpisani AAB za Play Console i Web/PWA paket. Android ključevi dolaze isključivo iz GitHub Secrets i nisu dio repozitorija ni release artefakata. Prije objave workflow provjerava potpise, ZIP integritet i SHA-256 kontrolne vrijednosti."
+
+          if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
+            SIGNING_NOTE="Android APK i AAB izgrađeni su s opcionalno konfiguriranim upload potpisom."
+          else
+            SIGNING_NOTE="GitHub Secrets nisu potrebni: APK je instalabilni debug-signed artefakt, a AAB je release bundle za daljnju Play Console obradu."
+          fi
+
+          gh release create "v${VERSION}"             dist/RASPORED.apk             dist/RASPORED.aab             "dist/RASPORED-web-v${VERSION}.zip"             dist/SHA256SUMS             --target "$RELEASE_SHA"             --title "RASPORED v${VERSION}"             --notes "Produkcijsko izdanje RASPORED-a za Android i Web/PWA. ${SIGNING_NOTE} Workflow prije objave provjerava build, testove, emulator smoke test, ZIP integritet i SHA-256 kontrolne vrijednosti."
 
       - uses: actions/upload-artifact@v4
         with:
@@ -163,82 +188,4 @@ jobs:
             dist/RASPORED.aab
             dist/RASPORED-web-v${{ steps.version.outputs.version }}.zip
             dist/SHA256SUMS
-          if-no-files-found: error
-
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Android launch smoke test
-        uses: ReactiveCircus/android-emulator-runner@v2
-        with:
-          api-level: 36
-          target: google_apis
-          arch: x86_64
-          disable-animations: true
-          script: gradle -p android :app:connectedDebugAndroidTest --stacktrace
-
-      - name: Web QA
-        working-directory: web
-        run: |
-          set -euo pipefail
-          find public -name '*.php' -print0 | xargs -0 -n1 php -l
-          find public/assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
-          node -e "JSON.parse(require('fs').readFileSync('public/assets/data/payroll-public-sector-2026.json','utf8'))"
-          npm install
-          npx playwright install --with-deps chromium
-          npx playwright test tests/smoke.spec.ts tests/capture.spec.ts tests/export-history.spec.ts tests/ocr-parser.spec.ts
-
-      - name: Package Web/PWA
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
-          rm -rf dist/web-package
-          mkdir -p dist/web-package/storage/data
-          cp -R web/public/. dist/web-package/
-          cp web/storage/.htaccess dist/web-package/storage/.htaccess
-          printf '%s\\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
-          (
-            cd dist/web-package
-            zip -r "../RASPORED-web-v${VERSION}.zip" . \
-              -x "*.DS_Store" \
-              -x "__MACOSX/*" \
-              -x "storage/data/client-*.json" \
-              -x "storage/data/.write.lock"
-          )
-          sha256sum dist/RASPORED.apk dist/RASPORED.aab "dist/RASPORED-web-v${VERSION}.zip" > dist/SHA256SUMS
-          test -s dist/RASPORED.apk
-          test -s dist/RASPORED.aab
-          test -s "dist/RASPORED-web-v${VERSION}.zip"
-          test -s dist/SHA256SUMS
-          unzip -tq dist/RASPORED.apk
-          unzip -tq dist/RASPORED.aab
-          unzip -tq "dist/RASPORED-web-v${VERSION}.zip"
-          sha256sum -c dist/SHA256SUMS
-
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
-          RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
-          gh release create "v${VERSION}" \
-            dist/RASPORED.apk \
-            dist/RASPORED.aab \
-            "dist/RASPORED-web-v${VERSION}.zip" \
-            dist/SHA256SUMS \
-            --target "$RELEASE_SHA" \
-            --title "RASPORED v${VERSION}" \
-            --notes "Produkcijsko izdanje RASPORED-a. Sadrži release-potpisani Android APK, upload-potpisani AAB za Play Console i Web/PWA paket. Android ključevi dolaze isključivo iz GitHub Secrets i nisu dio repozitorija ni release artefakata. Prije objave workflow provjerava potpise, ZIP integritet i SHA-256 kontrolne vrijednosti."
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: raspored-v${{ steps.version.outputs.version }}
-          path: dist/*
           if-no-files-found: error

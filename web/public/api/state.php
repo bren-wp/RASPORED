@@ -24,7 +24,14 @@ function default_state(): array
         'colleagues' => [],
         'teamMembers' => [],
         'settings' => ['theme' => 'light', 'reducedMotion' => false, 'notificationReadKey' => ''],
-        'scanSession' => ['people' => [], 'selected' => -1, 'month' => null],
+        'scanSession' => [
+            'people' => [],
+            'reviewCells' => [],
+            'selected' => -1,
+            'month' => null,
+            'expectedRows' => 0,
+            'incomplete' => false,
+        ],
         'payroll' => [
             'county' => 'Primorsko-goranska',
             'residence' => 'Rijeka',
@@ -131,6 +138,11 @@ function clean_schedule_code(mixed $raw): string
     $value = function_exists('mb_strtoupper')
         ? mb_strtoupper($value, 'UTF-8')
         : strtoupper($value);
+    if ($value === 'G0') {
+        $value = 'GO';
+    } elseif ($value === 'B0') {
+        $value = 'BO';
+    }
     return preg_match('/^[\p{L}\p{N}]{1,8}$/u', $value) === 1 ? $value : '';
 }
 
@@ -270,6 +282,50 @@ function clean_scan_people(mixed $raw): array
     return $clean;
 }
 
+function clean_scan_review_cells(mixed $raw): array
+{
+    if (!is_array($raw)) {
+        return [];
+    }
+    $clean = [];
+    foreach (array_slice($raw, 0, 3100) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $employeeName = clean_text($item['employeeName'] ?? '', 100);
+        $day = isset($item['day']) && is_numeric($item['day']) ? (int) $item['day'] : 0;
+        if (text_length($employeeName) < 2 || $day < 1 || $day > 31) {
+            continue;
+        }
+        $employeeRow = isset($item['employeeRow']) && is_numeric($item['employeeRow'])
+            ? (int) $item['employeeRow']
+            : null;
+        if ($employeeRow !== null && ($employeeRow < 1 || $employeeRow > 100)) {
+            $employeeRow = null;
+        }
+        $source = clean_text($item['source'] ?? 'local', 20);
+        if (!in_array($source, ['local', 'ai', 'local+ai', 'manual'], true)) {
+            $source = 'local';
+        }
+        $localCode = clean_schedule_code($item['localCode'] ?? '');
+        $aiCode = clean_schedule_code($item['aiCode'] ?? '');
+        $selectedCode = clean_schedule_code($item['selectedCode'] ?? '');
+        $clean[] = [
+            'employeeRow' => $employeeRow,
+            'employeeName' => $employeeName,
+            'day' => $day,
+            'localCode' => $localCode !== '' ? $localCode : null,
+            'aiCode' => $aiCode !== '' ? $aiCode : null,
+            'selectedCode' => $selectedCode !== '' ? $selectedCode : null,
+            'source' => $source,
+            'confidence' => null,
+            'conflict' => (bool) ($item['conflict'] ?? false),
+            'manuallyConfirmed' => (bool) ($item['manuallyConfirmed'] ?? false),
+        ];
+    }
+    return $clean;
+}
+
 function clean_state(mixed $raw, int $revision): array
 {
     $raw = is_array($raw) ? $raw : [];
@@ -288,10 +344,15 @@ function clean_state(mixed $raw, int $revision): array
     }
 
     $people = clean_scan_people($scan['people'] ?? []);
+    $reviewCells = clean_scan_review_cells($scan['reviewCells'] ?? []);
     $selected = (int) ($scan['selected'] ?? -1);
     if ($selected < -1 || $selected >= count($people)) {
         $selected = -1;
     }
+    $expectedRows = isset($scan['expectedRows']) && is_numeric($scan['expectedRows'])
+        ? max(0, min(100, (int) $scan['expectedRows']))
+        : 0;
+    $incomplete = (bool) ($scan['incomplete'] ?? false);
 
     return [
         'schema' => RASPORED_SCHEMA_VERSION,
@@ -306,7 +367,14 @@ function clean_state(mixed $raw, int $revision): array
             'reducedMotion' => (bool) ($settings['reducedMotion'] ?? false),
             'notificationReadKey' => clean_text($settings['notificationReadKey'] ?? '', 120),
         ],
-        'scanSession' => ['people' => $people, 'selected' => $selected, 'month' => $cleanMonth],
+        'scanSession' => [
+            'people' => $people,
+            'reviewCells' => $reviewCells,
+            'selected' => $selected,
+            'month' => $cleanMonth,
+            'expectedRows' => $expectedRows,
+            'incomplete' => $incomplete,
+        ],
         'payroll' => [
             'county' => clean_text($payroll['county'] ?? 'Primorsko-goranska', 80) ?: 'Primorsko-goranska',
             'residence' => clean_text($payroll['residence'] ?? 'Rijeka', 100) ?: 'Rijeka',
@@ -430,7 +498,7 @@ function merge_state_patch(array $current, mixed $rawPatch): array
     if (!is_array($rawPatch)) {
         return $current;
     }
-    foreach (['schedule', 'evidence', 'profile', 'colleagues', 'teamMembers', 'settings', 'payroll'] as $key) {
+    foreach (['schedule', 'evidence', 'profile', 'colleagues', 'teamMembers', 'settings', 'scanSession', 'payroll'] as $key) {
         if (array_key_exists($key, $rawPatch)) {
             $current[$key] = $rawPatch[$key];
         }
