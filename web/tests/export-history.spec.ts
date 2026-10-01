@@ -134,7 +134,7 @@ test("legacy evidence without millisecond timestamps keeps its worked duration",
   await expect(page.locator("#workedTotal")).not.toHaveText("0:00 h");
   if(width<=820){
     await page.locator('[data-route="home"]:visible').first().click();
-    await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+    await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
   }else{
     await page.locator('[data-route="hours"]:visible').first().click();
   }
