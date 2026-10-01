@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.io.FileOutputStream
@@ -45,6 +46,8 @@ class AndroidReadmeScreenshotTest {
     fun snimiStvarneEkraneAplikacije() {
         val month = YearMonth.now()
 
+        composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
+        composeRule.onNodeWithTag("nav-calendar").performClick()
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
         composeRule.onNodeWithTag("calendar-day-" + month.atDay(1)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
@@ -54,7 +57,8 @@ class AndroidReadmeScreenshotTest {
         composeRule.onNodeWithTag("calendar-dialog-code-go").performClick()
         capture("android-calendar")
 
-        composeRule.onNodeWithTag("nav-hours").performClick()
+        composeRule.onNodeWithTag("nav-home").performClick()
+        composeRule.onNodeWithTag("home-hours").performScrollTo().performClick()
         composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
         capture("android-evidence")
         composeRule.onNodeWithText("‹ Natrag").performClick()
@@ -64,6 +68,7 @@ class AndroidReadmeScreenshotTest {
         composeRule.onNodeWithText("Skeniraj raspored").fetchSemanticsNode()
         capture("android-scan")
         composeRule.onNodeWithContentDescription("Natrag").performClick()
+        composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-stats").performClick()
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
