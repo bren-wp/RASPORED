@@ -524,7 +524,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             if(today){
                 HorizontalDivider(Modifier.padding(vertical=13.dp),color=MaterialTheme.colorScheme.outlineVariant)
                 InfoLine(Icons.Outlined.Schedule,"Radno vrijeme",if(shift.hours>0)shift.hours.toString()+"h" else "—")
-                InfoLine(Icons.Outlined.Checklist,"Evidentiraj ulaz/izlaz","›",onHours)
+                InfoLine(Icons.Outlined.Checklist,"Otvori evidenciju sati","›",onHours)
                 InfoLine(Icons.AutoMirrored.Outlined.Notes,"Bilješka","›",onHours)
             }
         }
@@ -1250,7 +1250,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                     Text("Izvoz",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Odaberi spremljeni mjesec i izradi PDF s rasporedom, vlastitim oznakama i evidentiranim radom.",
+                        "Odaberi spremljeni mjesec i izradi PDF s rasporedom, vlastitim oznakama i satima automatski izvedenima iz kalendara.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
