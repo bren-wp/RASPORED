@@ -1,9 +1,9 @@
   <nav class="bottom-nav" aria-label="Mobilna navigacija">
-    <button data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-home"></use></svg><small>Početna</small></button>
     <button class="is-active" data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><small>Kalendar</small></button>
+    <button data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg><small>Evidencija</small></button>
     <button class="scan-nav" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><small>Skeniraj</small></button>
     <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><small>Statistika</small></button>
-    <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><small>Postavke</small></button>
+    <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><small>Više</small></button>
   </nav>
 </div>
 
