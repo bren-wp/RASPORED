@@ -12,7 +12,7 @@ class OcrAiMergeTest {
     private val month = YearMonth.of(2026, 10)
 
     @Test
-    fun keepsLocalValueAndCreatesReviewConflictWhenAiDiffers() {
+    fun leavesSelectedValueEmptyAndCreatesReviewConflictWhenAiDiffers() {
         val local = RecognizedSchedule(
             month = month,
             rows = listOf(RecognizedScheduleRow(1, "Test Osoba", mapOf(17 to "D"))),
@@ -31,7 +31,7 @@ class OcrAiMergeTest {
         assertEquals(17, cell.day)
         assertEquals("D", cell.localCode)
         assertEquals("N", cell.aiCode)
-        assertEquals("D", cell.selectedCode)
+        assertEquals(null, cell.selectedCode)
         assertTrue(cell.conflict)
         assertFalse(cell.manuallyConfirmed)
     }
