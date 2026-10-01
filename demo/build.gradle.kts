@@ -5,7 +5,7 @@ plugins {
 }
 
 val releaseVersion = rootProject.projectDir.parentFile.resolve("VERSION").readText().trim()
-val match = Regex("""^(\\d+)\\.(\\d+)\\.(\\d+)$""").matchEntire(releaseVersion)
+val match = Regex("""^(\d+)\.(\d+)\.(\d+)$""").matchEntire(releaseVersion)
     ?: error("VERSION must use semantic version format x.y.z")
 val code = match.groupValues[1].toInt() * 10_000 +
     match.groupValues[2].toInt() * 100 +
