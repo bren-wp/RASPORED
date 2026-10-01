@@ -345,7 +345,9 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
         Surface(shape=RoundedCornerShape(if(emphasis)22.dp else 12.dp),color=if(emphasis) Cyan else Color.Transparent){
             Icon(icon,null,modifier=Modifier.padding(if(emphasis)10.dp else 4.dp).size(if(emphasis)28.dp else 24.dp),tint=if(emphasis) Color.White else if(current==target) Cyan else MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    },label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedTextColor=Cyan,unselectedTextColor=Slate,indicatorColor=Color.Transparent))
+    },label={
+        Text(label,fontSize=9.sp,maxLines=1,softWrap=false)
+    },colors=NavigationBarItemDefaults.colors(selectedTextColor=Cyan,unselectedTextColor=Slate,indicatorColor=Color.Transparent))
 }
 
 private fun appDateTime():LocalDateTime = LocalDateTime.now()
@@ -1224,17 +1226,21 @@ private fun largeMinutesLabel(minutes:Long):String {
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
         item{
-            Row(verticalAlignment=Alignment.CenterVertically){
-                Column(Modifier.weight(1f)){
-                    Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)
-                    TextButton(onClick=onPayroll,contentPadding=PaddingValues(0.dp)){
-                        Text("Izračunaj okvirnu plaću ›",fontWeight=FontWeight.Bold)
-                    }
-                }
+            Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+                Text(
+                    "Statistika",
+                    fontSize=31.sp,
+                    fontWeight=FontWeight.ExtraBold,
+                    maxLines=1,
+                    softWrap=false
+                )
                 Box{
-                    OutlinedButton(onClick={periodMenu=true}){
+                    OutlinedButton(
+                        onClick={periodMenu=true},
+                        modifier=Modifier.fillMaxWidth()
+                    ){
                         Icon(Icons.Outlined.CalendarMonth,null)
-                        Text(" "+monthTitle+" ")
+                        Text(" "+monthTitle+" ",maxLines=1,softWrap=false)
                         Icon(Icons.Outlined.ExpandMore,null)
                     }
                     DropdownMenu(expanded=periodMenu,onDismissRequest={periodMenu=false}){
@@ -1247,6 +1253,17 @@ private fun largeMinutesLabel(minutes:Long):String {
                             )
                         }
                     }
+                }
+                TextButton(
+                    onClick=onPayroll,
+                    contentPadding=PaddingValues(horizontal=0.dp,vertical=2.dp)
+                ){
+                    Text(
+                        "Izračunaj okvirnu plaću ›",
+                        fontWeight=FontWeight.Bold,
+                        maxLines=1,
+                        softWrap=false
+                    )
                 }
             }
         }
@@ -1590,7 +1607,9 @@ private fun largeMinutesLabel(minutes:Long):String {
                             OutlinedButton(
                                 onClick={accountError="";registerOpen=true},
                                 modifier=Modifier.weight(1f)
-                            ){Text("Registracija")}
+                            ){
+                                Text("Registracija",fontSize=13.sp,maxLines=1,softWrap=false)
+                            }
                         }
                     }
                     if(accountError.isNotBlank()){

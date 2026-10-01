@@ -1,6 +1,7 @@
 package hr.raspored.app
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,6 +25,8 @@ class AndroidReadmeScreenshotTest {
 
     private fun capture(name: String) {
         composeRule.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        SystemClock.sleep(350)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
             ?: error("Android emulator screenshot is unavailable")
@@ -59,6 +62,7 @@ class AndroidReadmeScreenshotTest {
 
         composeRule.onNodeWithTag("nav-scan").performClick()
         composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()
+        composeRule.onNodeWithText("Skeniraj raspored").fetchSemanticsNode()
         capture("android-scan")
         composeRule.onNodeWithContentDescription("Natrag").performClick()
 
