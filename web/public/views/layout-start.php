@@ -18,8 +18,8 @@
       <span><strong>Takto</strong><small>Dodirni. Označi. Radi.</small></span>
     </a>
     <nav class="side-nav">
-      <button class="nav-item" data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-home"></use></svg>Početna</button>
-      <button class="nav-item is-active" data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg>Kalendar</button>
+      <button class="nav-item is-active" data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-home"></use></svg>Početna</button>
+      <button class="nav-item" data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg>Kalendar</button>
       <button class="nav-item" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Skeniraj</button>
       <button class="nav-item" data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg>Statistika</button>
       <button class="nav-item desktop-extra" data-route="payroll"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scale"></use></svg>Plaća</button>
