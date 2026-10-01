@@ -23,7 +23,7 @@ object ReportExporter {
         profileName: String = ""
     ): Uri {
         val directory = File(context.cacheDir, "reports").apply { mkdirs() }
-        val file = File(directory, "RASPORED-${month}.pdf")
+        val file = File(directory, "Takto-${month}.pdf")
         val document = PdfDocument()
         val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -53,7 +53,7 @@ object ReportExporter {
         var y = 44f
 
         fun drawHeader() {
-            canvas.drawText("RASPORED", 36f, y, titlePaint)
+            canvas.drawText("Takto", 36f, y, titlePaint)
             y += 20f
             val monthName = month.month
                 .getDisplayName(TextStyle.FULL, Locale("hr", "HR"))
