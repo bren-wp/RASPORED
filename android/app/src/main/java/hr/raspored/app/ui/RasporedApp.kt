@@ -45,6 +45,7 @@ import hr.raspored.app.data.ReportExporter
 import hr.raspored.app.data.RemoteAccount
 import hr.raspored.app.data.RemoteAccountClient
 import hr.raspored.app.data.RemoteAccountStore
+import hr.raspored.app.data.RemoteSessionInvalidException
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -101,6 +102,25 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     LaunchedEffect(store) {
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
+    }
+    LaunchedEffect(remoteToken) {
+        val token = remoteToken ?: return@LaunchedEffect
+        val validation = withContext(Dispatchers.IO) {
+            runCatching { RemoteAccountClient.current(token) }
+        }
+        validation.onSuccess { account ->
+            remoteAccount = account
+            remoteAccountStore.updateAccount(account)
+        }.onFailure { error ->
+            if (error is RemoteSessionInvalidException) {
+                remoteAccountStore.clear()
+                remoteAccount = null
+                remoteToken = null
+                snackbarHostState.showSnackbar(
+                    "Prijava je istekla ili je opozvana. Prijavi se ponovno."
+                )
+            }
+        }
     }
     val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
         val date = appDate().plusDays(offset)
@@ -205,7 +225,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         TimeEvidenceScreen(
                             plannedShiftCode=shift?.code,
                             plannedShiftLabel=shift?.let{it.name+" · "+it.time} ?: "—",
-                            onBack={screen=Screen.Home},
+                            onBack={screen=Screen.Calendar},
                             onEvidenceChanged={evidenceRevision++}
                         )
                     }
@@ -219,11 +239,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                         onRemoteSessionChange={account,token->
                             remoteAccount=account
                             remoteToken=token
-                            if(account==null||token==null) remoteAccountStore.clear()
-                            else {
-                                remoteAccountStore.account=account
-                                remoteAccountStore.token=token
-                            }
                         },
                         onProfileNameChange={
                             profileName=it
@@ -304,16 +319,16 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
 
 @Composable private fun BottomNav(current:Screen,onSelect:(Screen)->Unit){
     val selected=when(current){
-        Screen.Hours->Screen.Home
+        Screen.Home->Screen.Calendar
         Screen.Payroll->Screen.Stats
         else->current
     }
     NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=6.dp){
-        NavItem(selected,Screen.Home,"Početna",Icons.Outlined.Home,onSelect)
         NavItem(selected,Screen.Calendar,"Kalendar",Icons.Outlined.CalendarMonth,onSelect)
+        NavItem(selected,Screen.Hours,"Evidencija",Icons.AutoMirrored.Outlined.Notes,onSelect)
         NavItem(selected,Screen.Scan,"Skeniraj",Icons.Outlined.PhotoCamera,onSelect,true)
         NavItem(selected,Screen.Stats,"Statistika",Icons.Outlined.BarChart,onSelect)
-        NavItem(selected,Screen.Settings,"Postavke",Icons.Outlined.Settings,onSelect)
+        NavItem(selected,Screen.Settings,"Više",Icons.Outlined.MoreHoriz,onSelect)
     }
 }
 @Composable private fun RowScope.NavItem(current:Screen,target:Screen,label:String,icon:ImageVector,onSelect:(Screen)->Unit,emphasis:Boolean=false){

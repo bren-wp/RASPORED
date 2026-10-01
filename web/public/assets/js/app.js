@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanLocalRawText:""};
+var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanLocalRawText:"",aiConsentGranted:false};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -25,6 +25,8 @@ function storageRemove(key){
 function normalizeScheduleCode(raw){
   if(typeof raw!=="string")return "";
   var value=raw.trim().toLocaleUpperCase("hr-HR");
+  if(value==="G0")value="GO";
+  else if(value==="B0")value="BO";
   return /^[\p{L}\p{N}]{1,8}$/u.test(value)?value:"";
 }
 function scheduleCodeClass(code){
@@ -53,6 +55,40 @@ function sanitizeScanPeople(items){
     });
     return {row:Number.isInteger(item.row)?item.row:null,name:name,dayShifts:shifts};
   }).filter(Boolean);
+}
+function sanitizeScanReviewCells(items){
+  if(!Array.isArray(items))return [];
+  return items.slice(0,3100).map(function(item){
+    if(!item||typeof item.employeeName!=="string")return null;
+    var employeeName=item.employeeName.trim().replace(/\s+/g," ").slice(0,100);
+    var day=Number(item.day);
+    if(employeeName.length<2||!Number.isInteger(day)||day<1||day>31)return null;
+    var localCode=normalizeScheduleCode(item.localCode||"")||null;
+    var aiCode=normalizeScheduleCode(item.aiCode||"")||null;
+    var selectedCode=normalizeScheduleCode(item.selectedCode||"")||null;
+    var source=["local","ai","local+ai","manual"].includes(item.source)?item.source:"local";
+    var employeeRow=Number(item.employeeRow);
+    employeeRow=item.employeeRow!==null&&item.employeeRow!==""&&Number.isInteger(employeeRow)&&employeeRow>=1&&employeeRow<=100?employeeRow:null;
+    return {
+      employeeRow:employeeRow,
+      employeeName:employeeName,
+      day:day,
+      localCode:localCode,
+      aiCode:aiCode,
+      selectedCode:selectedCode,
+      source:source,
+      confidence:null,
+      conflict:!!item.conflict,
+      manuallyConfirmed:!!item.manuallyConfirmed
+    };
+  }).filter(Boolean);
+}
+function unresolvedScanReviewCells(){
+  return state.scanReviewCells.filter(function(cell){return cell.conflict&&!cell.manuallyConfirmed});
+}
+function unresolvedScanReviewCellsForPerson(person){
+  if(!person)return [];
+  return unresolvedScanReviewCells().filter(function(cell){return scanCellMatchesPerson(cell,person)});
 }
 function configureProfile(){
   var saved="";
@@ -139,6 +175,7 @@ function renderTeamMembers(){
 }
 function importScannedTeamSchedules(){
   var policy=individualScanPolicy();
+  if(unresolvedScanReviewCells().length){toast("Prije timskog uvoza riješi sve nejasne AI/OCR stavke.");renderScanReview();return}
   if(policy.restricted){toast("Osobni korisnički račun može uvesti samo vlastiti raspored.");return}
   if(!state.scanPeople.length){toast("Najprije skeniraj raspored.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
@@ -235,6 +272,7 @@ function openSearch(){
 function saveScanSession(){
   storageSet("raspored.scan.v1",JSON.stringify({
     people:state.scanPeople,
+    reviewCells:state.scanReviewCells,
     selected:state.scanSelected,
     month:state.scanMonth,
     expectedRows:state.scanExpectedRows,
@@ -246,6 +284,7 @@ function loadScanSession(){
     var raw=JSON.parse(storageGet("raspored.scan.v1")||"null");
     if(raw&&Array.isArray(raw.people)){
       state.scanPeople=sanitizeScanPeople(raw.people);
+      state.scanReviewCells=sanitizeScanReviewCells(raw.reviewCells);
       state.scanSelected=Number.isInteger(raw.selected)?raw.selected:-1;
       state.scanMonth=raw.month&&Number.isInteger(raw.month.year)&&Number.isInteger(raw.month.month)?raw.month:null;
       state.scanExpectedRows=Number.isInteger(Number(raw.expectedRows))?Math.max(0,Number(raw.expectedRows)):0;
@@ -264,7 +303,7 @@ function releaseScanPreview(){
 }
 function clearScanSession(){
   state.scanGeneration++;
-  state.scanPeople=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;state.scanSourceFile=null;state.scanLocalRawText="";
+  state.scanPeople=[];state.scanReviewCells=[];state.scanSelected=-1;state.scanMonth=null;state.scanExpectedRows=0;state.scanIncomplete=false;state.editRecognition=false;state.scanSourceFile=null;state.scanLocalRawText="";
   releaseScanPreview();
   storageRemove("raspored.scan.v1");
 }
@@ -284,40 +323,91 @@ function normalizePersonKey(person){
   return "name:"+String(person&&person.name||"").trim().toLocaleUpperCase("hr-HR");
 }
 function mergeScanPeople(localPeople,aiPeople){
-  var map=new Map();
+  var map=new Map(),cells=new Map();
+  function cellKey(person,day){return normalizePersonKey(person)+":"+Number(day)}
   sanitizeScanPeople(localPeople).forEach(function(person){
-    map.set(normalizePersonKey(person),{
-      row:person.row,
-      name:person.name,
-      dayShifts:Object.assign({},person.dayShifts),
-      conflicts:[]
+    var clean={row:person.row,name:person.name,dayShifts:Object.assign({},person.dayShifts)};
+    map.set(normalizePersonKey(clean),clean);
+    Object.keys(clean.dayShifts).forEach(function(day){
+      var code=normalizeScheduleCode(clean.dayShifts[day]);
+      cells.set(cellKey(clean,day),{
+        employeeRow:clean.row,
+        employeeName:clean.name,
+        day:Number(day),
+        localCode:code||null,
+        aiCode:null,
+        selectedCode:code||null,
+        source:"local",
+        confidence:null,
+        conflict:false,
+        manuallyConfirmed:false
+      });
     });
   });
   sanitizeScanPeople(aiPeople).forEach(function(person){
     var key=normalizePersonKey(person),existing=map.get(key);
     if(!existing){
-      map.set(key,{row:person.row,name:person.name,dayShifts:Object.assign({},person.dayShifts),conflicts:[]});
+      existing={row:person.row,name:person.name,dayShifts:Object.assign({},person.dayShifts)};
+      map.set(key,existing);
+      Object.keys(existing.dayShifts).forEach(function(day){
+        var aiOnly=normalizeScheduleCode(existing.dayShifts[day]);
+        cells.set(cellKey(existing,day),{
+          employeeRow:existing.row,
+          employeeName:existing.name,
+          day:Number(day),
+          localCode:null,
+          aiCode:aiOnly||null,
+          selectedCode:aiOnly||null,
+          source:"ai",
+          confidence:null,
+          conflict:false,
+          manuallyConfirmed:false
+        });
+      });
       return;
     }
     if((existing.name||"").length<(person.name||"").length)existing.name=person.name;
     Object.keys(person.dayShifts||{}).forEach(function(day){
       var aiCode=normalizeScheduleCode(person.dayShifts[day]),localCode=normalizeScheduleCode(existing.dayShifts[day]);
-      if(!localCode&&aiCode)existing.dayShifts[day]=aiCode;
-      else if(localCode&&aiCode&&localCode!==aiCode)existing.conflicts.push(Number(day));
+      if(!aiCode)return;
+      if(!localCode){
+        existing.dayShifts[day]=aiCode;
+        cells.set(cellKey(existing,day),{
+          employeeRow:existing.row,
+          employeeName:existing.name,
+          day:Number(day),
+          localCode:null,
+          aiCode:aiCode,
+          selectedCode:aiCode,
+          source:"ai",
+          confidence:null,
+          conflict:false,
+          manuallyConfirmed:false
+        });
+      }else{
+        cells.set(cellKey(existing,day),{
+          employeeRow:existing.row,
+          employeeName:existing.name,
+          day:Number(day),
+          localCode:localCode,
+          aiCode:aiCode,
+          selectedCode:localCode,
+          source:"local+ai",
+          confidence:null,
+          conflict:localCode!==aiCode,
+          manuallyConfirmed:false
+        });
+      }
     });
   });
-  var conflicts=0;
-  var people=Array.from(map.values()).map(function(person){
-    conflicts+=person.conflicts.length;
-    delete person.conflicts;
-    return person;
-  }).sort(function(a,b){
+  var people=Array.from(map.values()).sort(function(a,b){
     var ar=Number.isInteger(Number(a.row))?Number(a.row):9999;
     var br=Number.isInteger(Number(b.row))?Number(b.row):9999;
     return ar-br||a.name.localeCompare(b.name,"hr");
   });
-  return {people:people,conflicts:conflicts};
+  return {people:people,cells:Array.from(cells.values())};
 }
+
 async function runAiScanVerification(){
   var button=document.getElementById("scanAiVerifyBtn"),panel=document.getElementById("scanAiPanel");
   var status=document.getElementById("scanStatus");
@@ -348,7 +438,8 @@ async function runAiScanVerification(){
     if(!response.ok||payload.ok!==true||!payload.result)throw new Error(payload.error||"AI provjera nije uspjela.");
     var merged=mergeScanPeople(state.scanPeople,payload.result.people||[]);
     state.scanPeople=merged.people;
-    if(payload.result.month)state.scanMonth=payload.result.month;
+    state.scanReviewCells=sanitizeScanReviewCells(merged.cells);
+    if(!state.scanMonth&&payload.result.month)state.scanMonth=payload.result.month;
     state.scanExpectedRows=Math.max(
       state.scanExpectedRows||0,
       Math.max(0,Number(payload.result.expectedRows)||0)
@@ -356,14 +447,14 @@ async function runAiScanVerification(){
     state.scanIncomplete=state.scanExpectedRows>=8&&state.scanPeople.length*100<state.scanExpectedRows*65;
     state.scanSelected=state.scanPeople.length===1?0:-1;
     saveScanSession();
-    renderScanPersonPicker();renderRecognition();
+    renderScanPersonPicker();renderRecognition();renderScanReview();
     if(status){
       status.classList.remove("is-scanning");
       status.classList.add(state.scanIncomplete?"is-error":"is-success");
       status.querySelector("span").textContent=
         "AI provjera završena: "+state.scanPeople.length+" osoba. "+
-        (merged.conflicts
-          ?merged.conflicts+" ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru. "
+        (unresolvedScanReviewCells().length
+          ?unresolvedScanReviewCells().length+" ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru. "
           :"Nisu pronađeni sukobi s lokalnim OCR-om. ")+
         (payload.result.notes||"");
     }
@@ -404,11 +495,13 @@ function renderScanPersonPicker(){
     var target=scanTargetMonth();
     monthLabel.textContent=months[target.getMonth()]+" "+target.getFullYear()+".";
   }
-  if(saveBtn)saveBtn.disabled=state.scanIncomplete||!person||Object.keys(person.dayShifts||{}).length===0;
+  var unresolved=unresolvedScanReviewCells().length;
+  var unresolvedSelected=unresolvedScanReviewCellsForPerson(person).length;
+  if(saveBtn)saveBtn.disabled=state.scanIncomplete||unresolvedSelected>0||!person||Object.keys(person.dayShifts||{}).length===0;
   var teamBtn=document.getElementById("saveTeamSchedules"),teamNote=document.getElementById("teamImportNote");
   if(teamBtn){
     teamBtn.hidden=policy.restricted||state.scanPeople.length===0;
-    teamBtn.disabled=state.scanIncomplete||policy.restricted||state.scanPeople.length===0;
+    teamBtn.disabled=state.scanIncomplete||unresolved>0||policy.restricted||state.scanPeople.length===0;
   }
   if(teamNote)teamNote.hidden=policy.restricted||state.scanPeople.length<=1;
 }
@@ -417,6 +510,7 @@ function selectedScanSchedule(){
 }
 function importSelectedScanSchedule(){
   var person=scanPerson(),policy=individualScanPolicy();
+  if(unresolvedScanReviewCellsForPerson(person).length){toast("Prije uvoza riješi nejasne AI/OCR stavke odabrane osobe.");renderScanReview();return}
   if(policy.restricted&&(policy.index<0||!person||normalizePersonName(person.name)!==normalizePersonName(policy.name))){
     toast("Osobni korisnički račun može uvesti samo raspored prijavljene osobe.");
     return;
@@ -710,6 +804,68 @@ function renderRecognition(){
   var edit=document.getElementById("editRecognitionBtn");
   if(edit){edit.disabled=!selected;edit.classList.toggle("is-active",state.editRecognition);edit.lastChild.nodeValue=state.editRecognition?" Završi uređivanje":" Uredi";}
 }
+function scanCellMatchesPerson(cell,person){
+  if(!cell||!person)return false;
+  if(Number.isInteger(cell.employeeRow)&&Number.isInteger(Number(person.row)))return cell.employeeRow===Number(person.row);
+  return normalizePersonName(cell.employeeName)===normalizePersonName(person.name);
+}
+function renderScanReview(){
+  var panel=document.getElementById("scanConflictPanel"),count=document.getElementById("scanConflictCount");
+  if(!panel)return;
+  var unresolved=unresolvedScanReviewCells();
+  panel.hidden=unresolved.length===0;
+  if(count)count.textContent=unresolved.length
+    ?("Za provjeru: ⚠ "+unresolved.length+" nejasnih stavki")
+    :"Raspored je spreman za uvoz.";
+  renderScanPersonPicker();
+}
+function openNextScanConflict(){
+  var conflict=unresolvedScanReviewCells()[0],dialog=document.getElementById("scanConflictDialog");
+  if(!conflict||!dialog){renderScanReview();return}
+  dialog.dataset.reviewDay=String(conflict.day);
+  dialog.dataset.reviewRow=conflict.employeeRow==null?"":String(conflict.employeeRow);
+  dialog.dataset.reviewName=conflict.employeeName;
+  var title=document.getElementById("scanConflictTitle"),values=document.getElementById("scanConflictValues");
+  if(title)title.textContent=(conflict.employeeRow?conflict.employeeRow+". ":"")+conflict.employeeName+" · dan "+conflict.day;
+  if(values)values.textContent="Lokalni OCR: "+(conflict.localCode||"prazno")+" · AI: "+(conflict.aiCode||"prazno");
+  var localBtn=document.getElementById("scanConflictLocal"),aiBtn=document.getElementById("scanConflictAi"),custom=document.getElementById("scanConflictCustom");
+  if(localBtn){localBtn.hidden=!conflict.localCode;localBtn.textContent=conflict.localCode?"Zadrži lokalno: "+conflict.localCode:""}
+  if(aiBtn){aiBtn.hidden=!conflict.aiCode;aiBtn.textContent=conflict.aiCode?"Odaberi AI: "+conflict.aiCode:""}
+  if(custom)custom.value="";
+  dialog.showModal();
+}
+function resolveScanConflict(choice){
+  var dialog=document.getElementById("scanConflictDialog");
+  if(!dialog)return false;
+  var day=Number(dialog.dataset.reviewDay),row=dialog.dataset.reviewRow?Number(dialog.dataset.reviewRow):null,name=dialog.dataset.reviewName||"";
+  var index=state.scanReviewCells.findIndex(function(cell){
+    return cell.conflict&&!cell.manuallyConfirmed&&cell.day===day&&
+      (row!==null?cell.employeeRow===row:normalizePersonName(cell.employeeName)===normalizePersonName(name));
+  });
+  if(index<0){dialog.close();renderScanReview();return false}
+  var cell=state.scanReviewCells[index],selected=choice;
+  if(choice==="__local__")selected=cell.localCode||"";
+  else if(choice==="__ai__")selected=cell.aiCode||"";
+  var normalized=selected?normalizeScheduleCode(selected):"";
+  if(selected&&!normalized){toast("Oznaka nije valjana. Koristi 1–8 slova ili brojki bez razmaka.");return false}
+  var person=state.scanPeople.find(function(item){return scanCellMatchesPerson(cell,item)});
+  if(person){
+    if(normalized)person.dayShifts[day]=normalized;else delete person.dayShifts[day];
+  }
+  state.scanReviewCells[index]=Object.assign({},cell,{
+    selectedCode:normalized||null,
+    source:"manual",
+    conflict:false,
+    manuallyConfirmed:true
+  });
+  saveScanSession();
+  dialog.close();
+  renderRecognition();
+  renderScanReview();
+  if(unresolvedScanReviewCells().length)openNextScanConflict();
+  else toast("Raspored je spreman za uvoz.");
+  return true;
+}
 function renderStats(){
   var d=statsForCursor(),worked=document.getElementById("workedTotal");
   if(worked)worked.textContent=largeHoursText(d.workedMinutes);
@@ -918,8 +1074,14 @@ function route(name){
   }
   state.route=name;document.body.dataset.routeCurrent=name;
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
-  var navRoute=name==="payroll"?"stats":name;
-  document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===navRoute)});
+  var desktopNavRoute=name==="payroll"?"stats":name;
+  var mobileNavRoute=name==="home"?"calendar":name==="payroll"?"stats":name;
+  document.querySelectorAll(".side-nav [data-route]").forEach(function(x){
+    x.classList.toggle("is-active",x.dataset.route===desktopNavRoute);
+  });
+  document.querySelectorAll(".bottom-nav [data-route]").forEach(function(x){
+    x.classList.toggle("is-active",x.dataset.route===mobileNavRoute);
+  });
   if(name==="stats")renderStats();
   if(name==="hours")renderHours();
   if(name==="colleagues")renderColleagues();
@@ -988,8 +1150,27 @@ function bind(){
   if(motion){
     motion.addEventListener("change",function(){if(!storageSet("raspored.reducedMotion",this.checked?"1":"0"))toast("Postavku animacija nije moguće spremiti.");document.body.dataset.reducedMotion=this.checked?"true":"false"});
   }
-  var aiVerify=document.getElementById("scanAiVerifyBtn");
-  if(aiVerify)aiVerify.addEventListener("click",runAiScanVerification);
+  var aiVerify=document.getElementById("scanAiVerifyBtn"),aiConsent=document.getElementById("scanAiConsentDialog");
+  if(aiVerify)aiVerify.addEventListener("click",function(){
+    if(state.aiConsentGranted)runAiScanVerification();
+    else if(aiConsent)aiConsent.showModal();
+  });
+  var aiConsentConfirm=document.getElementById("scanAiConsentConfirm");
+  if(aiConsentConfirm)aiConsentConfirm.addEventListener("click",function(){
+    state.aiConsentGranted=true;
+    if(aiConsent)aiConsent.close();
+    runAiScanVerification();
+  });
+  var reviewNext=document.getElementById("scanReviewNextBtn");
+  if(reviewNext)reviewNext.addEventListener("click",openNextScanConflict);
+  var conflictLocal=document.getElementById("scanConflictLocal"),conflictAi=document.getElementById("scanConflictAi"),conflictEmpty=document.getElementById("scanConflictEmpty"),conflictCustomApply=document.getElementById("scanConflictCustomApply");
+  if(conflictLocal)conflictLocal.addEventListener("click",function(){resolveScanConflict("__local__")});
+  if(conflictAi)conflictAi.addEventListener("click",function(){resolveScanConflict("__ai__")});
+  if(conflictEmpty)conflictEmpty.addEventListener("click",function(){resolveScanConflict("")});
+  if(conflictCustomApply)conflictCustomApply.addEventListener("click",function(){
+    var input=document.getElementById("scanConflictCustom");
+    resolveScanConflict(input?input.value:"");
+  });
   document.getElementById("saveSchedule").addEventListener("click",importSelectedScanSchedule);
   var saveTeamSchedules=document.getElementById("saveTeamSchedules");
   if(saveTeamSchedules)saveTeamSchedules.addEventListener("click",importScannedTeamSchedules);
@@ -1057,7 +1238,11 @@ function bind(){
       var person=scanPerson(),day=Number(button.dataset.scanDay);if(!person||!day)return;
       var next=cycleScanCode(person.dayShifts[day]||"");
       if(next)person.dayShifts[day]=next;else delete person.dayShifts[day];
-      saveScanSession();renderScanPersonPicker();renderRecognition();
+      state.scanReviewCells=state.scanReviewCells.map(function(cell){
+        if(!cell.conflict||!scanCellMatchesPerson(cell,person)||cell.day!==day)return cell;
+        return Object.assign({},cell,{selectedCode:next||null,source:"manual",conflict:false,manuallyConfirmed:true});
+      });
+      saveScanSession();renderScanPersonPicker();renderRecognition();renderScanReview();
     });
   }
   var profileInput=document.getElementById("profileNameInput"),saveProfileBtn=document.getElementById("saveProfileBtn");
@@ -1099,7 +1284,7 @@ async function initApp(){
 
   await window.RasporedDataStore.init();
   if(window.RasporedPayroll)await window.RasporedPayroll.init();
-  loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();
+  loadSchedule();loadScanSession();configureProfile();applyStoredAppearance();renderScanReview();
   syncAuthenticatedProfile();
   route(state.route);
   renderAll();

@@ -13,6 +13,13 @@ test("responsive home uses production composition", async ({page}) => {
   if(width<=820){
     await expect(page.getByText("Današnja smjena")).toBeVisible();
     await expect(page.getByRole("button",{name:/Skeniraj raspored/i}).last()).toBeVisible();
+    const mobileNav=page.locator(".bottom-nav");
+    await expect(mobileNav).toContainText("Kalendar");
+    await expect(mobileNav).toContainText("Evidencija");
+    await expect(mobileNav).toContainText("Skeniraj");
+    await expect(mobileNav).toContainText("Statistika");
+    await expect(mobileNav).toContainText("Više");
+    await expect(mobileNav).not.toContainText("Početna");
   }else{
     await expect(page.getByRole("heading",{name:/Dobro došao, Ivana/})).toBeVisible();
     await expect(page.locator("#calendarGrid")).toBeVisible();
@@ -90,6 +97,80 @@ test("scan imports only the explicitly selected employee schedule", async ({page
   await expect(page.locator('[data-date="2026-10-01"] .code').first()).toHaveText("GO");
   await expect(page.locator('[data-date="2026-10-04"] .code').first()).toHaveText("D");
   await expect(page.locator('[data-date="2026-10-02"] .code')).toHaveCount(0);
+});
+
+test("AI scan review requires consent and resolves conflicts before import", async ({page},testInfo) => {
+  await mockOcr(page);
+  await page.route("**/api/ai-ocr.php",async route => {
+    await route.fulfill({
+      status:200,
+      contentType:"application/json",
+      body:JSON.stringify({
+        ok:true,
+        result:{
+          month:{year:2026,month:11},
+          expectedRows:3,
+          people:[
+            {row:4,name:"ANA HORVAT",dayShifts:{"1":"N","17":"P1"}},
+            {row:9,name:"LUKA BABIĆ",dayShifts:{"1":"GO"}},
+            {row:12,name:"PETRA NOVAK",dayShifts:{"31":"D"}}
+          ],
+          notes:""
+        }
+      })
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('[data-route="settings"]:visible').first().click();
+  await page.locator("#registerAccountBtn").click();
+  const suffix=("ai-review-"+testInfo.project.name+"-"+Date.now()).replace(/[^a-z0-9]+/gi,"-").toLowerCase();
+  await page.locator("#registerFirstName").fill("Test");
+  await page.locator("#registerLastName").fill("Voditelj");
+  await page.locator("#registerEmail").fill(suffix+"@example.test");
+  await page.locator("#registerPhone").fill("+385 91 555 0199");
+  await page.locator("#registerPassword").fill("RasporedTest2026");
+  await page.locator("#registerAccountType").selectOption("manager");
+  await page.locator("#registerForm").getByRole("button",{name:"Izradi račun"}).click();
+  await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
+
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#galleryInput").setInputFiles({
+    name:"ai-review.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
+  });
+  await expect(page.locator("#scanAiPanel")).toBeVisible();
+  await page.locator("#scanAiVerifyBtn").click();
+  await expect(page.locator("#scanAiConsentDialog")).toBeVisible();
+  await expect(page.locator("#scanAiConsentDialog")).toContainText("Fotografija rasporeda napušta uređaj");
+  await page.locator("#scanAiConsentConfirm").click();
+
+  await expect(page.locator("#scanConflictPanel")).toBeVisible();
+  await expect(page.locator("#scanConflictCount")).toContainText("1 nejasnih");
+  await expect(page.locator("#scanMonthLabel")).toHaveText("Listopad 2026.");
+  await expect(page.locator("#saveSchedule")).toBeDisabled();
+  await expect(page.locator("#saveTeamSchedules")).toBeDisabled();
+
+  // A conflict on Ana must not block importing Luka's clean personal row.
+  await page.locator("#scanPersonButton").click();
+  await page.locator('#scanPersonMenu [data-scan-person="1"]').click();
+  await expect(page.locator("#scanPersonLabel")).toContainText("LUKA BABIĆ");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
+
+  // Selecting the conflicted row blocks only that personal import.
+  await page.locator("#scanPersonButton").click();
+  await page.locator('#scanPersonMenu [data-scan-person="0"]').click();
+  await expect(page.locator("#saveSchedule")).toBeDisabled();
+
+  await page.locator("#scanReviewNextBtn").click();
+  await expect(page.locator("#scanConflictDialog")).toBeVisible();
+  await expect(page.locator("#scanConflictValues")).toContainText("Lokalni OCR: D · AI: N");
+  await page.locator("#scanConflictAi").click();
+
+  await expect(page.locator("#scanConflictPanel")).toBeHidden();
+  await page.locator("#scanPersonButton").click();
+  await page.locator('#scanPersonMenu [data-scan-person="0"]').click();
+  await expect(page.locator('[data-scan-day="1"]')).toContainText("N");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
 test("production scan cannot import before OCR and person selection", async ({page}) => {

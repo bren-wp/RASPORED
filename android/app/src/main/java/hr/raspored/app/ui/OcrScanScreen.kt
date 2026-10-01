@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.ocr.RecognizedSchedule
 import hr.raspored.app.ocr.RecognizedScheduleRow
+import hr.raspored.app.ocr.RecognitionCellReview
 import hr.raspored.app.ocr.AiScheduleVerifier
 import hr.raspored.app.ocr.ScheduleOcrEngine
 import hr.raspored.app.ocr.createOcrCaptureUri
@@ -62,10 +63,20 @@ internal fun OcrScanScreen(
     var editMode by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
     var aiBusy by remember { mutableStateOf(false) }
+    var aiConsentOpen by remember { mutableStateOf(false) }
+    var aiConsentGranted by remember { mutableStateOf(false) }
+    val reviewCells = remember { mutableStateListOf<RecognitionCellReview>() }
+    var reviewConflictIndex by remember { mutableIntStateOf(-1) }
+    var customConflictCode by remember { mutableStateOf("") }
     var ocrGeneration by remember { mutableIntStateOf(0) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
-    fun applyResult(recognized: RecognizedSchedule) {
+    fun applyResult(recognized: RecognizedSchedule, keepReviewCells: Boolean = false) {
+        if (!keepReviewCells) {
+            reviewCells.clear()
+            reviewConflictIndex = -1
+            customConflictCode = ""
+        }
         result = recognized
         selectedMonth = recognized.month ?: defaultMonth
         editedShifts.clear()
@@ -245,6 +256,104 @@ internal fun OcrScanScreen(
 
     val activeRow = result?.rows?.getOrNull(selectedRow)
     val recognizedMonth = selectedMonth
+    val unresolvedConflicts = reviewCells.count { it.conflict && !it.manuallyConfirmed }
+    val unresolvedActiveConflicts = activeRow?.let { row ->
+        reviewCells.count { cell ->
+            cell.conflict && !cell.manuallyConfirmed &&
+                (cell.employeeRow?.let { row.rowNumber == it }
+                    ?: row.name.trim().equals(cell.employeeName.trim(), ignoreCase = true))
+        }
+    } ?: 0
+
+    fun rowMatchesConflict(row: RecognizedScheduleRow, conflict: RecognitionCellReview): Boolean =
+        conflict.employeeRow?.let { row.rowNumber == it }
+            ?: row.name.trim().equals(conflict.employeeName.trim(), ignoreCase = true)
+
+    fun resolveConflict(selected: String?) {
+        val index = reviewConflictIndex
+        val conflict = reviewCells.getOrNull(index) ?: return
+        val normalized = selected?.takeIf { it.isNotBlank() }?.let { ScheduleStore.normalizeCode(it) }
+        if (!selected.isNullOrBlank() && normalized == null) {
+            message = "Oznaka nije valjana. Koristi 1–8 slova ili brojki bez razmaka."
+            return
+        }
+
+        reviewCells[index] = conflict.copy(
+            selectedCode = normalized,
+            source = "manual",
+            conflict = false,
+            manuallyConfirmed = true
+        )
+
+        result = result?.let { current ->
+            current.copy(
+                rows = current.rows.map { row ->
+                    if (!rowMatchesConflict(row, conflict)) {
+                        row
+                    } else {
+                        val shifts = row.dayShifts.toMutableMap()
+                        if (normalized == null) shifts.remove(conflict.day) else shifts[conflict.day] = normalized
+                        row.copy(dayShifts = shifts.toSortedMap())
+                    }
+                }
+            )
+        }
+
+        result?.rows?.getOrNull(selectedRow)?.takeIf { rowMatchesConflict(it, conflict) }?.let { row ->
+            editedShifts.clear()
+            editedShifts.putAll(row.dayShifts)
+        }
+
+        reviewConflictIndex = reviewCells.indexOfFirst { it.conflict && !it.manuallyConfirmed }
+        customConflictCode = ""
+        val remaining = reviewCells.count { it.conflict && !it.manuallyConfirmed }
+        message = if (remaining == 0) {
+            "Raspored je spreman za uvoz. Svi AI/OCR konflikti su ručno potvrđeni."
+        } else {
+            "Za provjeru je ostalo " + remaining + " nejasnih stavki."
+        }
+    }
+
+    fun runAiVerification() {
+        val source = bitmap ?: return
+        val token = remoteAccountToken ?: return
+        if (source.isRecycled || aiBusy) return
+        val local = result
+        aiBusy = true
+        message = "AI provjera cijele tablice..."
+        phase = OcrPhase.Processing
+        scope.launch {
+            val outcome = runCatching {
+                withContext(Dispatchers.IO) {
+                    AiScheduleVerifier.verify(
+                        bitmap = source,
+                        token = token,
+                        monthHint = local?.month ?: selectedMonth,
+                        localOcrText = local?.rawText.orEmpty()
+                    )
+                }
+            }
+            outcome.onSuccess { ai ->
+                val mergedResult = mergeForAiReview(local, ai)
+                applyResult(mergedResult.schedule, keepReviewCells = true)
+                reviewCells.clear()
+                reviewCells.addAll(mergedResult.cells)
+                reviewConflictIndex = -1
+                val conflictCount = mergedResult.cells.count { it.conflict }
+                val conflictText = if (conflictCount > 0) {
+                    " " + conflictCount + " ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru."
+                } else {
+                    " Nisu pronađeni sukobi s lokalnim OCR-om."
+                }
+                message += conflictText
+            }.onFailure { error ->
+                phase = if (local != null) OcrPhase.Success else OcrPhase.Error
+                message = error.message
+                    ?: "AI provjera nije uspjela. Lokalni OCR i dalje je dostupan."
+            }
+            aiBusy = false
+        }
+    }
     val previewAspect = bitmap
         ?.takeIf { !it.isRecycled && it.height > 0 }
         ?.let { it.width.toFloat() / it.height.toFloat() }
@@ -274,7 +383,7 @@ internal fun OcrScanScreen(
         item {
             Surface(
                 shape = RoundedCornerShape(RasporedTokens.RadiusLarge),
-                color = Color(0xFF755E49),
+                color = RasporedTokens.Navy,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp)) {
@@ -284,7 +393,7 @@ internal fun OcrScanScreen(
                             .heightIn(min = 220.dp, max = 430.dp)
                             .aspectRatio(previewAspect)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFE7EAEE)),
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         if (bitmap != null) {
@@ -299,11 +408,11 @@ internal fun OcrScanScreen(
                                 Icon(
                                     Icons.Outlined.DocumentScanner,
                                     contentDescription = null,
-                                    tint = RasporedTokens.Navy,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(54.dp)
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                Text("Raspored nije učitan", color = RasporedTokens.Navy)
+                                Text("Raspored nije učitan", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         ScanFrame()
@@ -477,11 +586,11 @@ internal fun OcrScanScreen(
                         if (editedShifts.isNotEmpty()) {
                             Surface(
                                 shape = RoundedCornerShape(999.dp),
-                                color = Color(0xFFD9F9EC)
+                                color = MaterialTheme.colorScheme.secondaryContainer
                             ) {
                                 Text(
                                     "✓ " + editedShifts.size + " oznaka",
-                                    color = Color(0xFF07865F),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -555,38 +664,10 @@ internal fun OcrScanScreen(
                     if (remoteAccountToken != null && bitmap != null) {
                         OutlinedButton(
                             onClick = {
-                                val source = bitmap ?: return@OutlinedButton
-                                if (source.isRecycled || aiBusy) return@OutlinedButton
-                                val local = result
-                                aiBusy = true
-                                message = "AI provjera cijele tablice..."
-                                phase = OcrPhase.Processing
-                                scope.launch {
-                                    val outcome = runCatching {
-                                        withContext(Dispatchers.IO) {
-                                            AiScheduleVerifier.verify(
-                                                bitmap = source,
-                                                token = remoteAccountToken,
-                                                monthHint = local?.month ?: selectedMonth,
-                                                localOcrText = local?.rawText.orEmpty()
-                                            )
-                                        }
-                                    }
-                                    outcome.onSuccess { ai ->
-                                        val mergedResult = mergeForAiReview(local, ai)
-                                        applyResult(mergedResult.schedule)
-                                        val conflictText = if (mergedResult.conflicts > 0) {
-                                            " " + mergedResult.conflicts + " ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru."
-                                        } else {
-                                            " Nisu pronađeni sukobi s lokalnim OCR-om."
-                                        }
-                                        message += conflictText
-                                    }.onFailure { error ->
-                                        phase = if (local != null) OcrPhase.Success else OcrPhase.Error
-                                        message = error.message
-                                            ?: "AI provjera nije uspjela. Lokalni OCR i dalje je dostupan."
-                                    }
-                                    aiBusy = false
+                                if (aiConsentGranted) {
+                                    runAiVerification()
+                                } else {
+                                    aiConsentOpen = true
                                 }
                             },
                             enabled = !aiBusy,
@@ -602,6 +683,27 @@ internal fun OcrScanScreen(
                             color = RasporedTokens.Slate,
                             fontSize = 10.sp
                         )
+                        if (unresolvedConflicts > 0) {
+                            Text(
+                                "Za provjeru: ⚠ " + unresolvedConflicts + " nejasnih ćelija",
+                                modifier = Modifier.padding(top = 10.dp),
+                                color = RasporedTokens.Amber,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                            FilledTonalButton(
+                                onClick = {
+                                    reviewConflictIndex = reviewCells.indexOfFirst {
+                                        it.conflict && !it.manuallyConfirmed
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                            ) {
+                                Icon(Icons.Outlined.RateReview, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Pregledaj " + unresolvedConflicts + " nejasne stavke")
+                            }
+                        }
                     }
                 }
             }
@@ -621,7 +723,7 @@ internal fun OcrScanScreen(
                                 .toMap()
                         )
                     },
-                    enabled = selectedRow >= 0 && editedShifts.isNotEmpty(),
+                    enabled = selectedRow >= 0 && editedShifts.isNotEmpty() && unresolvedActiveConflicts == 0,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -635,7 +737,7 @@ internal fun OcrScanScreen(
                             val rows = result?.rows.orEmpty().filter { it.dayShifts.isNotEmpty() }
                             if (rows.isNotEmpty()) onSaveTeamSchedules(recognizedMonth, rows)
                         },
-                        enabled = result?.rows.orEmpty().any { it.dayShifts.isNotEmpty() },
+                        enabled = result?.rows.orEmpty().any { it.dayShifts.isNotEmpty() } && unresolvedConflicts == 0,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
                     ) {
                         Icon(Icons.Outlined.Groups, null)
@@ -644,6 +746,88 @@ internal fun OcrScanScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (aiConsentOpen) {
+        AlertDialog(
+            onDismissRequest = { aiConsentOpen = false },
+            icon = { Icon(Icons.Outlined.PrivacyTip, null, tint = RasporedTokens.Cyan) },
+            title = { Text("AI analiza fotografije") },
+            text = {
+                Text(
+                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se RASPORED backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        aiConsentOpen = false
+                        aiConsentGranted = true
+                        runAiVerification()
+                    }
+                ) { Text("Pošalji na AI provjeru") }
+            },
+            dismissButton = {
+                TextButton(onClick = { aiConsentOpen = false }) { Text("Ostani na lokalnom OCR-u") }
+            }
+        )
+    }
+
+    if (reviewConflictIndex >= 0) {
+        val conflict = reviewCells.getOrNull(reviewConflictIndex)
+        if (conflict != null) {
+            AlertDialog(
+                onDismissRequest = { reviewConflictIndex = -1 },
+                icon = { Icon(Icons.Outlined.WarningAmber, null, tint = RasporedTokens.Amber) },
+                title = { Text("Nejasna OCR stavka") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            (conflict.employeeRow?.let { it.toString() + ". " } ?: "") +
+                                conflict.employeeName + " · dan " + conflict.day,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Lokalni OCR: " + (conflict.localCode ?: "prazno") +
+                                " · AI: " + (conflict.aiCode ?: "prazno"),
+                            color = RasporedTokens.Slate
+                        )
+                        conflict.localCode?.let { code ->
+                            Button(
+                                onClick = { resolveConflict(code) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Zadrži lokalno: " + code) }
+                        }
+                        conflict.aiCode?.let { code ->
+                            OutlinedButton(
+                                onClick = { resolveConflict(code) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Odaberi AI: " + code) }
+                        }
+                        OutlinedButton(
+                            onClick = { resolveConflict(null) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Ostavi prazno") }
+                        OutlinedTextField(
+                            value = customConflictCode,
+                            onValueChange = { customConflictCode = it.take(8) },
+                            label = { Text("Druga oznaka") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = ScheduleStore.normalizeCode(customConflictCode) != null,
+                        onClick = { resolveConflict(customConflictCode) }
+                    ) { Text("Primijeni oznaku") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { reviewConflictIndex = -1 }) { Text("Kasnije") }
+                }
+            )
         }
     }
 
@@ -658,7 +842,7 @@ internal fun OcrScanScreen(
                     Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
                     Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
-                    Text("• Kalendar i lokalni OCR rade bez računa. Prijava u Postavkama otključava opcionalnu AI provjeru i sigurnu sinkronizaciju.")
+                    Text("• Kalendar i lokalni OCR rade bez računa. Prijava u Postavkama otključava opcionalnu AI provjeru i mrežne funkcije računa.")
                     Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
                 }
@@ -749,37 +933,128 @@ private fun nextShiftCode(current: String): String {
 }
 
 
-private data class AiMergeResult(
+internal data class AiMergeResult(
     val schedule: RecognizedSchedule,
-    val conflicts: Int
+    val cells: List<RecognitionCellReview>
 )
 
-private fun mergeForAiReview(
+internal fun mergeForAiReview(
     local: RecognizedSchedule?,
     ai: RecognizedSchedule
 ): AiMergeResult {
-    if (local == null) return AiMergeResult(ai, 0)
-
     fun key(row: RecognizedScheduleRow): String =
         row.rowNumber?.let { "row:" + it }
             ?: "name:" + row.name.trim().uppercase(java.util.Locale("hr", "HR"))
 
+    if (local == null) {
+        val aiCells = ai.rows.flatMap { row ->
+            row.dayShifts.map { (day, code) ->
+                RecognitionCellReview(
+                    employeeRow = row.rowNumber,
+                    employeeName = row.name,
+                    day = day,
+                    localCode = null,
+                    aiCode = code,
+                    selectedCode = code,
+                    source = "ai",
+                    confidence = null,
+                    conflict = false,
+                    manuallyConfirmed = false
+                )
+            }
+        }
+        return AiMergeResult(ai, aiCells)
+    }
+
     val mergedRows = linkedMapOf<String, RecognizedScheduleRow>()
     local.rows.forEach { row -> mergedRows[key(row)] = row }
-    var conflicts = 0
+    val cells = linkedMapOf<String, RecognitionCellReview>()
+
+    local.rows.forEach { row ->
+        row.dayShifts.forEach { (day, code) ->
+            cells[key(row) + ":" + day] = RecognitionCellReview(
+                employeeRow = row.rowNumber,
+                employeeName = row.name,
+                day = day,
+                localCode = code,
+                aiCode = null,
+                selectedCode = code,
+                source = "local",
+                confidence = null,
+                conflict = false,
+                manuallyConfirmed = false
+            )
+        }
+    }
 
     ai.rows.forEach { aiRow ->
         val rowKey = key(aiRow)
         val existing = mergedRows[rowKey]
         if (existing == null) {
             mergedRows[rowKey] = aiRow
+            aiRow.dayShifts.forEach { (day, aiCode) ->
+                cells[rowKey + ":" + day] = RecognitionCellReview(
+                    employeeRow = aiRow.rowNumber,
+                    employeeName = aiRow.name,
+                    day = day,
+                    localCode = null,
+                    aiCode = aiCode,
+                    selectedCode = aiCode,
+                    source = "ai",
+                    confidence = null,
+                    conflict = false,
+                    manuallyConfirmed = false
+                )
+            }
         } else {
             val shifts = existing.dayShifts.toMutableMap()
             aiRow.dayShifts.forEach { (day, aiCode) ->
                 val localCode = shifts[day]
+                val cellKey = rowKey + ":" + day
                 when {
-                    localCode == null -> shifts[day] = aiCode
-                    localCode != aiCode -> conflicts++
+                    localCode == null -> {
+                        shifts[day] = aiCode
+                        cells[cellKey] = RecognitionCellReview(
+                            employeeRow = existing.rowNumber ?: aiRow.rowNumber,
+                            employeeName = if (aiRow.name.length > existing.name.length) aiRow.name else existing.name,
+                            day = day,
+                            localCode = null,
+                            aiCode = aiCode,
+                            selectedCode = aiCode,
+                            source = "ai",
+                            confidence = null,
+                            conflict = false,
+                            manuallyConfirmed = false
+                        )
+                    }
+                    localCode == aiCode -> {
+                        cells[cellKey] = RecognitionCellReview(
+                            employeeRow = existing.rowNumber ?: aiRow.rowNumber,
+                            employeeName = existing.name,
+                            day = day,
+                            localCode = localCode,
+                            aiCode = aiCode,
+                            selectedCode = localCode,
+                            source = "local+ai",
+                            confidence = null,
+                            conflict = false,
+                            manuallyConfirmed = false
+                        )
+                    }
+                    else -> {
+                        cells[cellKey] = RecognitionCellReview(
+                            employeeRow = existing.rowNumber ?: aiRow.rowNumber,
+                            employeeName = existing.name,
+                            day = day,
+                            localCode = localCode,
+                            aiCode = aiCode,
+                            selectedCode = localCode,
+                            source = "local+ai",
+                            confidence = null,
+                            conflict = true,
+                            manuallyConfirmed = false
+                        )
+                    }
                 }
             }
             mergedRows[rowKey] = existing.copy(
@@ -796,11 +1071,15 @@ private fun mergeForAiReview(
     )
     return AiMergeResult(
         schedule = RecognizedSchedule(
-            month = ai.month ?: local.month,
+            month = local.month ?: ai.month,
             rows = rows,
             rawText = local.rawText,
             expectedRowCount = listOfNotNull(local.expectedRowCount, ai.expectedRowCount).maxOrNull()
         ),
-        conflicts = conflicts
+        cells = cells.values.sortedWith(
+            compareBy<RecognitionCellReview> { it.employeeRow ?: Int.MAX_VALUE }
+                .thenBy { it.employeeName }
+                .thenBy { it.day }
+        )
     )
 }

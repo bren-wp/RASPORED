@@ -11,8 +11,12 @@ header('Referrer-Policy: no-referrer');
 header('X-Frame-Options: DENY');
 
 const RASPORED_AI_MAX_IMAGE_BYTES = 10485760;
+const RASPORED_AI_MAX_REQUEST_BYTES = 12582912;
+const RASPORED_AI_MAX_DIMENSION = 12000;
+const RASPORED_AI_MAX_PIXELS = 60000000;
 const RASPORED_AI_RATE_WINDOW = 3600;
 const RASPORED_AI_RATE_LIMIT = 20;
+const RASPORED_AI_IP_RATE_LIMIT = 60;
 
 function ai_fail(int $status, string $message): never
 {
@@ -48,10 +52,12 @@ function ai_normalize_code(mixed $raw): string
     return preg_match('/^[\p{L}\p{N}]{1,8}$/u', $value) === 1 ? $value : '';
 }
 
-function ai_rate_limit(string $accountId): void
+function ai_rate_limit(string $scope, string $subject, int $limit): void
 {
+    $safeScope = preg_replace('/[^a-z0-9_-]/i', '', $scope) ?: 'generic';
     $dir = raspored_storage_directory();
-    $path = $dir . '/ai-rate-' . hash_hmac('sha256', $accountId, raspored_install_secret()) . '.json';
+    $path = $dir . '/ai-rate-' . $safeScope . '-'
+        . hash_hmac('sha256', $subject, raspored_install_secret()) . '.json';
     $now = time();
     $lock = @fopen($path . '.lock', 'c');
     if ($lock === false || !flock($lock, LOCK_EX)) {
@@ -72,7 +78,7 @@ function ai_rate_limit(string $accountId): void
                 ));
             }
         }
-        if (count($events) >= RASPORED_AI_RATE_LIMIT) {
+        if (count($events) >= $limit) {
             ai_fail(429, 'Dosegnut je privremeni limit AI provjera. Pokušaj ponovno kasnije.');
         }
         $events[] = $now;
@@ -170,6 +176,10 @@ if ($method !== 'POST') {
     header('Allow: POST');
     ai_fail(405, 'Metoda nije dopuštena.');
 }
+$contentLength = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+if ($contentLength > RASPORED_AI_MAX_REQUEST_BYTES) {
+    ai_fail(413, 'Zahtjev je prevelik.');
+}
 if ((string) ($_SERVER['HTTP_X_RASPORED_REQUEST'] ?? '') !== '1') {
     ai_fail(403, 'Zahtjev nije dopušten.');
 }
@@ -201,7 +211,9 @@ if (!preg_match('/^[a-zA-Z0-9._-]{1,80}$/', $model)) {
     ai_fail(500, 'AI model nije ispravno konfiguriran.');
 }
 
-ai_rate_limit((string) ($account['id'] ?? ''));
+ai_rate_limit('account', (string) ($account['id'] ?? ''), RASPORED_AI_RATE_LIMIT);
+$remoteAddress = trim((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+ai_rate_limit('ip', $remoteAddress !== '' ? $remoteAddress : 'unknown', RASPORED_AI_IP_RATE_LIMIT);
 
 $file = $_FILES['image'] ?? null;
 if (!is_array($file)
@@ -216,15 +228,31 @@ if ($size < 1 || $size > RASPORED_AI_MAX_IMAGE_BYTES) {
     ai_fail(413, 'Slika je prevelika. Najveća dopuštena veličina je 10 MB.');
 }
 
+$tmpName = (string) $file['tmp_name'];
 $finfo = new finfo(FILEINFO_MIME_TYPE);
-$mime = (string) $finfo->file((string) $file['tmp_name']);
+$mime = (string) $finfo->file($tmpName);
 if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
     ai_fail(415, 'Podržane su JPEG, PNG i WebP slike.');
 }
-$imageBytes = @file_get_contents((string) $file['tmp_name']);
+
+$imageInfo = @getimagesize($tmpName);
+$width = is_array($imageInfo) ? (int) ($imageInfo[0] ?? 0) : 0;
+$height = is_array($imageInfo) ? (int) ($imageInfo[1] ?? 0) : 0;
+if ($width < 1 || $height < 1) {
+    ai_fail(415, 'Datoteka nije valjana slika.');
+}
+if ($width > RASPORED_AI_MAX_DIMENSION || $height > RASPORED_AI_MAX_DIMENSION) {
+    ai_fail(413, 'Dimenzije slike su prevelike.');
+}
+if ($width * $height > RASPORED_AI_MAX_PIXELS) {
+    ai_fail(413, 'Slika ima previše piksela za sigurnu obradu.');
+}
+
+$imageBytes = @file_get_contents($tmpName);
 if (!is_string($imageBytes) || $imageBytes === '') {
     ai_fail(400, 'Sliku nije moguće pročitati.');
 }
+@unlink($tmpName);
 
 $monthHint = trim((string) ($_POST['monthHint'] ?? ''));
 $localOcr = trim((string) ($_POST['localOcr'] ?? ''));
@@ -353,13 +381,29 @@ $response = json_decode($responseBody, true);
 if (!is_array($response)) {
     ai_fail(502, 'AI odgovor nije valjan.');
 }
+foreach (($response['output'] ?? []) as $item) {
+    if (!is_array($item)) {
+        continue;
+    }
+    foreach (($item['content'] ?? []) as $part) {
+        if (is_array($part) && ($part['type'] ?? '') === 'refusal') {
+            ai_fail(422, 'AI servis nije mogao analizirati ovu fotografiju. Lokalni OCR i dalje je dostupan.');
+        }
+    }
+}
 $outputText = ai_extract_output_text($response);
+if (trim($outputText) === '') {
+    ai_fail(502, 'AI odgovor je prazan.');
+}
 $decoded = json_decode($outputText, true);
 if (!is_array($decoded)) {
     ai_fail(502, 'AI odgovor nije moguće obraditi.');
 }
 
 $result = ai_clean_result($decoded);
+if ($result['people'] === []) {
+    ai_fail(422, 'AI nije pouzdano pronašao retke djelatnika. Lokalni OCR i dalje je dostupan.');
+}
 echo json_encode(
     ['ok' => true, 'result' => $result],
     JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES

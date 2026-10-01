@@ -75,7 +75,12 @@ object AiScheduleVerifier {
             .orEmpty()
         connection.disconnect()
 
-        val payload = runCatching { JSONObject(raw) }.getOrNull() ?: JSONObject()
+        return parseResponse(status, raw)
+    }
+
+    internal fun parseResponse(status: Int, raw: String): RecognizedSchedule {
+        val payload = runCatching { JSONObject(raw) }.getOrNull()
+            ?: throw IllegalStateException("AI odgovor nije valjan.")
         if (status !in 200..299 || !payload.optBoolean("ok", false)) {
             throw IllegalStateException(
                 payload.optString("error").takeIf { it.isNotBlank() }
@@ -120,6 +125,9 @@ object AiScheduleVerifier {
                     dayShifts = shifts
                 )
             }
+        }
+        if (rows.isEmpty()) {
+            throw IllegalStateException("AI nije vratio nijednu pouzdano prepoznatu osobu.")
         }
 
         return RecognizedSchedule(

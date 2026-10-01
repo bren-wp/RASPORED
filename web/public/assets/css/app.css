@@ -459,3 +459,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .scan-ai-panel{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
 .scan-ai-panel p{margin:8px 2px 0;color:var(--muted);font-size:11px;line-height:1.45}
 .scan-ai-panel[hidden]{display:none!important}
+
+.scan-conflict-panel{margin-top:10px;padding:13px;border:1px solid rgba(245,158,11,.55);border-radius:16px;background:color-mix(in srgb,var(--surface) 88%,#F59E0B 12%)}
+.scan-conflict-panel[hidden]{display:none!important}
+.scan-conflict-panel strong{display:block;color:#B76A00;font-size:13px}
+.scan-conflict-panel p{margin:6px 0 10px;color:var(--muted);font-size:11px;line-height:1.45}
+.scan-conflict-actions{display:grid;gap:8px;margin-top:14px}
+.scan-conflict-actions>*{width:100%;min-height:44px}
