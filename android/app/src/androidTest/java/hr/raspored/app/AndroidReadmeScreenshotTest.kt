@@ -47,11 +47,11 @@ class AndroidReadmeScreenshotTest {
 
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
         composeRule.onNodeWithTag("calendar-day-" + month.atDay(1)).performClick()
-        composeRule.onNodeWithText("D").performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-" + month.atDay(2)).performClick()
-        composeRule.onNodeWithText("N").performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
         composeRule.onNodeWithTag("calendar-day-" + month.atDay(3)).performClick()
-        composeRule.onNodeWithText("GO").performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-go").performClick()
         capture("android-calendar")
 
         composeRule.onNodeWithTag("nav-hours").performClick()
