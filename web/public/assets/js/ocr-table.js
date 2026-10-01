@@ -47,6 +47,24 @@ function fitHorizontalGrid(centers){
     if(seed>=8&&seed<=80)seeds.push(seed);
   }
 
+  // Dense photographed grids rarely scale to an integer row spacing. Using
+  // only integer seeds accumulates drift across 20–30 employees and can skip
+  // otherwise perfectly visible rows. Add a fractional spacing derived from
+  // the locally dominant gaps, plus a full-span estimate when enough centers
+  // are available.
+  var localGaps=gaps.filter(function(gap){return Math.abs(gap-dominant)<=2});
+  if(localGaps.length){
+    var averageGap=localGaps.reduce(function(sum,gap){return sum+gap},0)/localGaps.length;
+    if(averageGap>=8&&averageGap<=80)seeds.push(averageGap);
+  }
+  if(sorted.length>=10){
+    var spanGap=(sorted[sorted.length-1]-sorted[0])/(sorted.length-1);
+    if(spanGap>=8&&spanGap<=80)seeds.push(spanGap);
+  }
+  seeds=seeds.filter(function(value,index,array){
+    return array.findIndex(function(other){return Math.abs(other-value)<.01})===index;
+  });
+
   var best=null;
   seeds.forEach(function(spacing){
     var tolerance=Math.max(3,spacing*.30);
