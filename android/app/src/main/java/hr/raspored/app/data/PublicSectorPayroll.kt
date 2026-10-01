@@ -412,8 +412,8 @@ object PublicSectorPayroll {
             if (turnus && rates.turnus != null) evidence.turnusMinutes else 0L
         val secondMinutes = if (secondShift && rates.secondShift != null) {
             when {
-                evidence.shift2Minutes > 0L -> evidence.shift2Minutes
                 turnusMinutes > 0L -> 0L
+                evidence.shift2Minutes > 0L -> evidence.shift2Minutes
                 else -> evidence.secondShiftMinutes
             }
         } else {
