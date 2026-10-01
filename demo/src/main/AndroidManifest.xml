@@ -3,7 +3,7 @@
     <application
         android:allowBackup="false"
         android:label="RASPORED Demo"
-        android:theme="@style/Theme.RasporedDemo">
+        android:theme="@style/Theme.Raspored">
         <activity
             android:name=".MainActivity"
             android:exported="true">
