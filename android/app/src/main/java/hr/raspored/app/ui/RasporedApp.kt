@@ -1396,7 +1396,11 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         }
         item{
-            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
+            Surface(
+                shape=RoundedCornerShape(20.dp),
+                color=MaterialTheme.colorScheme.surface,
+                modifier=Modifier.testTag("settings-about")
+            ){
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                     Row(verticalAlignment=Alignment.CenterVertically){
                         BrandMark()
