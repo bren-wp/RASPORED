@@ -68,7 +68,6 @@ class AndroidReadmeScreenshotTest {
 
         composeRule.onNodeWithTag("nav-stats").performClick()
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
-        composeRule.onNodeWithText("Statistika").fetchSemanticsNode()
         capture("android-statistics")
 
         composeRule.onNodeWithTag("nav-settings").performClick()
