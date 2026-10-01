@@ -28,6 +28,17 @@ jobs:
             exit 1
           fi
 
+      - name: Validate workflow syntax and release structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -e 'require "yaml"; Dir[".github/workflows/*.{yml,yaml}"].each { |file| YAML.parse_file(file) }'
+          RELEASE=".github/workflows/release.yml"
+          [[ "$(grep -c 'name: Create GitHub release' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one GitHub release step"; exit 1; }
+          [[ "$(grep -c 'name: Android launch smoke test' "$RELEASE")" -eq 1 ]] || { echo "release.yml contains duplicate Android smoke-test steps"; exit 1; }
+          [[ "$(grep -c 'name: Web QA' "$RELEASE")" -eq 1 ]] || { echo "release.yml contains duplicate Web QA steps"; exit 1; }
+          [[ "$(grep -c 'name: Package and verify release artifacts' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one package/verify step"; exit 1; }
+
   web:
     needs: version
     runs-on: ubuntu-latest
