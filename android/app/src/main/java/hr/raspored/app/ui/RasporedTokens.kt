@@ -4,18 +4,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 internal object RasporedTokens {
-    val Navy = Color(0xFF0B1F44)
-    val NavyAlt = Color(0xFF173C7D)
-    val Cyan = Color(0xFF00C2FF)
-    val CyanSoft = Color(0xFFC7F0FF)
-    val Teal = Color(0xFF14B8A6)
-    val TealSoft = Color(0xFFC7F7E9)
-    val Slate = Color(0xFF64748B)
-    val Background = Color(0xFFF6F8FB)
-    val Red = Color(0xFFEF4444)
-    val RedSoft = Color(0xFFFFD8DD)
-    val Border = Color(0xFFE6EDF5)
-    val Amber = Color(0xFFF59E0B)
+    val Navy = Color(0xFF07111F)
+    val NavyAlt = Color(0xFF6D28D9)
+    val Cyan = Color(0xFF0A8CFF)
+    val CyanSoft = Color(0xFF147DF5)
+    val Purple = Color(0xFF8B5CF6)
+    val Teal = Color(0xFF12D6A0)
+    val TealSoft = Color(0xFF0CC58E)
+    val Slate = Color(0xFFA9B7CB)
+    val Background = Color(0xFF07111F)
+    val Red = Color(0xFFFF4655)
+    val RedSoft = Color(0xFFE53648)
+    val Border = Color(0xFF1B3553)
+    val Amber = Color(0xFFFFB51F)
 
     val RadiusSmall = 12.dp
     val RadiusMedium = 16.dp
