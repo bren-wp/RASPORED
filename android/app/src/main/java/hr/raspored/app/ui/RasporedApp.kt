@@ -58,7 +58,6 @@ private val Navy=RasporedTokens.Navy
 private val Cyan=RasporedTokens.Cyan
 private val Teal=RasporedTokens.Teal
 private val Purple=RasporedTokens.Purple
-private val Bg=RasporedTokens.Background
 private val Red=RasporedTokens.Red
 private val Slate=RasporedTokens.Slate
 private val Dbg=RasporedTokens.CyanSoft
