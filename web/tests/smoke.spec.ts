@@ -551,7 +551,7 @@ test("full-roster scan blocks severely incomplete imports", async ({page}) => {
     mimeType:"image/svg+xml",
     buffer:Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="white"/></svg>')
   });
-  await expect(page.locator("#scanStatus")).toContainText("Skeniranje nije dovoljno potpuno");
+  await expect(page.locator("#scanStatus")).toContainText("Skeniranje cijelog tima nije dovoljno potpuno");
   await expect(page.locator("#scanStatus")).toContainText("27");
   await expect(page.locator("#saveSchedule")).toBeEnabled();
   await expect(page.locator("#saveTeamSchedules")).toBeDisabled();
@@ -920,8 +920,8 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
   await page.locator('[data-route="home"]:visible').first().click();
   await expect(page.locator('[data-view="home"]')).toBeVisible();
   if(width<=820){
-    const note=page.locator("#mobileCurrentShift .mobile-shift-info-action").filter({hasText:"Bilješka"});
-    await note.click();
+    const evidence=page.locator("#mobileCurrentShift .mobile-shift-info-action").filter({hasText:"Otvori evidenciju"});
+    await evidence.click();
     await expect(page.locator('[data-view="hours"]')).toBeVisible();
     await page.locator('[data-route="home"]:visible').first().click();
 
