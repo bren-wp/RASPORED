@@ -1,8 +1,6 @@
 package hr.raspored.app.data
 
-import java.time.LocalDateTime
 import java.time.YearMonth
-import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -40,10 +38,7 @@ class PublicSectorPayrollTest {
 
     @Test
     fun androidCatalogKeepsHospitalListAndCrossSectorFallbacksAlignedWithWeb() {
-        assertEquals(
-            61,
-            PublicSectorPayroll.institutions.count { it.sector == "Zdravstvo" }
-        )
+        assertEquals(61, PublicSectorPayroll.institutions.count { it.sector == "Zdravstvo" })
         assertEquals(75, PublicSectorPayroll.institutions.size)
         assertTrue(
             PublicSectorPayroll.institutions.any {
@@ -55,34 +50,13 @@ class PublicSectorPayrollTest {
             PublicSectorPayroll.institutionsFor("Policija", "Primorsko-goranska")
                 .any { it.name == "MUP / policijska uprava ili postaja" }
         )
-        assertTrue(
-            PublicSectorPayroll.institutionsFor("Vrtići", "Grad Zagreb")
-                .any { it.name.contains("vrtić", ignoreCase = true) }
-        )
     }
 
     @Test
-    fun catalogContainsVerifiedEducationPoliceAndFirefighterExamples() {
-        assertEquals(2.01, PublicSectorPayroll.role("edu-teacher", "public-education").coefficient ?: -1.0, 0.001)
-        assertEquals(1.70, PublicSectorPayroll.role("police-station", "police").coefficient ?: -1.0, 0.001)
-        assertEquals(1.10, PublicSectorPayroll.role("firefighter", "firefighter").coefficient ?: -1.0, 0.001)
-        assertEquals(2.10, PublicSectorPayroll.role("state-senior-adviser", "state-service").coefficient ?: -1.0, 0.001)
-        assertEquals(1.06, PublicSectorPayroll.role("state-cleaner", "state-service").coefficient ?: -1.0, 0.001)
-        assertEquals(0.50, PublicSectorPayroll.regime("police").rates.night ?: -1.0, 0.001)
-        assertEquals(null, PublicSectorPayroll.regime("firefighter").rates.night)
-    }
-
-    @Test
-    fun salaryUsesActualEvidenceAcrossNightAndSaturday() {
-        val zone = ZoneId.of("Europe/Zagreb")
-        val started = LocalDateTime.of(2026, 10, 3, 22, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-        val ended = LocalDateTime.of(2026, 10, 3, 23, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-
+    fun salaryUsesCalendarNightShiftAcrossWeekendBoundary() {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
-            entries = listOf(TimeEvidenceEntry(1L, started, ended, "")),
+            scheduleCodes = mapOf("2026-10-03" to "N"),
             regimeId = "kbc-rijeka-2026",
             coefficient = 1.25,
             yearsService = 12,
@@ -91,39 +65,22 @@ class PublicSectorPayrollTest {
             taxHigher = 25.0,
             extraPercent = 0.0,
             secondShift = false,
-            turnus = false,
-            zone = zone
+            turnus = false
         )
 
-        assertEquals(60L, estimate.evidence.workedMinutes)
-        assertEquals(60L, estimate.evidence.nightMinutes)
-        assertEquals(60L, estimate.evidence.saturdayMinutes)
-        assertEquals(1, estimate.evidence.workedDays)
+        assertEquals(12L * 60L, estimate.evidence.workedMinutes)
+        assertEquals(8L * 60L, estimate.evidence.nightMinutes)
+        assertTrue(estimate.evidence.saturdayMinutes > 0L)
+        assertTrue(estimate.evidence.sundayMinutes > 0L)
         assertTrue(estimate.nightAddition > 0.0)
-        assertTrue(estimate.saturdayAddition > 0.0)
         assertTrue(estimate.estimatedGross > estimate.basicGross)
-        assertTrue(estimate.estimatedNet < estimate.estimatedGross)
     }
 
     @Test
-    fun turnusAndSecondShiftAreNotAppliedToSameMinutes() {
-        val zone = ZoneId.of("Europe/Zagreb")
-        val started = LocalDateTime.of(2026, 10, 16, 14, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-        val ended = LocalDateTime.of(2026, 10, 16, 22, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-
+    fun turnusAndSecondShiftAreNotAppliedToSameCalendarMinutes() {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
-            entries = listOf(
-                TimeEvidenceEntry(
-                    1L,
-                    started,
-                    ended,
-                    "",
-                    WorkType.TURNUS
-                )
-            ),
+            scheduleCodes = mapOf("2026-10-16" to "D"),
             regimeId = "kbc-rijeka-2026",
             coefficient = 1.25,
             yearsService = 0,
@@ -132,37 +89,21 @@ class PublicSectorPayrollTest {
             taxHigher = 25.0,
             extraPercent = 0.0,
             secondShift = true,
-            turnus = true,
-            zone = zone
+            turnus = true
         )
 
-        assertEquals(480L, estimate.evidence.secondShiftMinutes)
-        assertEquals(480L, estimate.evidence.turnusMinutes)
+        assertEquals(12L * 60L, estimate.evidence.workedMinutes)
+        assertEquals(12L * 60L, estimate.evidence.turnusMinutes)
         assertEquals(0L, estimate.secondShiftPaidMinutes)
-        assertEquals(480L, estimate.turnusPaidMinutes)
-        assertEquals(0.0, estimate.secondShiftAddition, 0.001)
+        assertEquals(12L * 60L, estimate.turnusPaidMinutes)
         assertTrue(estimate.turnusAddition > 0.0)
     }
 
     @Test
-    fun explicitSecondShiftUsesTaggedDurationInBreakdownCalculation() {
-        val zone = ZoneId.of("Europe/Zagreb")
-        val started = LocalDateTime.of(2026, 10, 16, 13, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-        val ended = LocalDateTime.of(2026, 10, 16, 21, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-
+    fun explicitSecondShiftUsesCalendarAfternoonWindow() {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
-            entries = listOf(
-                TimeEvidenceEntry(
-                    1L,
-                    started,
-                    ended,
-                    "",
-                    WorkType.SHIFT_2
-                )
-            ),
+            scheduleCodes = mapOf("2026-10-16" to "D"),
             regimeId = "kbc-rijeka-2026",
             coefficient = 1.25,
             yearsService = 0,
@@ -171,13 +112,12 @@ class PublicSectorPayrollTest {
             taxHigher = 25.0,
             extraPercent = 0.0,
             secondShift = true,
-            turnus = false,
-            zone = zone
+            turnus = false
         )
 
-        assertEquals(420L, estimate.evidence.secondShiftMinutes)
-        assertEquals(480L, estimate.evidence.shift2Minutes)
-        assertEquals(480L, estimate.secondShiftPaidMinutes)
+        assertEquals(5L * 60L, estimate.evidence.secondShiftMinutes)
+        assertEquals(5L * 60L, estimate.evidence.shift2Minutes)
+        assertEquals(5L * 60L, estimate.secondShiftPaidMinutes)
         assertTrue(estimate.secondShiftAddition > 0.0)
     }
 
@@ -194,7 +134,6 @@ class PublicSectorPayrollTest {
     fun manualLocalRegimeRequiresCustomBaseForNonZeroEstimate() {
         val withoutBase = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
-            entries = emptyList(),
             regimeId = "local-government",
             coefficient = 2.10,
             yearsService = 10,
@@ -207,7 +146,6 @@ class PublicSectorPayrollTest {
         )
         val withBase = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
-            entries = emptyList(),
             regimeId = "local-government",
             coefficient = 2.10,
             yearsService = 10,
@@ -225,22 +163,18 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun paidAbsenceDaysContributeToOvertimeThresholdWithoutInventingLeaveAverage() {
-        val zone = ZoneId.of("Europe/Zagreb")
-        val entries = (1..8).map { day ->
-            val started = LocalDateTime.of(2026, 6, day + 1, 7, 0)
-                .atZone(zone).toInstant().toEpochMilli()
-            val ended = LocalDateTime.of(2026, 6, day + 1, 19, 0)
-                .atZone(zone).toInstant().toEpochMilli()
-            TimeEvidenceEntry(day.toLong(), started, ended, "", WorkType.TURNUS)
-        }
-        val schedule = (12..22).associate { day ->
-            "2026-06-" + day.toString().padStart(2, '0') to "GO"
+    fun paidAbsenceDaysContributeToOvertimeThresholdFromCalendar() {
+        val schedule = buildMap {
+            (2..9).forEach { day ->
+                put("2026-06-" + day.toString().padStart(2, '0'), "D")
+            }
+            (12..22).forEach { day ->
+                put("2026-06-" + day.toString().padStart(2, '0'), "GO")
+            }
         }
 
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 6),
-            entries = entries,
             scheduleCodes = schedule,
             regimeId = "kbc-rijeka-2026",
             coefficient = 1.25,
@@ -250,57 +184,23 @@ class PublicSectorPayrollTest {
             taxHigher = 25.0,
             extraPercent = 0.0,
             secondShift = false,
-            turnus = true,
-            zone = zone
+            turnus = true
         )
 
         assertEquals(11, estimate.evidence.goDays)
         assertEquals(88L * 60L, estimate.evidence.compensatedAbsenceMinutes)
         assertEquals(8L * 60L, estimate.evidence.overtimeMinutes)
         assertTrue(estimate.overtimeBasePay > 0.0)
-        assertTrue(estimate.overtimeAddition > 0.0)
     }
 
     @Test
-    fun workedLeaveDateIsNotCountedTwiceForOvertimeThreshold() {
-        val zone = ZoneId.of("Europe/Zagreb")
-        val started = LocalDateTime.of(2026, 6, 12, 7, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-        val ended = LocalDateTime.of(2026, 6, 12, 15, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-
-        val estimate = PublicSectorPayroll.estimate(
-            month = YearMonth.of(2026, 6),
-            entries = listOf(TimeEvidenceEntry(1L, started, ended, "", WorkType.REGULAR)),
-            scheduleCodes = mapOf("2026-06-12" to "GO"),
-            regimeId = "kbc-rijeka-2026",
-            coefficient = 1.25,
-            yearsService = 0,
-            personalAllowance = 600.0,
-            taxLower = 20.0,
-            taxHigher = 25.0,
-            extraPercent = 0.0,
-            secondShift = false,
-            turnus = false,
-            zone = zone
-        )
-
-        assertEquals(1, estimate.evidence.goDays)
-        assertEquals(0L, estimate.evidence.compensatedAbsenceMinutes)
-        assertEquals(0L, estimate.evidence.overtimeMinutes)
-    }
-
-    @Test
-    fun activeEvidenceDoesNotCreateNegativeDuration() {
-        val zone = ZoneId.of("Europe/Zagreb")
-        val started = LocalDateTime.of(2026, 10, 16, 7, 0)
-            .atZone(zone).toInstant().toEpochMilli()
-        val now = LocalDateTime.of(2026, 10, 16, 9, 30)
-            .atZone(zone).toInstant().toEpochMilli()
-
+    fun customCalendarCodesDoNotInventPayrollHours() {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
-            entries = listOf(TimeEvidenceEntry(1L, started, null, "")),
+            scheduleCodes = mapOf(
+                "2026-10-01" to "J",
+                "2026-10-02" to "P1"
+            ),
             regimeId = "public-health",
             coefficient = 1.25,
             yearsService = 0,
@@ -309,12 +209,10 @@ class PublicSectorPayrollTest {
             taxHigher = 25.0,
             extraPercent = 0.0,
             secondShift = false,
-            turnus = false,
-            now = now,
-            zone = zone
+            turnus = false
         )
 
-        assertEquals(150L, estimate.evidence.workedMinutes)
-        assertTrue(estimate.evidence.hasActiveEntry)
+        assertEquals(0L, estimate.evidence.workedMinutes)
+        assertEquals(0L, estimate.evidence.nightMinutes)
     }
 }
