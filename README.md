@@ -54,8 +54,8 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 <td width="50%" align="center"><b>Skeniranje rasporeda</b></td>
 </tr>
 <tr>
-<td><img src="docs/media/android-calendar.png" alt="RASPORED Android mjesečni kalendar — stvarni emulator screenshot"></td>
-<td><img src="docs/media/android-scan.png" alt="RASPORED Android skeniranje rasporeda — stvarni emulator screenshot"></td>
+<td><img src="docs/media/android-calendar.png" alt="Takto Android mjesečni kalendar — stvarni emulator screenshot"></td>
+<td><img src="docs/media/android-scan.png" alt="Takto Android skeniranje rasporeda — stvarni emulator screenshot"></td>
 </tr>
 </table>
 
@@ -63,7 +63,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
-| **Mjesečni kalendar** | Početni Android ekran s velikom 7-stupčanom mrežom preko gotovo cijelog dostupnog prostora. Klik na dan otvara uređivanje te ćelije: standardna ili vlastita kratka oznaka do 8 slova/brojeva, uz mogućnost brisanja. |
+| **Mjesečni kalendar** | Zaseban Android kalendarski ekran s velikom 7-stupčanom mrežom preko gotovo cijelog dostupnog prostora. Dodir dana otvara uređivanje te ćelije: standardna ili vlastita kratka oznaka do 8 slova/brojeva, uz mogućnost brisanja. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
 | **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, stvarne horizontalne linije mreže, točni pojasevi redaka zaposlenika, preklapajući pojasevi, zasebni roster prolazi i fokusirani recovery tileovi. Za guste 27–31 redne tablice sustav može raditi i završni OCR **redak po redak** uz izvorno zaglavlje dana te blokira očito nepotpun uvoz kada geometrija tablice pokazuje više djelatnika nego što je OCR pouzdano pročitao. |
 | **Automatska evidencija sati** | D i N smjene iz potvrđenog kalendara automatski daju 12 sati; noćni dio N smjene računa se prema stvarnom intervalu 22:00–06:00. GO/BO/PD/SD ne stvaraju izmišljene radne sate, a custom oznake ostaju bez satnice dok se njihovo značenje ne definira. |
@@ -111,15 +111,15 @@ Kalendar je izvor istine za evidenciju. Korisnik više ne mora pokretati i zaust
 
 ## Oznake rasporeda i Evidencija sati
 
-RASPORED izvodi evidenciju iz potvrđenog kalendara. Podržane semantičke oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. Kratke oznake koje ustanova koristi, a RASPORED im nema potvrđenu semantiku, čuvaju se kao vlastite oznake umjesto da se odbace ili pogrešno prevedu. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
+Takto izvodi evidenciju iz potvrđenog kalendara. Podržane semantičke oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. Kratke oznake koje ustanova koristi, a Takto im nema potvrđenu semantiku, čuvaju se kao vlastite oznake umjesto da se odbace ili pogrešno prevedu. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
 
 Blagdan je svojstvo datuma, a ne posebna oznaka rasporeda. Prazna ćelija na blagdan ostaje prazna i prikazuje se kao blagdan/neradni dan; aplikacija ne dodaje +150 % dodatka ako na taj datum nema stvarno odrađenog rada. Za javne službe TKU predviđa pravo na naknadu plaće kada zaposlenik ne radi zbog državnog blagdana ili neradnog dana, pa taj slučaj ne pretvaramo u BO, SD ili izmišljenu smjenu.
 
-RASPORED ne izmišlja trajanje ni dodatke za ustanovne/custom oznake. Posebni obrasci rada i dodaci u kalkulatoru plaće primjenjuju se samo kada postoji odgovarajući korisnički odabir i provjerljivo pravilo; osnovni sati i kategorije rada dolaze iz kalendarskih D/N smjena.
+Takto ne izmišlja trajanje ni dodatke za ustanovne/custom oznake. Posebni obrasci rada i dodaci u kalkulatoru plaće primjenjuju se samo kada postoji odgovarajući korisnički odabir i provjerljivo pravilo; osnovni sati i kategorije rada dolaze iz kalendarskih D/N smjena.
 
 ## Okvirna plaća — javni sektor i ručni način za ostale poslodavce
 
-Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija RASPORED-a. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
+Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija Takto aplikacije. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
 
 Za 2026. ugrađene su službene osnovice javnih i državnih službi po razdobljima te provjerljivi koeficijenti za odabrana radna mjesta u zdravstvu, školstvu, policiji i profesionalnom vatrogastvu. Web katalog sadrži aktualni popis bolničkih zdravstvenih ustanova Ministarstva zdravstva, a posebna pravila pojedine ustanove ne primjenjuju se na druge ustanove bez provjerljivog izvora.
 
@@ -150,7 +150,7 @@ Takto koristi kompaktni **T** znak s prijelazom teal → plava → ljubičasta, 
 
 ### Produkcijske ikonice
 
-<img src="docs/media/icon-showcase.svg" alt="RASPORED produkcijske ikonice" width="100%">
+<img src="docs/media/icon-showcase.svg" alt="Takto produkcijske ikonice" width="100%">
 
 Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi zajednički SVG sprite iz <code>web/public/assets/brand/icons.svg</code>, a Android koristi platformske vector / Compose ikone uz projektni launcher asset.
 
@@ -213,7 +213,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 
 - WhatsApp: **+385 91 901 0092**
 - E-mail: **info@brendigo.com**
-- Developer: **Brendigo Studio** — brendigo.com
+- Izradio: **Brendigo** — brendigo.com
 
 ## Privatnost i podaci
 
@@ -223,7 +223,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 - **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
 - **Računi:** Web lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify` i HttpOnly/SameSite session cookie. Android više nema account UI; eventualni token iz ranije verzije ostaje u Keystore-backed šifriranoj pohrani samo radi kompatibilnosti i briše se kada je istekao ili opozvan.
 - **Zaštita Web spremišta:** runtime prvenstveno sprema JSON u privatni direktorij izvan document root-a; put se može eksplicitno zadati s `RASPORED_STORAGE_DIR`. `storage/.htaccess` ostaje kompatibilni fallback za Apache. Zapis ide kroz API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
-- **Android OCR:** primarno lokalna obrada teksta preko ML Kit modela na uređaju. Ako prijavljeni korisnik izričito pokrene AI provjeru, fotografija se šalje preko RASPORED HTTPS backenda OpenAI Responses API-ju; OpenAI API ključ nije ugrađen u APK.
+- **Android OCR:** primarno lokalna obrada teksta preko ML Kit modela na uređaju. Ako prijavljeni korisnik izričito pokrene AI provjeru, fotografija se šalje preko Takto HTTPS backenda OpenAI Responses API-ju; OpenAI API ključ nije ugrađen u APK.
 - **Web OCR:** primarno se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`. Registrirani korisnik može izričito pokrenuti AI provjeru preko server-side endpointa koji čita `OPENAI_API_KEY` iz okoline, validira MIME, veličinu, dimenzije i broj piksela, primjenjuje account/IP rate limit i šalje `store:false`. Privremeni upload uklanja se prije poziva AI servisu.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
