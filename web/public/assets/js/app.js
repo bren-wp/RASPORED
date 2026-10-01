@@ -980,25 +980,27 @@ async function detectSinglePersonScanRows(file){
     var image=await loadScanImage(file);
     var width=image.naturalWidth||image.width,height=image.naturalHeight||image.height;
     if(!width||!height)return 0;
+    var maxEdge=Math.max(width,height),scale=Math.min(1,1600/maxEdge);
+    var scanWidth=Math.max(1,Math.round(width*scale)),scanHeight=Math.max(1,Math.round(height*scale));
     var canvas=document.createElement("canvas");
-    canvas.width=width;canvas.height=height;
+    canvas.width=scanWidth;canvas.height=scanHeight;
     var ctx=canvas.getContext("2d",{alpha:false,willReadFrequently:false});
     if(!ctx)return 0;
-    ctx.fillStyle="#fff";ctx.fillRect(0,0,width,height);ctx.drawImage(image,0,0,width,height);
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,scanWidth,scanHeight);ctx.drawImage(image,0,0,scanWidth,scanHeight);
     var bands=window.RasporedOcrTableCrop.detectEmployeeRowBandsFromBitmap(canvas,1)||[];
     state.scanDetectedRows=bands.map(function(band){
       return {
-        top:Math.max(0,Math.min(98,band.bodyTop/height*100)),
-        bottom:Math.max(2,Math.min(100,band.bodyBottom/height*100))
+        top:Math.max(0,Math.min(98,band.bodyTop/scanHeight*100)),
+        bottom:Math.max(2,Math.min(100,band.bodyBottom/scanHeight*100))
       };
     }).filter(function(row){return row.bottom-row.top>=.8});
     if(bands.length){
       var first=bands[0];
       state.scanDetectedFrame={
-        left:Math.max(0,Math.min(100,first.left/width*100)),
-        right:Math.max(0,Math.min(100,first.right/width*100)),
-        headerTop:Math.max(0,Math.min(100,first.headerTop/height*100)),
-        headerBottom:Math.max(0,Math.min(100,first.headerBottom/height*100))
+        left:Math.max(0,Math.min(100,first.left/scanWidth*100)),
+        right:Math.max(0,Math.min(100,first.right/scanWidth*100)),
+        headerTop:Math.max(0,Math.min(100,first.headerTop/scanHeight*100)),
+        headerBottom:Math.max(0,Math.min(100,first.headerBottom/scanHeight*100))
       };
     }
     if(state.scanDetectedRows.length){
