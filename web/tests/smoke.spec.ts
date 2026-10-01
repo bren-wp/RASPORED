@@ -13,6 +13,13 @@ test("responsive home uses production composition", async ({page}) => {
   if(width<=820){
     await expect(page.getByText("Današnja smjena")).toBeVisible();
     await expect(page.getByRole("button",{name:/Skeniraj raspored/i}).last()).toBeVisible();
+    const mobileNav=page.locator(".bottom-nav");
+    await expect(mobileNav).toContainText("Kalendar");
+    await expect(mobileNav).toContainText("Evidencija");
+    await expect(mobileNav).toContainText("Skeniraj");
+    await expect(mobileNav).toContainText("Statistika");
+    await expect(mobileNav).toContainText("Više");
+    await expect(mobileNav).not.toContainText("Početna");
   }else{
     await expect(page.getByRole("heading",{name:/Dobro došao, Ivana/})).toBeVisible();
     await expect(page.locator("#calendarGrid")).toBeVisible();
