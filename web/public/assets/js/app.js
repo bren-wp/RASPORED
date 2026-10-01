@@ -386,16 +386,17 @@ function mergeScanPeople(localPeople,aiPeople){
           manuallyConfirmed:false
         });
       }else{
+        var conflict=localCode!==aiCode;
         cells.set(cellKey(existing,day),{
           employeeRow:existing.row,
           employeeName:existing.name,
           day:Number(day),
           localCode:localCode,
           aiCode:aiCode,
-          selectedCode:localCode,
+          selectedCode:conflict?null:localCode,
           source:"local+ai",
           confidence:null,
-          conflict:localCode!==aiCode,
+          conflict:conflict,
           manuallyConfirmed:false
         });
       }

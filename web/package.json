@@ -1,7 +1,7 @@
 {
   "name":"raspored-web",
   "private":true,
-  "version":"1.0.17",
+  "version":"1.0.18",
   "scripts":{
     "test:e2e":"playwright test",
     "test:visual":"RASPORED_VISUAL_BASELINE=1 playwright test tests/visual.spec.ts",
