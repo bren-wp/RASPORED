@@ -419,11 +419,6 @@ private fun minutesLabel(minutes:Long):String {
     return if(remainder==0L) hours.toString()+"h" else hours.toString()+"h "+remainder.toString().padStart(2,'0')+"min"
 }
 
-private fun signedMinutesLabel(minutes:Long):String {
-    val sign=when{minutes>0L->"+";minutes<0L->"-";else->""}
-    return sign+minutesLabel(kotlin.math.abs(minutes))
-}
-
 private fun largeMinutesLabel(minutes:Long):String {
     val safe=minutes.coerceAtLeast(0L)
     return (safe/60L).toString()+":"+((safe%60L).toString().padStart(2,'0'))+" h"
