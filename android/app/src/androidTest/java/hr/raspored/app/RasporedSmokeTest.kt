@@ -5,7 +5,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import java.time.YearMonth
 import org.junit.Rule
 import org.junit.Test
@@ -16,13 +15,11 @@ class RasporedSmokeTest {
     @Test
     fun glavneNavigacijeOtvarajuProdukcijskeEkrane() {
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
-        composeRule.onNodeWithTag("calendar-set-d").performScrollTo().performClick()
         val currentMonth=YearMonth.now()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(1)).performClick()
-        composeRule.onNodeWithText("Više dana").performClick()
+        composeRule.onNodeWithText("D").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(2)).performClick()
-        composeRule.onNodeWithTag("calendar-set-n").performClick()
-        composeRule.onNodeWithText("Završi").performClick()
+        composeRule.onNodeWithText("N").performClick()
 
         composeRule.onNodeWithTag("nav-hours").performClick()
         composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
@@ -35,7 +32,7 @@ class RasporedSmokeTest {
         composeRule.onNodeWithContentDescription("Prethodni mjesec").performClick()
         composeRule.onNodeWithTag("calendar-month-picker").performClick()
         composeRule.onNodeWithText("Odaberi mjesec").fetchSemanticsNode()
-        composeRule.onNodeWithText("Zatvori").performClick()
+        composeRule.onNodeWithText("Danas").performClick()
 
         composeRule.onNodeWithTag("nav-scan").performClick()
         composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()
