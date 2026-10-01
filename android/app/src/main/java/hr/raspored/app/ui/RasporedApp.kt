@@ -30,7 +30,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
@@ -41,9 +40,7 @@ import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
 import hr.raspored.app.data.TimeEvidenceEntry
 import hr.raspored.app.data.TimeEvidenceStore
-import hr.raspored.app.data.ProfileStore
 import hr.raspored.app.data.ReportExporter
-import hr.raspored.app.data.RemoteAccount
 import hr.raspored.app.data.RemoteAccountClient
 import hr.raspored.app.data.RemoteAccountStore
 import hr.raspored.app.data.RemoteSessionInvalidException
@@ -87,16 +84,13 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val store = remember(context) { ScheduleStore(context) }
     val uiSettings = remember(context) { UiSettingsStore(context) }
     val evidenceStore = remember(context) { TimeEvidenceStore(context) }
-    val profileStore = remember(context) { ProfileStore(context) }
     val teamStore = remember(context) { TeamStore(context) }
     val remoteAccountStore = remember(context) { RemoteAccountStore(context) }
-    var remoteAccount by remember { mutableStateOf(remoteAccountStore.account) }
     var remoteToken by remember { mutableStateOf(remoteAccountStore.token) }
     var evidenceRevision by remember { mutableIntStateOf(0) }
     val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
-    var profileName by remember { mutableStateOf(profileStore.fullName) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -117,16 +111,14 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
         val validation = withContext(Dispatchers.IO) {
             runCatching { RemoteAccountClient.current(token) }
         }
-        validation.onSuccess { account ->
-            remoteAccount = account
-            remoteAccountStore.updateAccount(account)
+        validation.onSuccess {
+            // Existing encrypted tokens remain valid for optional AI verification.
         }.onFailure { error ->
             if (error is RemoteSessionInvalidException) {
                 remoteAccountStore.clear()
-                remoteAccount = null
                 remoteToken = null
                 snackbarHostState.showSnackbar(
-                    "Prijava je istekla ili je opozvana. Prijavi se ponovno."
+                    "Postojeća mrežna sesija je istekla ili je opozvana. Lokalne funkcije nastavljaju raditi."
                 )
             }
         }
@@ -199,7 +191,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     Screen.Home->HomeScreen(scheduleCodes,evidenceEntries){screen=it}
                     Screen.Calendar->CalendarScreen(
                         scheduleCodes=scheduleCodes,
-                        evidenceEntries=evidenceEntries,
                         onShiftChange={date,code->
                             store.record(date,code)
                             if(code==null) scheduleCodes.remove(date.toString())
@@ -241,18 +232,8 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     Screen.Settings->SettingsScreen(
                         darkMode=darkMode,
                         reducedMotion=reducedMotion,
-                        profileName=profileName,
                         scheduleCodes=scheduleCodes,
                         evidenceEntries=evidenceEntries,
-                        remoteAccount=remoteAccount,
-                        onRemoteSessionChange={account,token->
-                            remoteAccount=account
-                            remoteToken=token
-                        },
-                        onProfileNameChange={
-                            profileName=it
-                            profileStore.fullName=it
-                        },
                         onDarkModeChange={
                             darkMode=it
                             uiSettings.darkMode=it
@@ -415,13 +396,6 @@ private fun scheduleFor(month:YearMonth,codes:Map<String,String>):Map<Int,Shift>
     }.toMap()
     return persisted
 }
-private fun weeklyHours(month:YearMonth,data:Map<Int,Shift>):List<Int> =
-    (0..4).map { week ->
-        val first=week*7+1
-        val last=minOf(month.lengthOfMonth(),first+6)
-        if(first>month.lengthOfMonth()) 0 else (first..last).sumOf { data[it]?.hours ?: 0 }
-    }
-
 private fun codesForMonth(month:YearMonth,data:Map<Int,Shift>):Map<String,String> =
     data.mapKeys { (day,_) -> month.atDay(day).toString() }.mapValues { it.value.code }
 
@@ -563,522 +537,265 @@ private fun largeMinutesLabel(minutes:Long):String {
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
 @Composable private fun CalendarScreen(
-    scheduleCodes:Map<String,String>,
-    evidenceEntries:List<TimeEvidenceEntry>,
-    onShiftChange:(LocalDate,String?)->Unit
-){
-    val today=appDate()
+    scheduleCodes: Map<String, String>,
+    onShiftChange: (LocalDate, String?) -> Unit
+) {
+    val today = appDate()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
-    var selected by remember { mutableStateOf(today) }
-    var quickCode by remember { mutableStateOf<String?>(null) }
-    var multiEdit by remember { mutableStateOf(false) }
-    val multiSelected=remember { mutableStateListOf<LocalDate>() }
-    var customCodeDialog by remember { mutableStateOf(false) }
+    var editingDate by remember { mutableStateOf<LocalDate?>(null) }
     var customCode by remember { mutableStateOf("") }
     var monthPickerDialog by remember { mutableStateOf(false) }
     var pickerYear by remember { mutableIntStateOf(month.year) }
 
-    val data=scheduleFor(month,scheduleCodes)
-    val holidays=CroatianHolidays.forYear(month.year)
-    val analytics=EvidenceAnalytics.summarize(
-        month=month,
-        entries=evidenceEntries,
-        scheduleCodes=codesForMonth(month,data),
-        fallbackToPlanned=false
-    )
-    val selectedShift=if(YearMonth.from(selected)==month) data[selected.dayOfMonth] else null
-    val selectedHoliday=holidays[selected]
-    val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
-    val selectedTitle=if(selected==today)"Danas" else selected.dayOfWeek
-        .getDisplayName(TextStyle.FULL,Locale("hr","HR"))
-        .replaceFirstChar{it.titlecase(Locale("hr","HR"))}
+    val data = scheduleFor(month, scheduleCodes)
+    val holidays = CroatianHolidays.forYear(month.year)
 
-    fun moveTo(target:YearMonth){
-        month=target
-        selected=target.atDay(1)
-        multiSelected.clear()
+    fun moveTo(target: YearMonth) {
+        month = target
+        editingDate = null
     }
 
-    fun applyQuickShift(shift:Shift){
-        if(multiEdit&&multiSelected.isNotEmpty()){
-            multiSelected.toList().forEach{date->onShiftChange(date,shift.code)}
-            selected=multiSelected.last()
-            multiSelected.clear()
-            quickCode=null
-        }else{
-            quickCode=if(quickCode==shift.code)null else shift.code
-        }
-    }
-
-    fun handleDateTap(date:LocalDate){
-        val targetMonth=YearMonth.from(date)
-        if(targetMonth!=month){
-            moveTo(targetMonth)
-            selected=date
-            return
-        }
-        selected=date
-        if(multiEdit){
-            if(multiSelected.contains(date)) multiSelected.remove(date)
-            else multiSelected.add(date)
-        }else{
-            quickCode?.let{code->onShiftChange(date,code)}
-        }
-    }
-
-    LazyColumn(
-        Modifier.fillMaxSize().testTag("screen-calendar").padding(horizontal=12.dp),
-        contentPadding=PaddingValues(top=12.dp,bottom=22.dp),
-        verticalArrangement=Arrangement.spacedBy(10.dp)
-    ){
-        item{
-            Surface(
-                shape=RoundedCornerShape(24.dp),
-                color=MaterialTheme.colorScheme.surface,
-                shadowElevation=2.dp
-            ){
-                Column{
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha=.08f))
-                            .padding(horizontal=10.dp,vertical=10.dp)
-                    ){
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment=Alignment.CenterVertically
-                        ){
-                            IconButton(onClick={moveTo(month.minusMonths(1))}){
-                                Icon(Icons.Outlined.ChevronLeft,"Prethodni mjesec")
-                            }
-                            TextButton(
-                                onClick={
-                                    pickerYear=month.year
-                                    monthPickerDialog=true
-                                },
-                                modifier=Modifier.weight(1f).testTag("calendar-month-picker"),
-                                contentPadding=PaddingValues(horizontal=4.dp,vertical=0.dp)
-                            ){
-                                Column(horizontalAlignment=Alignment.CenterHorizontally){
-                                    Text(
-                                        month.month
-                                            .getDisplayName(TextStyle.FULL,Locale("hr","HR"))
-                                            .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+month.year+".",
-                                        fontSize=24.sp,
-                                        fontWeight=FontWeight.ExtraBold,
-                                        textAlign=TextAlign.Center
-                                    )
-                                    Text(
-                                        "Dodirni dan za pregled ili koristi brzi unos",
-                                        fontSize=10.sp,
-                                        color=MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Spacer(Modifier.width(4.dp))
-                                Icon(Icons.Outlined.ExpandMore,"Odaberi mjesec")
-                            }
-                            IconButton(onClick={moveTo(month.plusMonths(1))}){
-                                Icon(Icons.Outlined.ChevronRight,"Sljedeći mjesec")
-                            }
-                        }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .testTag("screen-calendar")
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = .08f))
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { moveTo(month.minusMonths(1)) }) {
+                        Icon(Icons.Outlined.ChevronLeft, "Prethodni mjesec")
                     }
-
-                    Column(Modifier.padding(horizontal=10.dp,vertical=9.dp)){
-                        CalendarGrid(
-                            month=month,
-                            data=data,
-                            holidays=holidays,
-                            selected=selected,
-                            today=today,
-                            multiSelected=multiSelected.toSet(),
-                            onSelect=::handleDateTap
-                        )
-
-                        HorizontalDivider(Modifier.padding(top=10.dp,bottom=8.dp))
-
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment=Alignment.CenterVertically
-                        ){
-                            Column(Modifier.weight(1f)){
-                                Text(
-                                    if(multiEdit)"Višestruki odabir" else "Brzi unos",
-                                    fontSize=15.sp,
-                                    fontWeight=FontWeight.Bold
-                                )
-                                Text(
-                                    when{
-                                        multiEdit&&multiSelected.isNotEmpty()->
-                                            "Odabrano "+multiSelected.size+" dana · dodirni oznaku za primjenu na sve."
-                                        multiEdit->
-                                            "Dodirni više dana, zatim odaberi oznaku."
-                                        quickCode!=null->
-                                            "Aktivno "+quickCode+". Dodiruj datume za brzo označavanje."
-                                        else->
-                                            "Odaberi oznaku pa dodiruj datume kao kistom."
-                                    },
-                                    fontSize=10.sp,
-                                    color=MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            TextButton(
-                                onClick={
-                                    multiEdit=!multiEdit
-                                    quickCode=null
-                                    if(!multiEdit)multiSelected.clear()
-                                }
-                            ){
-                                Icon(
-                                    if(multiEdit) Icons.Outlined.Close else Icons.Outlined.DoneAll,
-                                    null,
-                                    modifier=Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(if(multiEdit)"Završi" else "Više dana")
-                            }
-                        }
-
-                        Row(
-                            Modifier.fillMaxWidth().padding(top=5.dp),
-                            horizontalArrangement=Arrangement.spacedBy(6.dp)
-                        ){
-                            listOf(D,N,GO).forEach{shift->
-                                ManualShiftButton(
-                                    shift=shift,
-                                    selected=quickCode==shift.code,
-                                    modifier=Modifier.weight(1f),
-                                    onClick={applyQuickShift(shift)}
-                                )
-                            }
-                        }
-                        Row(
-                            Modifier.fillMaxWidth().padding(top=6.dp),
-                            horizontalArrangement=Arrangement.spacedBy(6.dp)
-                        ){
-                            listOf(BO,PD,SD).forEach{shift->
-                                ManualShiftButton(
-                                    shift=shift,
-                                    selected=quickCode==shift.code,
-                                    modifier=Modifier.weight(1f),
-                                    onClick={applyQuickShift(shift)}
-                                )
-                            }
-                        }
-
-                        Row(
-                            Modifier.fillMaxWidth().padding(top=7.dp),
-                            horizontalArrangement=Arrangement.spacedBy(8.dp)
-                        ){
-                            OutlinedButton(
-                                onClick={
-                                    if(multiEdit&&multiSelected.isNotEmpty()){
-                                        val affected=multiSelected.toList()
-                                        affected.forEach{date->onShiftChange(date,null)}
-                                        selected=affected.last()
-                                        multiSelected.clear()
-                                    }else{
-                                        onShiftChange(selected,null)
-                                    }
-                                },
-                                enabled=if(multiEdit)multiSelected.isNotEmpty() else selectedShift!=null,
-                                modifier=Modifier.weight(1f),
-                                contentPadding=PaddingValues(horizontal=8.dp,vertical=6.dp)
-                            ){
-                                Icon(Icons.Outlined.DeleteOutline,null,modifier=Modifier.size(18.dp))
-                                Spacer(Modifier.width(5.dp))
-                                Text(if(multiEdit)"Očisti odabrane" else "Očisti dan",fontSize=12.sp)
-                            }
-                            OutlinedButton(
-                                onClick={
-                                    month=YearMonth.from(today)
-                                    selected=today
-                                    multiSelected.clear()
-                                },
-                                modifier=Modifier.weight(1f),
-                                contentPadding=PaddingValues(horizontal=8.dp,vertical=6.dp)
-                            ){
-                                Icon(Icons.Outlined.Today,null,modifier=Modifier.size(18.dp))
-                                Spacer(Modifier.width(5.dp))
-                                Text("Danas",fontSize=12.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        item{
-            Surface(
-                shape=RoundedCornerShape(20.dp),
-                color=MaterialTheme.colorScheme.surface,
-                shadowElevation=1.dp
-            ){
-                Column(Modifier.padding(15.dp)){
-                    Row(verticalAlignment=Alignment.Top){
-                        Column(Modifier.weight(1f)){
-                            Text(selectedTitle,fontSize=21.sp,fontWeight=FontWeight.Bold)
-                            Text(
-                                selected.format(formatter)
-                                    .replaceFirstChar{it.titlecase(Locale("hr","HR"))},
-                                color=MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize=12.sp
-                            )
-                        }
-                        if(selectedHoliday!=null){
-                            Surface(
-                                shape=RoundedCornerShape(999.dp),
-                                color=BObg
-                            ){
-                                Text(
-                                    selectedHoliday,
-                                    modifier=Modifier.padding(horizontal=9.dp,vertical=5.dp),
-                                    color=Red,
-                                    fontWeight=FontWeight.Bold,
-                                    fontSize=10.sp
-                                )
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(Modifier.padding(vertical=11.dp))
-
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        if(selectedShift!=null){
-                            ShiftBadge(selectedShift,54.dp)
-                        }else{
-                            Surface(
-                                shape=RoundedCornerShape(14.dp),
-                                color=MaterialTheme.colorScheme.surfaceVariant,
-                                modifier=Modifier.size(54.dp)
-                            ){
-                                Box(contentAlignment=Alignment.Center){
-                                    Text("—",fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)){
-                            Text(
-                                selectedShift?.name
-                                    ?: if(selectedHoliday!=null)"Blagdan / neradni dan"
-                                    else "Redovni slobodni dan",
-                                fontWeight=FontWeight.Bold,
-                                fontSize=17.sp
-                            )
-                            Text(selectedShift?.time ?: "—",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp)
-                        }
-                    }
-
-                    Row(
-                        Modifier.fillMaxWidth().padding(top=11.dp),
-                        horizontalArrangement=Arrangement.spacedBy(8.dp)
-                    ){
-                        OutlinedButton(
-                            onClick={
-                                customCode=selectedShift?.code
-                                    ?.takeUnless{it in ScheduleStore.BUILT_IN_CODES}
-                                    .orEmpty()
-                                customCodeDialog=true
-                            },
-                            modifier=Modifier.weight(1f)
-                        ){
-                            Icon(Icons.Outlined.Edit,null,modifier=Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Vlastita oznaka")
-                        }
-                        if(quickCode!=null){
-                            TextButton(onClick={quickCode=null}){Text("Ugasi brzi unos")}
-                        }
-                    }
-                }
-            }
-        }
-
-        item{ShiftLegendGrid()}
-
-        item{
-            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
-                Column(Modifier.padding(15.dp)){
-                    Text("Sažetak za mjesec",fontSize=19.sp,fontWeight=FontWeight.Bold)
-                    Spacer(Modifier.height(10.dp))
-                    Row{
-                        listOf(
-                            "Planirano" to minutesLabel(analytics.plannedMinutes),
-                            "Odrađeno" to minutesLabel(analytics.workedMinutes),
-                            "Saldo" to signedMinutesLabel(analytics.balanceMinutes),
-                            "Noćni" to minutesLabel(analytics.nightMinutes)
-                        ).forEach{
-                            Column(Modifier.weight(1f)){
-                                Text(it.first,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(it.second,fontWeight=FontWeight.Bold,fontSize=16.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if(customCodeDialog){
-        AlertDialog(
-            onDismissRequest={customCodeDialog=false},
-            title={Text("Vlastita oznaka za "+selected.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy.")))},
-            text={
-                Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                    Text(
-                        "Upiši kratku oznaku koja postoji na tvom rasporedu. Dozvoljena su slova i brojevi, najviše 8 znakova.",
-                        fontSize=12.sp,
-                        color=MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value=customCode,
-                        onValueChange={value->
-                            customCode=value
-                                .uppercase(Locale("hr","HR"))
-                                .filter{it.isLetterOrDigit()}
-                                .take(8)
+                    TextButton(
+                        onClick = {
+                            pickerYear = month.year
+                            monthPickerDialog = true
                         },
-                        label={Text("Oznaka")},
-                        singleLine=true,
-                        modifier=Modifier.fillMaxWidth().testTag("calendar-custom-code")
-                    )
+                        modifier = Modifier.weight(1f).testTag("calendar-month-picker"),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            month.month
+                                .getDisplayName(TextStyle.FULL, Locale("hr", "HR"))
+                                .replaceFirstChar { it.titlecase(Locale("hr", "HR")) } +
+                                " " + month.year + ".",
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Outlined.ExpandMore, "Odaberi mjesec")
+                    }
+                    IconButton(onClick = { moveTo(month.plusMonths(1)) }) {
+                        Icon(Icons.Outlined.ChevronRight, "Sljedeći mjesec")
+                    }
                 }
-            },
-            confirmButton={
-                Button(
-                    onClick={
-                        ScheduleStore.normalizeCode(customCode)?.let{
-                            onShiftChange(selected,it)
-                            customCodeDialog=false
+
+                CalendarGrid(
+                    month = month,
+                    data = data,
+                    holidays = holidays,
+                    selected = editingDate,
+                    today = today,
+                    multiSelected = emptySet(),
+                    onSelect = { date ->
+                        if (YearMonth.from(date) != month) {
+                            moveTo(YearMonth.from(date))
+                        } else {
+                            editingDate = date
+                            customCode = data[date.dayOfMonth]?.code.orEmpty()
                         }
                     },
-                    enabled=ScheduleStore.normalizeCode(customCode)!=null
-                ){Text("Spremi")}
-            },
-            dismissButton={TextButton(onClick={customCodeDialog=false}){Text("Odustani")}}
-        )
-    }
-
-    if(monthPickerDialog){
-        val minYear=today.year-ScheduleStore.ARCHIVE_GUARANTEE_YEARS
-        val maxYear=today.year+5
-        AlertDialog(
-            onDismissRequest={monthPickerDialog=false},
-            title={Text("Odaberi mjesec")},
-            text={
-                Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
-                    Row(
-                        modifier=Modifier.fillMaxWidth(),
-                        verticalAlignment=Alignment.CenterVertically,
-                        horizontalArrangement=Arrangement.SpaceBetween
-                    ){
-                        IconButton(
-                            onClick={pickerYear=(pickerYear-1).coerceAtLeast(minYear)},
-                            enabled=pickerYear>minYear
-                        ){Icon(Icons.Outlined.ChevronLeft,"Prethodna godina")}
-                        Text(pickerYear.toString(),fontSize=22.sp,fontWeight=FontWeight.Bold)
-                        IconButton(
-                            onClick={pickerYear=(pickerYear+1).coerceAtMost(maxYear)},
-                            enabled=pickerYear<maxYear
-                        ){Icon(Icons.Outlined.ChevronRight,"Sljedeća godina")}
-                    }
-                    Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
-                        (1..12).chunked(3).forEach{row->
-                            Row(
-                                modifier=Modifier.fillMaxWidth(),
-                                horizontalArrangement=Arrangement.spacedBy(6.dp)
-                            ){
-                                row.forEach{monthValue->
-                                    val target=YearMonth.of(pickerYear,monthValue)
-                                    OutlinedButton(
-                                        onClick={
-                                            moveTo(target)
-                                            monthPickerDialog=false
-                                        },
-                                        modifier=Modifier.weight(1f),
-                                        border=BorderStroke(
-                                            if(target==month)2.dp else 1.dp,
-                                            if(target==month)Cyan else MaterialTheme.colorScheme.outlineVariant
-                                        ),
-                                        contentPadding=PaddingValues(horizontal=4.dp,vertical=8.dp)
-                                    ){
-                                        Text(
-                                            java.time.Month.of(monthValue)
-                                                .getDisplayName(TextStyle.SHORT,Locale("hr","HR"))
-                                                .replaceFirstChar{it.titlecase(Locale("hr","HR"))},
-                                            maxLines=1
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Text(
-                        "Kalendar čuva najmanje 10 godina lokalne povijesti rasporeda. Uvoz novog mjeseca ne briše prethodne mjesece.",
-                        fontSize=11.sp,
-                        color=MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton={TextButton(onClick={monthPickerDialog=false}){Text("Zatvori")}}
-        )
-    }
-}
-
-@Composable private fun ManualShiftButton(
-    shift:Shift,
-    selected:Boolean,
-    modifier:Modifier=Modifier,
-    onClick:()->Unit
-){
-    OutlinedButton(
-        onClick=onClick,
-        modifier=modifier.height(44.dp).testTag("calendar-set-"+shift.code.lowercase()),
-        shape=RoundedCornerShape(12.dp),
-        border=BorderStroke(
-            if(selected)2.dp else 1.dp,
-            if(selected)Cyan else MaterialTheme.colorScheme.outlineVariant
-        ),
-        colors=ButtonDefaults.outlinedButtonColors(
-            containerColor=if(selected)shiftBg(shift).copy(alpha=.35f) else Color.Transparent
-        ),
-        contentPadding=PaddingValues(horizontal=5.dp,vertical=0.dp)
-    ){
-        Surface(
-            shape=RoundedCornerShape(8.dp),
-            color=shiftBg(shift),
-            modifier=Modifier.size(29.dp)
-        ){
-            Box(contentAlignment=Alignment.Center){
-                Text(
-                    shift.code,
-                    color=shiftFg(shift),
-                    fontWeight=FontWeight.ExtraBold,
-                    fontSize=10.sp
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                    largeCells = true
                 )
             }
         }
-        Spacer(Modifier.width(5.dp))
-        Text(
-            when(shift.code){
-                "D"->"Dan"
-                "N"->"Noć"
-                else->shift.code
+    }
+
+    editingDate?.let { date ->
+        val currentCode = scheduleCodes[date.toString()].orEmpty()
+        AlertDialog(
+            onDismissRequest = { editingDate = null },
+            title = {
+                Column {
+                    Text(
+                        date.dayOfWeek
+                            .getDisplayName(TextStyle.FULL, Locale("hr", "HR"))
+                            .replaceFirstChar { it.titlecase(Locale("hr", "HR")) },
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        date.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy.")),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
-            fontSize=10.sp,
-            maxLines=1
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Odaberi oznaku za ovaj dan ili upiši vlastitu.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    listOf(
+                        listOf(D, N, GO),
+                        listOf(BO, PD, SD)
+                    ).forEach { row ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            row.forEach { shift ->
+                                FilledTonalButton(
+                                    onClick = {
+                                        onShiftChange(date, shift.code)
+                                        editingDate = null
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("calendar-dialog-code-" + shift.code.lowercase(Locale.ROOT)),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = shiftBg(shift),
+                                        contentColor = shiftFg(shift)
+                                    )
+                                ) {
+                                    Text(shift.code, fontWeight = FontWeight.ExtraBold)
+                                }
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = customCode,
+                        onValueChange = { value ->
+                            customCode = value
+                                .uppercase(Locale("hr", "HR"))
+                                .filter { it.isLetterOrDigit() }
+                                .take(8)
+                        },
+                        label = { Text("Vlastita oznaka") },
+                        placeholder = { Text("npr. J, S, P1") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("calendar-custom-code")
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = ScheduleStore.normalizeCode(customCode) != null,
+                    onClick = {
+                        val normalized = ScheduleStore.normalizeCode(customCode) ?: return@Button
+                        onShiftChange(date, normalized)
+                        editingDate = null
+                    }
+                ) {
+                    Text("Spremi oznaku")
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (currentCode.isNotBlank()) {
+                        TextButton(
+                            onClick = {
+                                onShiftChange(date, null)
+                                editingDate = null
+                            }
+                        ) {
+                            Text("Očisti", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { editingDate = null }) {
+                        Text("Odustani")
+                    }
+                }
+            }
+        )
+    }
+
+    if (monthPickerDialog) {
+        AlertDialog(
+            onDismissRequest = { monthPickerDialog = false },
+            title = { Text("Odaberi mjesec") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(onClick = { pickerYear-- }) {
+                            Icon(Icons.Outlined.ChevronLeft, "Prethodna godina")
+                        }
+                        Text(pickerYear.toString(), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { pickerYear++ }) {
+                            Icon(Icons.Outlined.ChevronRight, "Sljedeća godina")
+                        }
+                    }
+                    val months = java.time.Month.entries
+                    months.chunked(3).forEach { row ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            row.forEach { candidate ->
+                                OutlinedButton(
+                                    onClick = {
+                                        moveTo(YearMonth.of(pickerYear, candidate))
+                                        monthPickerDialog = false
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        candidate.getDisplayName(TextStyle.SHORT, Locale("hr", "HR")),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        moveTo(YearMonth.from(today))
+                        monthPickerDialog = false
+                    }
+                ) {
+                    Text("Danas")
+                }
+            }
         )
     }
 }
 
 @Composable private fun CalendarGrid(
-    month:YearMonth,
-    data:Map<Int,Shift>,
-    holidays:Map<LocalDate,String>,
-    selected:LocalDate,
-    today:LocalDate,
-    multiSelected:Set<LocalDate>,
-    onSelect:(LocalDate)->Unit
+    month: YearMonth,
+    data: Map<Int, Shift>,
+    holidays: Map<LocalDate, String>,
+    selected: LocalDate?,
+    today: LocalDate,
+    multiSelected: Set<LocalDate>,
+    onSelect: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+    largeCells: Boolean = false
 ){
     val firstOffset=month.atDay(1).dayOfWeek.value-1
     val start=month.atDay(1).minusDays(firstOffset.toLong())
@@ -1134,14 +851,14 @@ private fun largeMinutesLabel(minutes:Long):String {
                     },
                     modifier=Modifier
                         .weight(1f)
-                        .aspectRatio(.82f)
+                        .aspectRatio(if (largeCells) .72f else .82f)
                         .alpha(if(inside)1f else .30f)
                         .testTag("calendar-day-"+date.toString())
                 ){
                     Box(Modifier.fillMaxSize().padding(3.dp)){
                         Text(
                             date.dayOfMonth.toString(),
-                            fontSize=10.sp,
+                            fontSize=if(largeCells)12.sp else 10.sp,
                             fontWeight=if(date==today)FontWeight.ExtraBold else FontWeight.Medium,
                             color=fg,
                             modifier=Modifier.align(Alignment.TopStart)
@@ -1150,7 +867,11 @@ private fun largeMinutesLabel(minutes:Long):String {
                             shift!=null->Text(
                                 shift.code,
                                 fontWeight=FontWeight.ExtraBold,
-                                fontSize=if(shift.code.length>2)10.sp else 13.sp,
+                                fontSize=if(largeCells) {
+                                    if(shift.code.length>2)14.sp else 20.sp
+                                } else {
+                                    if(shift.code.length>2)10.sp else 13.sp
+                                },
                                 color=fg,
                                 modifier=Modifier.align(Alignment.Center)
                             )
@@ -1480,31 +1201,14 @@ private fun largeMinutesLabel(minutes:Long):String {
 @Composable private fun SettingsScreen(
     darkMode:Boolean,
     reducedMotion:Boolean,
-    profileName:String,
     scheduleCodes:Map<String,String>,
     evidenceEntries:List<TimeEvidenceEntry>,
-    remoteAccount:RemoteAccount?,
-    onRemoteSessionChange:(RemoteAccount?,String?)->Unit,
-    onProfileNameChange:(String)->Unit,
     onDarkModeChange:(Boolean)->Unit,
     onReducedMotionChange:(Boolean)->Unit
 ){
     val context=LocalContext.current
     var exportStatus by remember { mutableStateOf("") }
     var exportMonth by remember { mutableStateOf(YearMonth.from(appDate())) }
-    val accountScope=rememberCoroutineScope()
-    var loginOpen by remember { mutableStateOf(false) }
-    var registerOpen by remember { mutableStateOf(false) }
-    var accountBusy by remember { mutableStateOf(false) }
-    var accountError by remember { mutableStateOf("") }
-    var loginEmail by remember { mutableStateOf("") }
-    var loginPassword by remember { mutableStateOf("") }
-    var registerFirstName by remember { mutableStateOf("") }
-    var registerLastName by remember { mutableStateOf("") }
-    var registerEmail by remember { mutableStateOf("") }
-    var registerPhone by remember { mutableStateOf("") }
-    var registerPassword by remember { mutableStateOf("") }
-    var registerManager by remember { mutableStateOf(false) }
 
     fun openExternal(uri:String){
         runCatching{
@@ -1522,7 +1226,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                 month=exportMonth,
                 schedule=scheduleCodes,
                 evidence=evidenceEntries,
-                profileName=profileName
+                profileName=""
             )
             val share=Intent(Intent.ACTION_SEND).apply{
                 type="application/pdf"
@@ -1543,81 +1247,6 @@ private fun largeMinutesLabel(minutes:Long):String {
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
         item{Text("Postavke",fontSize=31.sp,fontWeight=FontWeight.ExtraBold)}
-        item{
-            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
-                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                    Text("Profil i račun",fontSize=20.sp,fontWeight=FontWeight.Bold)
-                    Text(
-                        "Kalendar, raspored, evidencija sati i lokalni OCR rade bez registracije. Račun omogućuje prijavljeni identitet i opcionalnu AI provjeru cijelog rasporeda preko sigurnog poslužitelja.",
-                        color=MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize=12.sp
-                    )
-                    OutlinedTextField(
-                        value=profileName,
-                        onValueChange={onProfileNameChange(it.take(80))},
-                        label={Text("Ime i prezime · neobavezno za lokalni rad")},
-                        singleLine=true,
-                        modifier=Modifier.fillMaxWidth()
-                    )
-                    if(remoteAccount!=null){
-                        Surface(
-                            shape=RoundedCornerShape(14.dp),
-                            color=MaterialTheme.colorScheme.surfaceVariant,
-                            modifier=Modifier.fillMaxWidth()
-                        ){
-                            Column(Modifier.padding(14.dp)){
-                                Text(remoteAccount.fullName,fontWeight=FontWeight.Bold)
-                                Text(remoteAccount.email,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(
-                                    if(remoteAccount.accountType=="manager") "Voditelj tima" else "Djelatnik / osobni raspored",
-                                    fontSize=11.sp,
-                                    color=Cyan,
-                                    fontWeight=FontWeight.SemiBold
-                                )
-                            }
-                        }
-                        OutlinedButton(
-                            onClick={
-                                accountBusy=true
-                                accountError=""
-                                accountScope.launch{
-                                    runCatching{
-                                        val token=RemoteAccountStore(context.applicationContext).token
-                                        if(token!=null){
-                                            withContext(Dispatchers.IO){RemoteAccountClient.logout(token)}
-                                        }
-                                    }
-                                    RemoteAccountStore(context.applicationContext).clear()
-                                    onRemoteSessionChange(null,null)
-                                    accountBusy=false
-                                }
-                            },
-                            enabled=!accountBusy,
-                            modifier=Modifier.fillMaxWidth()
-                        ){Text("Odjavi račun")}
-                    }else{
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement=Arrangement.spacedBy(8.dp)
-                        ){
-                            Button(
-                                onClick={accountError="";loginOpen=true},
-                                modifier=Modifier.weight(1f)
-                            ){Text("Prijava")}
-                            OutlinedButton(
-                                onClick={accountError="";registerOpen=true},
-                                modifier=Modifier.weight(1f)
-                            ){
-                                Text("Registracija",fontSize=13.sp,maxLines=1,softWrap=false)
-                            }
-                        }
-                    }
-                    if(accountError.isNotBlank()){
-                        Text(accountError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
-                    }
-                }
-            }
-        }
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
@@ -1709,132 +1338,8 @@ private fun largeMinutesLabel(minutes:Long):String {
         }
     }
 
-    if(loginOpen){
-        AlertDialog(
-            onDismissRequest={if(!accountBusy)loginOpen=false},
-            title={Text("Prijava u RASPORED")},
-            text={
-                Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
-                    OutlinedTextField(
-                        value=loginEmail,
-                        onValueChange={loginEmail=it.take(160)},
-                        label={Text("E-mail")},
-                        singleLine=true,
-                        modifier=Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value=loginPassword,
-                        onValueChange={loginPassword=it.take(128)},
-                        label={Text("Lozinka")},
-                        visualTransformation=PasswordVisualTransformation(),
-                        singleLine=true,
-                        modifier=Modifier.fillMaxWidth()
-                    )
-                    if(accountError.isNotBlank())Text(accountError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
-                }
-            },
-            confirmButton={
-                Button(
-                    enabled=!accountBusy&&loginEmail.isNotBlank()&&loginPassword.isNotBlank(),
-                    onClick={
-                        accountBusy=true
-                        accountError=""
-                        accountScope.launch{
-                            runCatching{
-                                withContext(Dispatchers.IO){
-                                    RemoteAccountClient.login(loginEmail,loginPassword)
-                                }
-                            }.onSuccess{session->
-                                RemoteAccountStore(context.applicationContext).save(session)
-                                onRemoteSessionChange(session.account,session.token)
-                                onProfileNameChange(session.account.fullName.take(80))
-                                loginPassword=""
-                                loginOpen=false
-                            }.onFailure{error->
-                                accountError=error.message?:"Prijava nije uspjela."
-                            }
-                            accountBusy=false
-                        }
-                    }
-                ){Text(if(accountBusy)"Prijava..." else "Prijavi se")}
-            },
-            dismissButton={TextButton(onClick={loginOpen=false},enabled=!accountBusy){Text("Odustani")}}
-        )
-    }
 
-    if(registerOpen){
-        AlertDialog(
-            onDismissRequest={if(!accountBusy)registerOpen=false},
-            title={Text("Novi RASPORED račun")},
-            text={
-                Column(
-                    verticalArrangement=Arrangement.spacedBy(8.dp),
-                    modifier=Modifier.heightIn(max=520.dp)
-                ){
-                    OutlinedTextField(registerFirstName,{registerFirstName=it.take(60)},label={Text("Ime")},singleLine=true)
-                    OutlinedTextField(registerLastName,{registerLastName=it.take(60)},label={Text("Prezime")},singleLine=true)
-                    OutlinedTextField(registerEmail,{registerEmail=it.take(160)},label={Text("E-mail")},singleLine=true)
-                    OutlinedTextField(registerPhone,{registerPhone=it.take(40)},label={Text("Broj telefona")},singleLine=true)
-                    OutlinedTextField(
-                        value=registerPassword,
-                        onValueChange={registerPassword=it.take(128)},
-                        label={Text("Lozinka · najmanje 10 znakova, slovo i broj")},
-                        visualTransformation=PasswordVisualTransformation(),
-                        singleLine=true
-                    )
-                    Row(
-                        Modifier.fillMaxWidth().clickable{registerManager=!registerManager},
-                        verticalAlignment=Alignment.CenterVertically
-                    ){
-                        Checkbox(checked=registerManager,onCheckedChange={registerManager=it})
-                        Column{
-                            Text("Voditelj tima",fontWeight=FontWeight.SemiBold)
-                            Text("Za odvojene rasporede više djelatnika.",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Text(
-                        "API ključ za AI nikada se ne sprema u aplikaciju. AI provjera ide preko RASPORED poslužitelja.",
-                        fontSize=11.sp,
-                        color=MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if(accountError.isNotBlank())Text(accountError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
-                }
-            },
-            confirmButton={
-                Button(
-                    enabled=!accountBusy&&registerFirstName.isNotBlank()&&registerLastName.isNotBlank()&&registerEmail.isNotBlank()&&registerPhone.isNotBlank()&&registerPassword.length>=10,
-                    onClick={
-                        accountBusy=true
-                        accountError=""
-                        accountScope.launch{
-                            runCatching{
-                                withContext(Dispatchers.IO){
-                                    RemoteAccountClient.register(
-                                        registerFirstName,
-                                        registerLastName,
-                                        registerEmail,
-                                        registerPhone,
-                                        registerPassword,
-                                        registerManager
-                                    )
-                                }
-                            }.onSuccess{session->
-                                RemoteAccountStore(context.applicationContext).save(session)
-                                onRemoteSessionChange(session.account,session.token)
-                                onProfileNameChange(session.account.fullName.take(80))
-                                registerPassword=""
-                                registerOpen=false
-                            }.onFailure{error->
-                                accountError=error.message?:"Registracija nije uspjela."
-                            }
-                            accountBusy=false
-                        }
-                    }
-                ){Text(if(accountBusy)"Registracija..." else "Kreiraj račun")}
-            },
-            dismissButton={TextButton(onClick={registerOpen=false},enabled=!accountBusy){Text("Odustani")}}
-        )
-    }
+
 }
 
 @Composable private fun SupportAction(

@@ -22,8 +22,9 @@ Svako produkcijsko izdanje objavljuje gotove artefakte:
 
 - **RASPORED.apk** — uvijek instalabilni Android artefakt. Bez dodatne konfiguracije release koristi standardni debug potpis; ako je upload signing opcionalno konfiguriran, objavljuje se release-potpisani APK.
 - **RASPORED.aab** — release Android App Bundle. GitHub Secrets nisu uvjet za izradu ili objavu; opcionalni upload signing koristi se samo kada su sva četiri signing podatka već konfigurirana.
+- **raspored_demo.apk** — zasebna demonstracijska Android aplikacija iz korijenske mape `/demo`, s interaktivnim kalendarom i unosom oznake klikom na dan.
 - **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
-- **SHA256SUMS** — SHA-256 kontrolne vrijednosti za APK, AAB i Web/PWA paket; release ih provjerava prije objave.
+- **SHA256SUMS** — SHA-256 kontrolne vrijednosti za glavni APK, AAB, `raspored_demo.apk` i Web/PWA paket; release ih provjerava prije objave.
 
 Verzija Android aplikacije i Web/PWA paketa uvijek se čita iz zajedničke datoteke <code>VERSION</code>. CI ne dopušta novo izdanje s već korištenom verzijom.
 
@@ -35,42 +36,32 @@ RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju sm
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
-- **Kalendar smjena** — glavni početni ekran; kompaktni mjesečni pregled u stilu shift-plannera, ali u RASPORED brandingu. D, N, GO, BO, PD i SD mogu se uvesti skeniranjem ili ručno postaviti za bilo koji datum. Android ima **Brzi unos** (odaberi oznaku pa dodiruj datume) i **Višestruki odabir** za primjenu/brisanje više dana odjednom. Android ne briše stare ni buduće mjesece pri novom uvozu i ima brzi odabir mjeseca kroz najmanje 10 godina lokalne povijesti.
+- **Kalendar smjena** — glavni početni ekran i najveći dio Android sučelja. Mjesečna 7-stupčana mreža koristi velike ćelije; klik na ćeliju otvara unos oznake baš za taj datum. U istom dijalogu moguće je odabrati D, N, GO, BO, PD ili SD, upisati vlastitu oznaku do 8 znakova ili očistiti dan. Stari blok brzog unosa i višestrukog odabira ispod kalendara uklonjen je u potpunosti.
 - **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
 - **Evidencija sati** — ulaz, izlaz, bilješka, trajanje rada i mjesečna povijest.
 - **Statistika** — dnevni/noćni sati, saldo, vikendi, blagdani i raspodjela po tjednima.
 - **Android + Web/PWA** — isti vizualni identitet i ista semantika podataka na obje platforme.
 
-## Stvarna aplikacija
+## Stvarna Android aplikacija
 
-> Slike ispod su **stvarni screenshotovi pokrenute Web/PWA aplikacije**, generirani automatski u GitHub Actions / Playwright QA procesu. Nisu mockupovi, renderi ni dizajnerske reference. Screenshotovi koriste izmišljene testne podatke i izmišljena imena; ne koriste stvarne osobe ni rasporede iz korisničkih fotografija.
-
-<img src="docs/media/app-home-desktop.png" alt="RASPORED Web/PWA početna — stvarni screenshot aplikacije" width="100%">
-
-### Mobilni prikaz
+> Slike ispod su **stvarni screenshotovi pokrenute Android aplikacije** snimljeni na API 36 emulatoru tijekom GitHub Actions instrumentation QA procesa. Nisu mockupovi, renderi ni screenshotovi Web/PWA stranice. Prikazani podaci nastaju isključivo kroz testni scenarij.
 
 <table>
 <tr>
-<td width="33%" align="center"><b>Početna</b></td>
-<td width="33%" align="center"><b>Skeniranje rasporeda</b></td>
-<td width="33%" align="center"><b>Evidencija sati</b></td>
+<td width="50%" align="center"><b>Mjesečni kalendar</b></td>
+<td width="50%" align="center"><b>Skeniranje rasporeda</b></td>
 </tr>
 <tr>
-<td><img src="docs/media/app-home-mobile.png" alt="RASPORED mobilna početna"></td>
-<td><img src="docs/media/app-scan-mobile.png" alt="RASPORED mobilno skeniranje"></td>
-<td><img src="docs/media/app-hours-mobile.png" alt="RASPORED mobilna evidencija sati"></td>
+<td><img src="docs/media/android-calendar.png" alt="RASPORED Android mjesečni kalendar — stvarni emulator screenshot"></td>
+<td><img src="docs/media/android-scan.png" alt="RASPORED Android skeniranje rasporeda — stvarni emulator screenshot"></td>
 </tr>
 </table>
-
-### Statistika rada
-
-<img src="docs/media/app-stats-desktop.png" alt="RASPORED statistika — stvarni screenshot aplikacije" width="100%">
 
 ## Što RASPORED radi
 
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
-| **Mjesečni kalendar** | Početni ekran aplikacije s kompaktnom 7-stupčanom mrežom, smjenama unutar ćelija, hrvatskim blagdanima, brzim „paint” unosom, višestrukim odabirom dana i vlastitim kratkim oznakama do 8 slova/brojeva. |
+| **Mjesečni kalendar** | Početni Android ekran s velikom 7-stupčanom mrežom preko gotovo cijelog dostupnog prostora. Klik na dan otvara uređivanje te ćelije: standardna ili vlastita kratka oznaka do 8 slova/brojeva, uz mogućnost brisanja. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
 | **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, stvarne horizontalne linije mreže, točni pojasevi redaka zaposlenika, preklapajući pojasevi, zasebni roster prolazi i fokusirani recovery tileovi. Za guste 27–31 redne tablice sustav može raditi i završni OCR **redak po redak** uz izvorno zaglavlje dana te blokira očito nepotpun uvoz kada geometrija tablice pokazuje više djelatnika nego što je OCR pouzdano pročitao. |
 | **Evidencija ulaza/izlaza** | Stvarno odrađeno vrijeme više nije isto što i planirano vrijeme. |
@@ -80,7 +71,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **Dark mode** | Trajna Android postavka tamnog izgleda. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
 | **Okvirna plaća** | Android i Web/PWA koriste provjerljive 2026 parametre gdje postoje; lokalno uređeni i privatni sektor imaju ručni način bez izmišljanja osnovice, koeficijenta ili dodataka. |
-| **Korisnički račun** | Web/PWA i Android mogu raditi bez registracije. Android credential token sprema se u Keystore-backed šifriranu pohranu, lokalno poštuje istek i provjerava opozvanu/isteklu sesiju na backendu. Opcionalni račun služi za mrežne funkcije i opt-in AI provjeru. |
+| **Korisnički račun** | Android Postavke više nemaju ime/prezime, registraciju ni prijavu; osnovni Android rad je lokalni. Web/PWA zadržava vlastiti opcionalni račun za svoje mrežne funkcije. Postojeća Android šifrirana sesija može se samo validirati radi kompatibilnosti sa starijim instalacijama. |
 | **Izvoz** | Android generira stvarni mjesečni PDF; Web/PWA podržava JSON sigurnosnu kopiju i pregled za ispis / spremanje kao PDF. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
 
@@ -175,6 +166,14 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 | Amber | <code>#F59E0B</code> | sunce / naglasci |
 | Red | <code>#EF4444</code> | bolovanje / upozorenja |
 
+## Demo Android aplikacija
+
+Mapa `/demo` je zaseban Android application modul (`hr.raspored.demo`) koji demonstrira glavni kalendarski UX bez korisničkih podataka. Demo koristi veliki mjesečni kalendar i isti model **klik na dan → odaberi ili upiši oznaku**. Svaki release objavljuje ga kao **`raspored_demo.apk`** i uključuje u `SHA256SUMS`.
+
+## Dead-code audit
+
+Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py`. CI blokira dokazano neiskorištene privatne Kotlin simbole, a JS/PHP i top-level Kotlin kandidate ispisuje za ručni pregled kako se dinamički entry pointovi ne bi brisali napamet. Trenutni cleanup uklonio je stari calendar paint/multi-select kod, `weeklyHours()`, `ProfileStore`, neiskorišteni Web helper i neiskorištene PHP wrapper funkcije. Detalji su u `docs/DEAD_CODE_AUDIT.md`.
+
 ## Platforme
 
 ### Android
@@ -189,9 +188,9 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
 - mobilna primarna navigacija: Kalendar, Evidencija, istaknuti Skeniraj, Statistika i Više
-- Keystore-backed šifrirana pohrana Android session tokena, migracija starog plaintext tokena te provjera isteka/opoziva
-- lokalni profil i stvarni mjesečni PDF izvoz rasporeda/evidencije
-- debug APK + release AAB build provjera
+- Keystore-backed kompatibilnost za ranije povezane Android sesije uz provjeru isteka/opoziva; novi login/registracija UI je uklonjen
+- stvarni mjesečni PDF izvoz rasporeda/evidencije bez profila ime/prezime u Postavkama
+- debug APK + release AAB + zasebni `raspored_demo.apk` build provjera
 - Compose unit/lint provjere i stvarni API 36 emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
@@ -201,7 +200,7 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 - responzivni layout bez framework ovisnosti u runtimeu
 - PWA manifest + service worker
 - gostujući per-instalacijski JSON podaci u `storage/data` iza zaštićenog PHP API-ja
-- opcionalna registracija/prijava za Web/PWA te isti backend račun za Android mrežne funkcije; lozinke koriste `password_hash`, Web koristi HttpOnly/SameSite session cookie, a Android istekom ograničeni bearer credential ne ulazi u APK
+- opcionalna registracija/prijava ostaje Web/PWA funkcija; Android Postavke više ne nude registraciju/prijavu. Lozinke koriste `password_hash`, a Web koristi HttpOnly/SameSite session cookie.
 - Web račun koristi zaseban privatni per-account JSON pod `storage/data`
 - Web voditeljski profil može spremiti više djelatnika kao odvojene rasporede tima
 - JSON sigurnosna kopija i mjesečni pregled za ispis / spremanje kao PDF
@@ -218,15 +217,15 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 
 ## Privatnost i podaci
 
-- **Android:** kalendar, raspored, ML Kit OCR, evidencija, statistika, procjena plaće i PDF izvoz rade lokalno bez registracije. Internet dozvola koristi se samo za opcionalni RASPORED račun i opt-in AI provjeru; lokalne funkcije ne ovise o mreži.
+- **Android:** kalendar, raspored, ML Kit OCR, evidencija, statistika, procjena plaće i PDF izvoz rade lokalno bez registracije. Postavke nemaju ime/prezime, prijavu ni registraciju. Postojeći šifrirani token iz ranijih verzija može se validirati radi kompatibilnosti, ali lokalne funkcije ne ovise o mreži.
 - **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
-- **Računi:** lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify`, HttpOnly/SameSite session cookie za Web te server-side istekom ograničene bearer tokene za Android. Android token je u Keystore-backed šifriranoj pohrani i briše se kada je istekao ili opozvan.
+- **Računi:** Web lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify` i HttpOnly/SameSite session cookie. Android više nema account UI; eventualni token iz ranije verzije ostaje u Keystore-backed šifriranoj pohrani samo radi kompatibilnosti i briše se kada je istekao ili opozvan.
 - **Zaštita Web spremišta:** runtime prvenstveno sprema JSON u privatni direktorij izvan document root-a; put se može eksplicitno zadati s `RASPORED_STORAGE_DIR`. `storage/.htaccess` ostaje kompatibilni fallback za Apache. Zapis ide kroz API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
 - **Android OCR:** primarno lokalna obrada teksta preko ML Kit modela na uređaju. Ako prijavljeni korisnik izričito pokrene AI provjeru, fotografija se šalje preko RASPORED HTTPS backenda OpenAI Responses API-ju; OpenAI API ključ nije ugrađen u APK.
 - **Web OCR:** primarno se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`. Registrirani korisnik može izričito pokrenuti AI provjeru preko server-side endpointa koji čita `OPENAI_API_KEY` iz okoline, validira MIME, veličinu, dimenzije i broj piksela, primjenjuje account/IP rate limit i šalje `store:false`. Privremeni upload uklanja se prije poziva AI servisu.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
-Registracija nije potrebna za osnovni rad. Android i Web/PWA zadržavaju lokalne/osnovne funkcije bez računa. Opcionalni račun otključava napredne mrežne funkcije; nijedan API ključ ne smije biti hardkodiran u JavaScript, APK, repozitorij ili release artefakt.
+Registracija nije potrebna za osnovni rad. Android više nema registraciju/prijavu u Postavkama; Web/PWA može koristiti vlastiti opcionalni račun. Nijedan API ključ ne smije biti hardkodiran u JavaScript, APK, repozitorij ili release artefakt.
 
 ## QA koji mora proći
 
@@ -248,6 +247,8 @@ Svaki ozbiljniji razvojni pass provjerava:
 - Android unit testove,
 - Compose androidTest compile,
 - Android debug + release lint,
+- `/demo` Android build i `raspored_demo.apk` artifact provjeru,
+- repo-wide `scripts/dead_code_audit.py --strict` dead-code audit,
 - API 36 emulator launch/navigation smoke test,
 - zasebnu provjeru postojanja i ZIP integriteta APK/AAB/Web artefakata prije releasea.
 - release workflow uvijek provjerava ZIP integritet i SHA-256; provjeru APK/AAB potpisa izvršava kada je opcionalni release signing konfiguriran.

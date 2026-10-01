@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.io.FileOutputStream
@@ -47,12 +46,12 @@ class AndroidReadmeScreenshotTest {
         val month = YearMonth.now()
 
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
-        composeRule.onNodeWithTag("calendar-set-d").performScrollTo().performClick()
         composeRule.onNodeWithTag("calendar-day-" + month.atDay(1)).performClick()
-        composeRule.onNodeWithTag("calendar-set-n").performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-" + month.atDay(2)).performClick()
-        composeRule.onNodeWithTag("calendar-set-go").performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
         composeRule.onNodeWithTag("calendar-day-" + month.atDay(3)).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-go").performClick()
         capture("android-calendar")
 
         composeRule.onNodeWithTag("nav-hours").performClick()

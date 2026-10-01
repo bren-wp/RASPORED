@@ -25,10 +25,21 @@ jobs:
           grep -q "^$VERSION$" web/public/version.txt || { echo "web/public/version.txt differs from VERSION"; exit 1; }
           grep -Fq "const CACHE=\"raspored-v$VERSION\";" web/public/sw.js || { echo "PWA cache version differs from VERSION"; exit 1; }
           grep -Fq "\$version = '$VERSION';" web/public/includes/bootstrap.php || { echo "Web bootstrap fallback version differs from VERSION"; exit 1; }
+          grep -Fq 'docs/media/android-calendar.png' README.md || { echo "README is missing the real Android calendar screenshot"; exit 1; }
+          grep -Fq 'docs/media/android-scan.png' README.md || { echo "README is missing the real Android scan screenshot"; exit 1; }
+          if grep -Eq 'docs/media/app-[^ )"]+\.(png|jpg|jpeg|webp)' README.md; then
+            echo "README must not reference obsolete Web/PWA screenshots under docs/media/app-*." >&2
+            exit 1
+          fi
+          test -s docs/media/android-calendar.png || { echo "Android calendar screenshot is missing"; exit 1; }
+          test -s docs/media/android-scan.png || { echo "Android scan screenshot is missing"; exit 1; }
           if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
             echo "Release v$VERSION already exists. Bump VERSION before merging new changes." >&2
             exit 1
           fi
+
+      - name: Dead-code audit
+        run: python3 scripts/dead_code_audit.py --strict
 
       - name: Validate workflow syntax and release structure
         shell: bash
@@ -108,7 +119,7 @@ jobs:
         with:
           gradle-version: 8.13
       - name: Android debug build
-        run: gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease --stacktrace
+        run: gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease :demo:assembleDebug :demo:lintDebug --stacktrace
       - name: Prepare installable APK
         if: success()
         shell: bash
@@ -117,6 +128,7 @@ jobs:
           mkdir -p dist
           cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
           cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          cp demo/build/outputs/apk/debug/demo-debug.apk dist/raspored_demo.apk
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -124,6 +136,7 @@ jobs:
           path: |
             dist/RASPORED.apk
             dist/RASPORED.aab
+            dist/raspored_demo.apk
           if-no-files-found: error
 
   artifact-verify:
@@ -141,13 +154,15 @@ jobs:
           set -euo pipefail
           test -s dist/RASPORED.apk
           test -s dist/RASPORED.aab
+          test -s dist/raspored_demo.apk
           WEB_ZIP="$(find dist -maxdepth 1 -type f -name 'RASPORED-web-v*.zip' -print -quit)"
           test -n "$WEB_ZIP"
           test -s "$WEB_ZIP"
           unzip -tq dist/RASPORED.apk
           unzip -tq dist/RASPORED.aab
+          unzip -tq dist/raspored_demo.apk
           unzip -tq "$WEB_ZIP"
-          sha256sum dist/RASPORED.apk dist/RASPORED.aab "$WEB_ZIP"
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab dist/raspored_demo.apk "$WEB_ZIP"
 
   android-ui:
     needs: [version, android]

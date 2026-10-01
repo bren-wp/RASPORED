@@ -1,4 +1,4 @@
-const CACHE="raspored-v1.0.16";
+const CACHE="raspored-v1.0.17";
 const ASSETS=[
   "./",
   "./version.txt",
