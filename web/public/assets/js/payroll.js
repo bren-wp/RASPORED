@@ -422,7 +422,7 @@ function render(){
       (note.length?"<small>"+escapeHtml(note.join(" "))+"</small>":"");
   }
 
-  var rows=[{label:"Ukupno evidentirano",minutes:evidence.total,value:null,rate:null}];
+  var rows=[{label:"Ukupno iz kalendara",minutes:evidence.total,value:null,rate:null}];
   if(evidence.goDays||evidence.boDays||evidence.pdDays||evidence.sdDays){
     rows.push({
       label:"Planirani izostanci: GO "+evidence.goDays+" · BO "+evidence.boDays+" · PD "+evidence.pdDays+" · SD "+evidence.sdDays,
@@ -433,7 +433,7 @@ function render(){
   }
   if(evidence.holidayCompensatedDays){
     rows.push({
-      label:"Blagdan / neradni dan bez evidentiranog rada",
+      label:"Blagdan / neradni dan bez kalendarske D/N smjene",
       minutes:evidence.holidayCompensated,
       value:null,
       rate:null
@@ -462,7 +462,7 @@ function render(){
   });
   qs("payrollLegalText").textContent=(regime?regime.label:"Ručni obračun")+" — osnovna bruto plaća računa se kao osnovica × koeficijent + 0,5% za svaku navršenu godinu staža. "+
     (autoRates.length?"Automatski obračunski postoci u ovom presetu: "+autoRates.join(", ")+". ":"Dodaci nisu automatski pretpostavljeni za ovaj režim. ")+
-    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. GO, BO i PD te radni dan koji pada na blagdan bez evidentiranog rada koriste se samo kao 8-satna ekvivalencija pri provjeri mjesečnog fonda; to nije izmišljena smjena niti dodatak za rad blagdanom. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
+    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. GO, BO i PD te radni dan koji pada na blagdan bez kalendarske D/N smjene koriste se samo kao 8-satna ekvivalencija pri provjeri mjesečnog fonda; to nije izmišljena smjena niti dodatak za rad blagdanom. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
 }
 function refreshInstitutionAndRole(preferredRole){
   populateInstitutions("",null);
