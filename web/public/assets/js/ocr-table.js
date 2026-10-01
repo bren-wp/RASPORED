@@ -248,6 +248,10 @@ function detectEmployeeRowBandsFromBitmap(bitmap,rowsPerBand){
   if(!context)return [];
   context.fillStyle="#fff";
   context.fillRect(0,0,width,height);
+  // Geometry detection must preserve thin 1–2 px table rules. Browser image
+  // smoothing can blend sub-pixel horizontal lines into the background and
+  // make a dense 27-row roster look incomplete after downscaling.
+  context.imageSmoothingEnabled=false;
   context.drawImage(
     bitmap,
     bounds.left,bounds.top,boundWidth,boundHeight,
