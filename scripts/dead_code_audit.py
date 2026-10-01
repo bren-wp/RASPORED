@@ -49,10 +49,15 @@ for path, text in contents.items():
             markers.append({"path": rel, "line": line_no, "text": line.strip()})
 
     if path.suffix == ".kt":
-        names = set(re.findall(
-            r"\bprivate\s+(?:suspend\s+)?(?:fun|val|var)\s+([A-Za-z_][A-Za-z0-9_]*)",
+        function_names = set(re.findall(
+            r"\bprivate\s+(?:suspend\s+)?fun\s+(?:[A-Za-z_][A-Za-z0-9_]*\.)?([A-Za-z_][A-Za-z0-9_]*)\s*\(",
             text,
         ))
+        property_names = set(re.findall(
+            r"\bprivate\s+(?:val|var)\s+([A-Za-z_][A-Za-z0-9_]*)",
+            text,
+        ))
+        names = function_names | property_names
         for name in sorted(names):
             count = len(re.findall(rf"\b{re.escape(name)}\b", text))
             if count == 1:
