@@ -83,8 +83,9 @@ internal fun OcrScanScreen(
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun selectDetectedCrop(index: Int) {
+        if (detectedCropRanges.isEmpty()) return
         val safeIndex = index.coerceIn(0, detectedCropRanges.lastIndex)
-        if (detectedCropRanges.isEmpty() || safeIndex !in detectedCropRanges.indices) return
+        if (safeIndex !in detectedCropRanges.indices) return
         detectedCropIndex = safeIndex
         personCropRange = detectedCropRanges[safeIndex]
         message = "Odabran je redak ${safeIndex + 1} od ${detectedCropRanges.size}. Provjeri plavi pojas i pokreni skeniranje."
@@ -152,10 +153,10 @@ internal fun OcrScanScreen(
             numberedExpectedRows
         ).maxOrNull()
         val foundRows = recognized.rows.size
-        val severeIncomplete = expectedRows?.let { expected ->
+        val severeIncomplete = !singlePersonMode && expectedRows?.let { expected ->
             foundRows * 100 < expected * 65
         } == true
-        rosterIncomplete = expectedRows?.let { expected ->
+        rosterIncomplete = !singlePersonMode && expectedRows?.let { expected ->
             foundRows * 100 < expected * 88
         } == true
         val bestRowIndex = bestRecognizedRowIndex(recognized.rows)
@@ -191,7 +192,11 @@ internal fun OcrScanScreen(
                 editedShifts.putAll(recognized.rows.first().dayShifts)
                 phase = OcrPhase.Success
                 val recognizedDays = recognized.rows.first().dayShifts.size
-                message = "Prepoznata je 1 osoba i $recognizedDays oznaka dana. Provjeri raspored prije spremanja." +
+                message = if (singlePersonMode) {
+                    "Prepoznat je označeni redak jedne osobe i $recognizedDays oznaka dana. Provjeri raspored prije spremanja."
+                } else {
+                    "Prepoznata je 1 osoba i $recognizedDays oznaka dana. Provjeri raspored prije spremanja."
+                } +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
             else -> {
@@ -399,14 +404,23 @@ internal fun OcrScanScreen(
         val token = remoteAccountToken ?: return
         if (source.isRecycled || aiBusy) return
         val local = result
+        val verificationSource = if (singlePersonMode) {
+            createSinglePersonOcrBitmap(
+                source = source,
+                topFraction = personCropRange.start,
+                bottomFraction = personCropRange.endInclusive
+            )
+        } else {
+            source
+        }
         aiBusy = true
-        message = "AI provjera cijele tablice..."
+        message = if (singlePersonMode) "AI provjera označene osobe..." else "AI provjera cijele tablice..."
         phase = OcrPhase.Processing
         scope.launch {
             val outcome = runCatching {
                 withContext(Dispatchers.IO) {
                     AiScheduleVerifier.verify(
-                        bitmap = source,
+                        bitmap = verificationSource,
                         token = token,
                         monthHint = local?.month ?: selectedMonth,
                         localOcrText = local?.rawText.orEmpty()
@@ -430,6 +444,9 @@ internal fun OcrScanScreen(
                 phase = if (local != null) OcrPhase.Success else OcrPhase.Error
                 message = error.message
                     ?: "AI provjera nije uspjela. Lokalni OCR i dalje je dostupan."
+            }
+            if (verificationSource !== source && !verificationSource.isRecycled) {
+                verificationSource.recycle()
             }
             aiBusy = false
         }
