@@ -9,7 +9,7 @@ var current={
   profile:{name:""},
   colleagues:[],
   teamMembers:[],
-  settings:{theme:"light",reducedMotion:false,notificationReadKey:""},
+  settings:{theme:"dark",reducedMotion:false,notificationReadKey:""},
   scanSession:{people:[],reviewCells:[],selected:-1,month:null,expectedRows:0,incomplete:false},
   payroll:{county:"Primorsko-goranska",residence:"Rijeka",taxLower:20,taxHigher:25,sector:"Zdravstvo",institution:"Klinički bolnički centar Rijeka",regimeId:"kbc-rijeka-2026",roleId:"health-transport-sss",coefficient:1.25,yearsService:0,personalAllowance:600,extraPercent:0,secondShift:false,turnus:false,customBase:null},
   updatedAt:null
@@ -129,7 +129,7 @@ function sanitize(raw){
     profile:{name:typeof profile.name==="string"?profile.name.trim().replace(/\s+/g," ").slice(0,80):""},
     colleagues:colleagues,
     teamMembers:teamMembers,
-    settings:{theme:settings.theme==="dark"?"dark":"light",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
+    settings:{theme:settings.theme==="light"?"light":"dark",reducedMotion:!!settings.reducedMotion,notificationReadKey:typeof settings.notificationReadKey==="string"?settings.notificationReadKey.slice(0,120):""},
     scanSession:{people:people,reviewCells:reviewCells,selected:selected,month:month,expectedRows:expectedRows,incomplete:incomplete},
     payroll:{
       county:typeof payroll.county==="string"&&payroll.county?payroll.county.slice(0,80):"Primorsko-goranska",
@@ -225,7 +225,7 @@ function valueForKey(key){
   if(key==="raspored.colleagues.v1")return JSON.stringify(current.colleagues);
   if(key==="raspored.team.v1")return JSON.stringify(current.teamMembers);
   if(key==="raspored.profile.name")return current.profile.name||null;
-  if(key==="raspored.theme")return current.settings.theme||"light";
+  if(key==="raspored.theme")return current.settings.theme||"dark";
   if(key==="raspored.reducedMotion")return current.settings.reducedMotion?"1":"0";
   if(key==="raspored.scan.v1")return JSON.stringify(current.scanSession);
   if(key==="raspored.notifications.readKey")return current.settings.notificationReadKey||null;
