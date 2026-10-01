@@ -127,7 +127,7 @@ test("smart OCR review session survives server round-trip and reload", async ({p
 });
 
 
-test("legacy evidence without millisecond timestamps keeps its worked duration", async ({page}) => {
+test("automatic evidence reflects calendar shifts without manual entries", async ({page}) => {
   await openReady(page);
   const width=page.viewportSize()?.width ?? 1440;
   await page.locator('[data-route="stats"]:visible').first().click();
@@ -138,19 +138,16 @@ test("legacy evidence without millisecond timestamps keeps its worked duration",
   }else{
     await page.locator('[data-route="hours"]:visible').first().click();
   }
-  await expect(page.locator("#hoursHistory")).toContainText("12h 00min");
+  await expect(page.locator("#hoursHistory")).toContainText("D · Dnevna smjena");
+  await expect(page.locator("#hoursHistory")).toContainText("12 h");
 });
 
 
-test("statistics split overnight evidence at month and night boundaries", async ({page}) => {
+test("statistics split overnight calendar shift at month and night boundaries", async ({page}) => {
   await openReady(page);
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
-    const start=new Date(2026,8,30,22,0,0).getTime();
-    const end=new Date(2026,9,1,7,0,0).getTime();
-    store.set("raspored.timeEntries.v1",JSON.stringify([
-      {id:"cross-month",date:"2026-09-30",in:"22:00",out:"07:00",note:"",workType:"shift3",startedAt:start,endedAt:end}
-    ]));
+    store.set("raspored.schedule",JSON.stringify({"2026-09-30":"N"}));
     await store.flush();
   });
   await page.locator('[data-route="stats"]:visible').first().click();
