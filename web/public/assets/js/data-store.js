@@ -262,7 +262,7 @@ function removeKey(key){
   else if(key==="raspored.colleagues.v1")current.colleagues=[];
   else if(key==="raspored.team.v1")current.teamMembers=[];
   else if(key==="raspored.profile.name")current.profile.name="";
-  else if(key==="raspored.theme")current.settings.theme="light";
+  else if(key==="raspored.theme")current.settings.theme="dark";
   else if(key==="raspored.reducedMotion")current.settings.reducedMotion=false;
   else if(key==="raspored.scan.v1")current.scanSession={people:[],reviewCells:[],selected:-1,month:null,expectedRows:0,incomplete:false};
   else if(key==="raspored.notifications.readKey")current.settings.notificationReadKey="";
