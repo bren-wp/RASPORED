@@ -235,7 +235,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     Screen.Payroll->PayrollScreen(scheduleCodes,onBack={screen=Screen.Stats})
                     Screen.Hours->TimeEvidenceScreen(
                         scheduleCodes=scheduleCodes,
-                        onBack={screen=Screen.Calendar}
+                        onBack={screen=Screen.Home}
                     )
                     Screen.Settings->SettingsScreen(
                         darkMode=darkMode,
