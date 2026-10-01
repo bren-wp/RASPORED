@@ -1234,38 +1234,36 @@ private fun largeMinutesLabel(minutes:Long):String {
                     maxLines=1,
                     softWrap=false
                 )
-                Row(
-                    modifier=Modifier.fillMaxWidth(),
-                    verticalAlignment=Alignment.CenterVertically
-                ){
-                    TextButton(
-                        onClick=onPayroll,
-                        contentPadding=PaddingValues(0.dp),
-                        modifier=Modifier.weight(1f)
+                Box{
+                    OutlinedButton(
+                        onClick={periodMenu=true},
+                        modifier=Modifier.fillMaxWidth()
                     ){
-                        Text(
-                            "Izračunaj okvirnu plaću ›",
-                            fontWeight=FontWeight.Bold,
-                            maxLines=1
-                        )
+                        Icon(Icons.Outlined.CalendarMonth,null)
+                        Text(" "+monthTitle+" ",maxLines=1,softWrap=false)
+                        Icon(Icons.Outlined.ExpandMore,null)
                     }
-                    Box{
-                        OutlinedButton(onClick={periodMenu=true}){
-                            Icon(Icons.Outlined.CalendarMonth,null)
-                            Text(" "+monthTitle+" ",maxLines=1,softWrap=false)
-                            Icon(Icons.Outlined.ExpandMore,null)
-                        }
-                        DropdownMenu(expanded=periodMenu,onDismissRequest={periodMenu=false}){
-                            (0..11).map{YearMonth.from(appDate()).minusMonths(it.toLong())}.forEach{option->
-                                val label=option.month.getDisplayName(TextStyle.FULL,Locale("hr","HR"))
-                                    .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+option.year+"."
-                                DropdownMenuItem(
-                                    text={Text(label)},
-                                    onClick={month=option;periodMenu=false}
-                                )
-                            }
+                    DropdownMenu(expanded=periodMenu,onDismissRequest={periodMenu=false}){
+                        (0..11).map{YearMonth.from(appDate()).minusMonths(it.toLong())}.forEach{option->
+                            val label=option.month.getDisplayName(TextStyle.FULL,Locale("hr","HR"))
+                                .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+option.year+"."
+                            DropdownMenuItem(
+                                text={Text(label)},
+                                onClick={month=option;periodMenu=false}
+                            )
                         }
                     }
+                }
+                TextButton(
+                    onClick=onPayroll,
+                    contentPadding=PaddingValues(horizontal=0.dp,vertical=2.dp)
+                ){
+                    Text(
+                        "Izračunaj okvirnu plaću ›",
+                        fontWeight=FontWeight.Bold,
+                        maxLines=1,
+                        softWrap=false
+                    )
                 }
             }
         }
@@ -1609,7 +1607,9 @@ private fun largeMinutesLabel(minutes:Long):String {
                             OutlinedButton(
                                 onClick={accountError="";registerOpen=true},
                                 modifier=Modifier.weight(1f)
-                            ){Text("Registracija")}
+                            ){
+                                Text("Registracija",fontSize=13.sp,maxLines=1,softWrap=false)
+                            }
                         }
                     }
                     if(accountError.isNotBlank()){
