@@ -384,7 +384,6 @@ object PublicSectorPayroll {
 
     fun estimate(
         month: YearMonth,
-        entries: List<TimeEvidenceEntry>,
         scheduleCodes: Map<String, String> = emptyMap(),
         regimeId: String,
         coefficient: Double,
@@ -396,7 +395,6 @@ object PublicSectorPayroll {
         secondShift: Boolean,
         turnus: Boolean,
         customBase: Double? = null,
-        now: Long = System.currentTimeMillis(),
         zone: ZoneId = ZoneId.systemDefault()
     ): PayrollEstimate {
         val regime = regime(regimeId)
@@ -406,7 +404,7 @@ object PublicSectorPayroll {
         val fundHours = monthlyFundHours(month)
         val basicGross = base * safeCoefficient * (1.0 + safeYears * SENIORITY_PER_YEAR)
         val hourly = if (fundHours > 0) basicGross / fundHours else 0.0
-        val evidence = summarizeEvidence(month, entries, scheduleCodes, now, zone)
+        val evidence = summarizeEvidence(month, scheduleCodes, secondShift, turnus, zone)
         val rates = regime.rates
         fun add(minutes: Long, rate: Double?): Double =
             if (rate == null) 0.0 else hourly * (minutes / 60.0) * rate
@@ -473,9 +471,9 @@ object PublicSectorPayroll {
 
     private fun summarizeEvidence(
         month: YearMonth,
-        entries: List<TimeEvidenceEntry>,
         scheduleCodes: Map<String, String>,
-        now: Long,
+        secondShiftEnabled: Boolean,
+        turnusEnabled: Boolean,
         zone: ZoneId
     ): PayrollEvidence {
         val holidays = CroatianHolidays.forYear(month.year)
@@ -489,65 +487,75 @@ object PublicSectorPayroll {
         var shift1 = 0L
         var shift2 = 0L
         var shift3 = 0L
-        var turnus = 0L
-        var duty = 0L
-        var standby = 0L
-        var callout = 0L
-        var hasActive = false
 
-        entries.forEach { entry ->
-            val end = (entry.endedAt ?: now).coerceAtMost(entry.startedAt + 36L * 60L * 60L * 1000L)
-            if (entry.endedAt == null) hasActive = true
-            if (end <= entry.startedAt) return@forEach
-            var minute = entry.startedAt
-            while (minute < end) {
-                val local = Instant.ofEpochMilli(minute).atZone(zone)
-                val date = local.toLocalDate()
-                if (YearMonth.from(date) == month) {
+        fun accountShift(date: java.time.LocalDate, code: String) {
+            val start = when (code) {
+                "D" -> date.atTime(7, 0).atZone(zone)
+                "N" -> date.atTime(19, 0).atZone(zone)
+                else -> return
+            }
+            val end = when (code) {
+                "D" -> date.atTime(19, 0).atZone(zone)
+                else -> date.plusDays(1).atTime(7, 0).atZone(zone)
+            }
+            workedDates += date
+            var cursor = start
+            while (cursor.isBefore(end)) {
+                val localDate = cursor.toLocalDate()
+                if (YearMonth.from(localDate) == month) {
                     worked++
-                    workedDates += date
-                    val hour = local.hour
+                    val hour = cursor.hour
                     if (hour >= 22 || hour < 6) night++
-                    if (date.dayOfWeek == DayOfWeek.SATURDAY) saturday++
-                    if (date.dayOfWeek == DayOfWeek.SUNDAY) sunday++
-                    if (holidays.containsKey(date)) holiday++
+                    if (localDate.dayOfWeek == DayOfWeek.SATURDAY) saturday++
+                    if (localDate.dayOfWeek == DayOfWeek.SUNDAY) sunday++
+                    if (holidays.containsKey(localDate)) holiday++
                     if (hour in 14..21) second++
-                    when (WorkType.normalized(entry.workType)) {
-                        WorkType.SHIFT_1 -> shift1++
-                        WorkType.SHIFT_2 -> shift2++
-                        WorkType.SHIFT_3 -> shift3++
-                        WorkType.TURNUS -> turnus++
-                        WorkType.DUTY -> duty++
-                        WorkType.STANDBY -> standby++
-                        WorkType.CALLOUT -> callout++
-                    }
+                    if (code == "D") shift1++ else shift3++
                 }
-                minute += 60_000L
+                cursor = cursor.plusMinutes(1)
             }
         }
+
+        for (day in 1..month.lengthOfMonth()) {
+            val date = month.atDay(day)
+            when (scheduleCodes[date.toString()].orEmpty()) {
+                "D" -> accountShift(date, "D")
+                "N" -> accountShift(date, "N")
+            }
+        }
+        // A night shift starting on the last day of the previous month can
+        // contribute hours to this month.
+        val previousDate = month.atDay(1).minusDays(1)
+        if (scheduleCodes[previousDate.toString()] == "N") {
+            accountShift(previousDate, "N")
+        }
+
+        if (secondShiftEnabled) shift2 = second
+        val turnus = if (turnusEnabled) worked else 0L
 
         var goDays = 0
         var boDays = 0
         var pdDays = 0
         var sdDays = 0
+        val compensatedAbsenceDates = mutableSetOf<java.time.LocalDate>()
         scheduleCodes.forEach { (dateText, code) ->
             val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
                 ?: return@forEach
             if (YearMonth.from(date) != month) return@forEach
             when (code) {
-                "GO" -> goDays++
-                "BO" -> boDays++
-                "PD" -> pdDays++
+                "GO" -> {
+                    goDays++
+                    compensatedAbsenceDates += date
+                }
+                "BO" -> {
+                    boDays++
+                    compensatedAbsenceDates += date
+                }
+                "PD" -> {
+                    pdDays++
+                    compensatedAbsenceDates += date
+                }
                 "SD" -> sdDays++
-            }
-        }
-        val compensatedAbsenceDates = mutableSetOf<java.time.LocalDate>()
-        scheduleCodes.forEach { (dateText, code) ->
-            if (code !in setOf("GO", "BO", "PD")) return@forEach
-            val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
-                ?: return@forEach
-            if (YearMonth.from(date) == month && date !in workedDates) {
-                compensatedAbsenceDates += date
             }
         }
 
@@ -569,6 +577,7 @@ object PublicSectorPayroll {
                 holidayCompensatedMinutes -
                 monthlyFundHours(month) * 60L
         ).coerceAtLeast(0L)
+
         return PayrollEvidence(
             workedMinutes = worked,
             nightMinutes = night,
@@ -580,9 +589,9 @@ object PublicSectorPayroll {
             shift2Minutes = shift2,
             shift3Minutes = shift3,
             turnusMinutes = turnus,
-            dutyMinutes = duty,
-            standbyMinutes = standby,
-            calloutMinutes = callout,
+            dutyMinutes = 0L,
+            standbyMinutes = 0L,
+            calloutMinutes = 0L,
             compensatedAbsenceMinutes = compensatedAbsenceMinutes,
             holidayCompensatedMinutes = holidayCompensatedMinutes,
             holidayCompensatedDays = holidayCompensatedDates.size,
@@ -591,8 +600,8 @@ object PublicSectorPayroll {
             pdDays = pdDays,
             sdDays = sdDays,
             overtimeMinutes = overtime,
-            workedDays = workedDates.size,
-            hasActiveEntry = hasActive
+            workedDays = workedDates.count { YearMonth.from(it) == month },
+            hasActiveEntry = false
         )
     }
 }
