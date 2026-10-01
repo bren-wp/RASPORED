@@ -573,27 +573,47 @@ function monthData(y,m){
     weeks:[{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0}]
   };
   var hm=holidays(y),days=new Date(y,m+1,0).getDate();
+
+  function accountShift(startDate,code){
+    var start=code==="D"
+      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),7,0,0)
+      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0);
+    var end=code==="D"
+      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0)
+      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+1,7,0,0);
+    for(var t=start.getTime();t<end.getTime();t+=60000){
+      var current=new Date(t);
+      if(current.getFullYear()!==y||current.getMonth()!==m)continue;
+      var key=iso(current),hour=current.getHours(),wi=Math.min(4,Math.floor((current.getDate()-1)/7));
+      out.workedMinutes++;
+      if(hour>=22||hour<6){out.nightMinutes++;out.weeks[wi].n+=1/60}
+      else {out.dayMinutes++;out.weeks[wi].d+=1/60}
+      if(current.getDay()===6)out.satMinutes++;
+      if(current.getDay()===0)out.sunMinutes++;
+      if(hm[key])out.holidayMinutes++;
+      if(current.getDay()===0||current.getDay()===6||hm[key])out.weekendHolidayMinutes++;
+    }
+  }
+
   for(var day=1;day<=days;day++){
     var date=new Date(y,m,day,12,0,0),key=iso(date),code=normalizeScheduleCode(state.schedule[key]||"");
     if(!code)continue;
     out.counts[code]=(out.counts[code]||0)+1;
     if(code==="D"||code==="N"){
-      var mins=12*60,night=code==="N"?8*60:0,dayMins=mins-night,wi=Math.min(4,Math.floor((day-1)/7));
       out.planned+=12;
-      out.workedMinutes+=mins;
-      out.dayMinutes+=dayMins;
-      out.nightMinutes+=night;
-      out.weeks[wi].d+=dayMins/60;
-      out.weeks[wi].n+=night/60;
-      if(date.getDay()===6){out.sat++;out.satMinutes+=mins}
-      if(date.getDay()===0){out.sun++;out.sunMinutes+=mins}
-      if(hm[key]){out.holidays++;out.holidayMinutes+=mins}
-      if(date.getDay()===0||date.getDay()===6||hm[key])out.weekendHolidayMinutes+=mins;
+      if(date.getDay()===6)out.sat++;
+      if(date.getDay()===0)out.sun++;
+      if(hm[key])out.holidays++;
+      accountShift(date,code);
     }else if(code==="GO")out.go++;
     else if(code==="BO")out.bo++;
     else if(code==="PD")out.pd++;
     else if(code==="SD")out.sd++;
   }
+
+  var previous=new Date(y,m,0,12,0,0);
+  if(normalizeScheduleCode(state.schedule[iso(previous)]||"")==="N")accountShift(previous,"N");
+
   out.otherMinutes=0;
   out.worked=out.workedMinutes/60;
   out.night=out.nightMinutes/60;
