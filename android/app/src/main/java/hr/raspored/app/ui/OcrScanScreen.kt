@@ -708,7 +708,7 @@ internal fun OcrScanScreen(
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xE60B1F44),
+                        color = RasporedTokens.Navy.copy(alpha = .90f),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(Modifier.padding(12.dp)) {
