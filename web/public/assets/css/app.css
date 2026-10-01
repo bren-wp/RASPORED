@@ -488,3 +488,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .scan-crop-row-nav .secondary-btn{grid-column:auto;width:auto;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.22)}
 #scanCropHint{grid-column:1/-1;color:#C6D4EA;line-height:1.4}
 .scan-image-stage.is-row-detected::after{content:"Dodirni redak osobe";position:absolute;right:10px;top:10px;z-index:5;background:rgba(8,27,57,.88);color:#fff;padding:5px 8px;border-radius:8px;font-size:10px;pointer-events:none}
+
+.scan-crop-row-nav[hidden]{display:none!important}
