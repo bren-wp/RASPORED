@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
@@ -54,7 +55,7 @@ class AndroidReadmeScreenshotTest {
         composeRule.onNodeWithTag("nav-hours").performClick()
         composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
         capture("android-evidence")
-        composeRule.onNodeWithContentDescription("Natrag").performClick()
+        composeRule.onNodeWithText("‹ Natrag").performClick()
 
         composeRule.onNodeWithTag("nav-scan").performClick()
         composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()
