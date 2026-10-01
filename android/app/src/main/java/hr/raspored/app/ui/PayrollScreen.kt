@@ -26,7 +26,6 @@ import hr.raspored.app.data.PayrollRegime
 import hr.raspored.app.data.PayrollSettings
 import hr.raspored.app.data.PayrollSettingsStore
 import hr.raspored.app.data.PublicSectorPayroll
-import hr.raspored.app.data.TimeEvidenceEntry
 import java.text.NumberFormat
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -34,7 +33,6 @@ import java.util.Locale
 
 @Composable
 internal fun PayrollScreen(
-    evidenceEntries: List<TimeEvidenceEntry>,
     scheduleCodes: Map<String, String>,
     onBack: () -> Unit
 ) {
@@ -109,12 +107,11 @@ internal fun PayrollScreen(
 
     val scheduleSnapshot = scheduleCodes.toSortedMap().toMap()
     val estimate = remember(
-        month, evidenceEntries, scheduleSnapshot, regimeId, coefficient, years, personalAllowance,
+        month, scheduleSnapshot, regimeId, coefficient, years, personalAllowance,
         taxLower, taxHigher, extra, secondShift, turnus, customBase
     ) {
         PublicSectorPayroll.estimate(
             month = month,
-            entries = evidenceEntries,
             scheduleCodes = scheduleSnapshot,
             regimeId = regimeId,
             coefficient = coefficient,
@@ -179,7 +176,7 @@ internal fun PayrollScreen(
                 Column(Modifier.weight(1f)) {
                     Text("Okvirna plaća", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Javni sektor RH · službeni parametri gdje postoje · stvarna Evidencija sati",
+                        "Javni sektor RH · službeni parametri gdje postoje · sati iz kalendara",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
@@ -491,18 +488,18 @@ internal fun PayrollScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     PayrollLine(
-                        "Ukupno evidentirano",
+                        "Ukupno iz kalendara",
                         minutesLabelPayroll(estimate.evidence.workedMinutes),
                         null
                     )
                     if (estimate.evidence.shift1Minutes > 0L) {
-                        PayrollLine("1. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift1Minutes), null)
+                        PayrollLine("1. smjena — iz kalendara", minutesLabelPayroll(estimate.evidence.shift1Minutes), null)
                     }
                     if (estimate.evidence.shift2Minutes > 0L) {
-                        PayrollLine("2. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift2Minutes), null)
+                        PayrollLine("2. smjena — iz kalendara", minutesLabelPayroll(estimate.evidence.shift2Minutes), null)
                     }
                     if (estimate.evidence.shift3Minutes > 0L) {
-                        PayrollLine("3. smjena — evidentirano", minutesLabelPayroll(estimate.evidence.shift3Minutes), null)
+                        PayrollLine("3. smjena — iz kalendara", minutesLabelPayroll(estimate.evidence.shift3Minutes), null)
                     }
                     if (regime.rates.night != null) {
                         PayrollLine(
@@ -565,7 +562,7 @@ internal fun PayrollScreen(
                     }
                     if (estimate.evidence.turnusMinutes > 0L) {
                         PayrollLine(
-                            if (turnus && regime.rates.turnus != null) "Rad u turnusu" else "Turnus — evidentirano",
+                            if (turnus && regime.rates.turnus != null) "Rad u turnusu" else "Turnus — iz kalendara",
                             minutesLabelPayroll(
                                 if (turnus && regime.rates.turnus != null) {
                                     estimate.turnusPaidMinutes
@@ -798,7 +795,7 @@ private fun PayrollResultCard(
             Text(
                 if (estimate.evidence.workedMinutes > 0L) {
                     "Iz " + minutesLabelPayroll(estimate.evidence.workedMinutes) +
-                        " evidentiranog rada."
+                        " rada iz kalendara."
                 } else {
                     "Nema evidencije za mjesec; dodaci iz rada nisu pretpostavljeni."
                 },

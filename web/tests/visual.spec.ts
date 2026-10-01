@@ -11,7 +11,7 @@ for (const route of ["home","calendar","scan","stats","hours","settings"]) {
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820){
         await page.locator('[data-route="home"]:visible').first().click();
-        await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();
+        await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
       }else{
         await page.locator('[data-route="hours"]:visible').first().click();
       }

@@ -79,7 +79,34 @@ test("scan performs OCR and exposes multiple invented employees", async ({page})
   });
   await expect(page.locator("#scanStatus")).toContainText("Prepoznate su 3 osobe");
   await expect(page.locator("#scanPersonMenu [data-scan-person]")).toHaveCount(3);
+  await expect(page.locator("#scanPersonLabel")).not.toHaveText("Odaberi ime i prezime");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
+});
+
+test("single-person crop waits for confirmation and imports only that focused row", async ({page}) => {
+  await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").check();
+
+  const tinyPng=Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAD0lEQVR42mP8z8AARMAgYKSgAAMAJQABf2m7WQAAAABJRU5ErkJggg==",
+    "base64"
+  );
+  await page.locator("#galleryInput").setInputFiles({
+    name:"raspored.png",
+    mimeType:"image/png",
+    buffer:tinyPng
+  });
+
+  await expect(page.locator("#scanStatus")).toContainText("Namjesti plavi pojas");
+  await expect(page.locator("#scanRowCrop")).toBeVisible();
   await expect(page.locator("#saveSchedule")).toBeDisabled();
+
+  await page.locator("#scanSinglePersonBtn").click();
+  await expect(page.locator("#scanStatus")).toContainText("Prepoznat je označeni redak jedne osobe");
+  await expect(page.locator("#scanPersonLabel")).toContainText("ANA HORVAT");
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
 test("scan imports only the explicitly selected employee schedule", async ({page}) => {
@@ -197,39 +224,43 @@ test("recognized schedule can be corrected before import", async ({page}) => {
   await expect(first).toContainText("N");
 });
 
-test("time evidence records and persists check-in and check-out", async ({page}) => {
+test("time evidence is derived automatically from the calendar", async ({page}) => {
   await page.goto("/");
-  const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-
-  await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
-  await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
-  await page.locator("#hoursNote").fill("Redovna smjena");
-  await page.getByRole("button",{name:"Evidentiraj izlaz"}).click();
-  await expect(page.locator("#hoursStatus")).toContainText("spremljena");
-
+  await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    store.set("raspored.schedule",JSON.stringify({
+      "2026-10-01":"D",
+      "2026-10-02":"N",
+      "2026-10-03":"GO",
+      "2026-10-04":"J"
+    }));
+    await store.flush();
+  });
   await page.reload();
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-  await expect(page.locator("#hoursHistory")).toContainText("Redovna smjena");
+  const width=page.viewportSize()?.width ?? 1440;
+  if(width<=820){
+    await page.locator('[data-route="home"]:visible').first().click();
+    await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
+  }else await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.locator("#hoursMonthTotal")).toContainText("24h");
+  await expect(page.locator("#hoursNightTotal")).toContainText("8h");
+  await expect(page.locator("#hoursHistory")).toContainText("D · Dnevna smjena");
+  await expect(page.locator("#hoursHistory")).toContainText("N · Noćna smjena");
+  await expect(page.locator("#hoursHistory")).toContainText("J · Vlastita oznaka J");
+  await expect(page.locator("#hoursHistory")).toContainText("Nije definirano");
 });
 
-test("time evidence stores selected work type without inventing a special-duty rate", async ({page}) => {
+test("time evidence no longer exposes manual clock-in controls", async ({page}) => {
   await page.goto("/");
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-
-  await page.locator("#hoursWorkType").selectOption("duty");
-  await page.getByRole("button",{name:"Evidentiraj ulaz"}).click();
-  await expect(page.locator("#hoursHistory")).toContainText("Dežurstvo");
-
-  const stored=await page.evaluate(() => {
-    const rows=JSON.parse((window as any).RasporedDataStore.get("raspored.timeEntries.v1")||"[]");
-    return rows[rows.length-1];
-  });
-  expect(stored.workType).toBe("duty");
+  if(width<=820){
+    await page.locator('[data-route="home"]:visible').first().click();
+    await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
+  }else await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.getByRole("button",{name:"Evidentiraj ulaz"})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Evidentiraj izlaz"})).toHaveCount(0);
+  await expect(page.locator("#hoursWorkType")).toHaveCount(0);
+  await expect(page.locator("#hoursNote")).toHaveCount(0);
 });
 
 test("web OCR infers a dense full-month grid when header numbers are missed", async ({page}) => {
@@ -520,9 +551,9 @@ test("full-roster scan blocks severely incomplete imports", async ({page}) => {
     mimeType:"image/svg+xml",
     buffer:Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="white"/></svg>')
   });
-  await expect(page.locator("#scanStatus")).toContainText("Skeniranje nije dovoljno potpuno");
+  await expect(page.locator("#scanStatus")).toContainText("Skeniranje cijelog tima nije dovoljno potpuno");
   await expect(page.locator("#scanStatus")).toContainText("27");
-  await expect(page.locator("#saveSchedule")).toBeDisabled();
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
   await expect(page.locator("#saveTeamSchedules")).toBeDisabled();
 });
 
@@ -627,33 +658,32 @@ test("Web OCR late-month recovery band keeps roster names and exact days", async
   expect(parsed[0].dayShifts).toEqual({"20":"D","21":"N","29":"GO","31":"SD"});
 });
 
-test("overnight time evidence can be closed after midnight", async ({page}) => {
-  await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
+test("legacy time-entry data is ignored by automatic calendar evidence", async ({page}) => {
   await page.goto("/");
-  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
-    if(!store.set("raspored.timeEntries.v1",JSON.stringify([
-      {id:"night-active",date:"2026-10-16",in:"19:00",out:null,note:"Noćna smjena"}
-    ])))throw new Error("Test evidence could not be queued after app readiness.");
+    store.set("raspored.timeEntries.v1",JSON.stringify([
+      {id:"legacy",date:"2026-10-16",in:"19:00",out:"23:00",note:"staro"}
+    ]));
+    store.set("raspored.schedule",JSON.stringify({"2026-10-16":"N"}));
     await store.flush();
   });
+  await page.reload();
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-  await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
-  await expect(page.locator("#clockOutBtn")).toBeEnabled();
-  await page.locator("#clockOutBtn").click();
-  await expect(page.locator("#hoursStatus")).toContainText("spremljena");
+  if(width<=820){
+    await page.locator('[data-route="home"]:visible').first().click();
+    await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
+  }else await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.locator("#hoursMonthTotal")).toContainText("12h");
+  await expect(page.locator("#hoursHistory")).not.toContainText("staro");
 });
-
 
 test("main routes have no page-level horizontal overflow or fixed-nav overlap", async ({page}) => {
   for (const route of ["home","calendar","scan","stats","payroll","hours","settings"]) {
     await page.goto("/");
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;
-      if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
+      if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Otvori evidenciju/i}).click();}
       else await page.locator('[data-route="hours"]:visible').first().click();
     }else if(route==="home"){
       await page.locator('[data-route="home"]:visible').first().click();
@@ -798,25 +828,9 @@ test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime b
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     const schedule:any={};
+    for(let day=2;day<=9;day++)schedule["2026-06-"+String(day).padStart(2,"0")]="D";
     for(let day=12;day<=22;day++)schedule["2026-06-"+String(day).padStart(2,"0")]="GO";
-    const evidence:any[]=[];
-    for(let i=0;i<8;i++){
-      const day=2+i;
-      const start=new Date("2026-06-"+String(day).padStart(2,"0")+"T07:00:00+02:00");
-      const end=new Date("2026-06-"+String(day).padStart(2,"0")+"T19:00:00+02:00");
-      evidence.push({
-        id:"june-"+i,
-        date:"2026-06-"+String(day).padStart(2,"0"),
-        in:"07:00",
-        out:"19:00",
-        note:"",
-        workType:"turnus",
-        startedAt:start.getTime(),
-        endedAt:end.getTime()
-      });
-    }
     store.set("raspored.schedule",JSON.stringify(schedule));
-    store.set("raspored.timeEntries.v1",JSON.stringify(evidence));
     await store.flush();
   });
   await openPayroll(page);
@@ -906,8 +920,8 @@ test("shift cards and chevrons open the expected destination", async ({page}) =>
   await page.locator('[data-route="home"]:visible').first().click();
   await expect(page.locator('[data-view="home"]')).toBeVisible();
   if(width<=820){
-    const note=page.locator("#mobileCurrentShift .mobile-shift-info-action").filter({hasText:"Bilješka"});
-    await note.click();
+    const evidence=page.locator("#mobileCurrentShift .mobile-shift-info-action").filter({hasText:"Otvori evidenciju"});
+    await evidence.click();
     await expect(page.locator('[data-view="hours"]')).toBeVisible();
     await page.locator('[data-route="home"]:visible').first().click();
 
@@ -965,7 +979,7 @@ test("application data is persisted through the JSON state API", async ({page}) 
   expect(stored.ok).toBe(true);
   expect(stored.state.revision).toBeGreaterThan(0);
   expect(stored.state.schedule["2026-10-16"]).toBe("D");
-  expect(stored.state.evidence.length).toBeGreaterThan(0);
+  expect(stored.state.evidence).toEqual([]);
   expect(stored.state.profile.name).toBe("Ivana Radić");
   expect(stored.state.colleagues).toHaveLength(2);
   expect(stored.state.scanSession.people).toHaveLength(3);

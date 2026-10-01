@@ -1,12 +1,8 @@
 package hr.raspored.app.data
 
-import java.time.Duration
-import java.time.Instant
+import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.YearMonth
-import java.time.ZoneId
-import java.time.ZonedDateTime
 
 data class EvidenceMonthSummary(
     val plannedMinutes: Long,
@@ -23,113 +19,65 @@ data class EvidenceMonthSummary(
     val balanceMinutes: Long get() = workedMinutes - plannedMinutes
 }
 
+/**
+ * Calendar-derived work evidence.
+ *
+ * RASPORED no longer requires clock-in/clock-out tracking. The calendar is the
+ * source of truth: D and N represent 12-hour shifts. Unknown/custom codes are
+ * preserved by the schedule store but do not receive invented durations.
+ */
 object EvidenceAnalytics {
-    private const val MAX_ENTRY_HOURS = 36L
+    const val DAY_SHIFT_MINUTES = 12L * 60L
+    const val NIGHT_SHIFT_MINUTES = 12L * 60L
+    const val NIGHT_WINDOW_MINUTES = 8L * 60L
 
     fun summarize(
         month: YearMonth,
-        entries: List<TimeEvidenceEntry>,
-        scheduleCodes: Map<String, String>,
-        fallbackToPlanned: Boolean,
-        zone: ZoneId = ZoneId.systemDefault()
+        scheduleCodes: Map<String, String>
     ): EvidenceMonthSummary {
         val holidays = CroatianHolidays.forYear(month.year)
-        val planned = (1..month.lengthOfMonth()).sumOf { day ->
-            when (scheduleCodes[month.atDay(day).toString()]) {
-                "D", "N" -> 12L * 60L
-                else -> 0L
-            }
-        }
-
         var worked = 0L
         var dayMinutes = 0L
         var nightMinutes = 0L
-        var otherMinutes = 0L
         var saturdayMinutes = 0L
         var sundayMinutes = 0L
         var holidayMinutes = 0L
         var weekendHolidayMinutes = 0L
         val weeks = MutableList(5) { 0L }
 
-        val monthStart = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val monthEnd = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        for (day in 1..month.lengthOfMonth()) {
+            val date = month.atDay(day)
+            val code = scheduleCodes[date.toString()].orEmpty()
+            val shiftMinutes = minutesForCode(code)
+            if (shiftMinutes == 0L) continue
 
-        val completed = entries.filter { entry ->
-            val rawEnd = entry.endedAt ?: return@filter false
-            val safeEnd = minOf(rawEnd, entry.startedAt + MAX_ENTRY_HOURS * 60L * 60L * 1000L)
-            entry.startedAt < monthEnd && safeEnd > monthStart
-        }
-
-        completed.forEach { entry ->
-            val rawEnd = entry.endedAt ?: return@forEach
-            val safeEnd = minOf(rawEnd, entry.startedAt + MAX_ENTRY_HOURS * 60L * 60L * 1000L)
-            var cursor = maxOf(entry.startedAt, monthStart)
-            val end = minOf(safeEnd, monthEnd)
-            if (end <= cursor) return@forEach
-
-            while (cursor < end) {
-                val cursorZoned = Instant.ofEpochMilli(cursor).atZone(zone)
-                val date = cursorZoned.toLocalDate()
-                val nextDay = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                val segmentEnd = minOf(end, nextDay)
-                val segmentMinutes = Duration.ofMillis(segmentEnd - cursor).toMinutes()
-                if (segmentMinutes <= 0L) {
-                    cursor = segmentEnd
-                    continue
-                }
-
-                val nightForDay = nightMinutesForSegment(cursor, segmentEnd, date, zone)
-                val dayForDay = (segmentMinutes - nightForDay).coerceAtLeast(0L)
-
-                worked += segmentMinutes
-                dayMinutes += dayForDay
-                nightMinutes += nightForDay
-
-                when (date.dayOfWeek.value) {
-                    6 -> saturdayMinutes += segmentMinutes
-                    7 -> sundayMinutes += segmentMinutes
-                }
-                val holiday = holidays.containsKey(date)
-                if (holiday) holidayMinutes += segmentMinutes
-                if (date.dayOfWeek.value >= 6 || holiday) {
-                    weekendHolidayMinutes += segmentMinutes
-                }
-
-                val week = minOf(4, (date.dayOfMonth - 1) / 7)
-                weeks[week] += segmentMinutes
-                cursor = segmentEnd
+            worked += shiftMinutes
+            if (code == "D") {
+                dayMinutes += shiftMinutes
+            } else if (code == "N") {
+                nightMinutes += NIGHT_WINDOW_MINUTES
+                dayMinutes += shiftMinutes - NIGHT_WINDOW_MINUTES
             }
-        }
 
-        if (completed.isEmpty() && fallbackToPlanned) {
-            worked = planned
-            for (day in 1..month.lengthOfMonth()) {
-                val date = month.atDay(day)
-                val code = scheduleCodes[date.toString()].orEmpty()
-                if (code != "D" && code != "N") continue
-                val minutes = 12L * 60L
-                if (code == "D") dayMinutes += minutes else nightMinutes += minutes
-                when (date.dayOfWeek.value) {
-                    6 -> saturdayMinutes += minutes
-                    7 -> sundayMinutes += minutes
-                }
-                val holiday = holidays.containsKey(date)
-                if (holiday) holidayMinutes += minutes
-                if (date.dayOfWeek.value >= 6 || holiday) {
-                    weekendHolidayMinutes += minutes
-                }
-                weeks[minOf(4, (day - 1) / 7)] += minutes
+            when (date.dayOfWeek) {
+                DayOfWeek.SATURDAY -> saturdayMinutes += shiftMinutes
+                DayOfWeek.SUNDAY -> sundayMinutes += shiftMinutes
+                else -> Unit
             }
+            val holiday = holidays.containsKey(date)
+            if (holiday) holidayMinutes += shiftMinutes
+            if (date.dayOfWeek in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) || holiday) {
+                weekendHolidayMinutes += shiftMinutes
+            }
+            weeks[minOf(4, (day - 1) / 7)] += shiftMinutes
         }
-
-        otherMinutes = (worked - dayMinutes - nightMinutes).coerceAtLeast(0L)
 
         return EvidenceMonthSummary(
-            plannedMinutes = planned,
+            plannedMinutes = worked,
             workedMinutes = worked,
             dayMinutes = dayMinutes,
             nightMinutes = nightMinutes,
-            otherMinutes = otherMinutes,
+            otherMinutes = 0L,
             saturdayMinutes = saturdayMinutes,
             sundayMinutes = sundayMinutes,
             holidayMinutes = holidayMinutes,
@@ -138,29 +86,31 @@ object EvidenceAnalytics {
         )
     }
 
-    private fun nightMinutesForSegment(
-        segmentStart: Long,
-        segmentEnd: Long,
-        date: LocalDate,
-        zone: ZoneId
-    ): Long {
-        val midnight = date.atStartOfDay(zone)
-        val six = date.atTime(LocalTime.of(6, 0)).atZone(zone)
-        val twentyTwo = date.atTime(LocalTime.of(22, 0)).atZone(zone)
-        val nextMidnight = date.plusDays(1).atStartOfDay(zone)
-
-        return overlapMinutes(segmentStart, segmentEnd, midnight, six) +
-            overlapMinutes(segmentStart, segmentEnd, twentyTwo, nextMidnight)
+    fun minutesForCode(code: String?): Long = when (ScheduleStore.normalizeCode(code)) {
+        "D" -> DAY_SHIFT_MINUTES
+        "N" -> NIGHT_SHIFT_MINUTES
+        else -> 0L
     }
 
-    private fun overlapMinutes(
-        segmentStart: Long,
-        segmentEnd: Long,
-        windowStart: ZonedDateTime,
-        windowEnd: ZonedDateTime
-    ): Long {
-        val start = maxOf(segmentStart, windowStart.toInstant().toEpochMilli())
-        val end = minOf(segmentEnd, windowEnd.toInstant().toEpochMilli())
-        return if (end > start) Duration.ofMillis(end - start).toMinutes() else 0L
+    fun hoursLabel(code: String?): String = when (ScheduleStore.normalizeCode(code)) {
+        "D", "N" -> "12 h"
+        "GO", "BO", "PD", "SD" -> "—"
+        null -> "—"
+        else -> "Nije definirano"
     }
+
+    fun shiftLabel(code: String?): String = when (val normalized = ScheduleStore.normalizeCode(code)) {
+        "D" -> "Dnevna smjena"
+        "N" -> "Noćna smjena"
+        "GO" -> "Godišnji odmor"
+        "BO" -> "Bolovanje"
+        "PD" -> "Plaćeni dopust"
+        "SD" -> "Slobodan dan"
+        null -> "Bez smjene"
+        else -> "Vlastita oznaka $normalized"
+    }
+
+    fun isWeekendOrHoliday(date: LocalDate): Boolean =
+        date.dayOfWeek in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) ||
+            CroatianHolidays.forYear(date.year).containsKey(date)
 }

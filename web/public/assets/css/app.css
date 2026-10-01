@@ -9,7 +9,7 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .scan-preview-image{display:none;width:100%;max-height:520px;object-fit:contain;border-radius:10px;background:#DDE3EA}
-.scan-preview.has-image .scan-preview-image{display:block}
+.scan-preview.has-image .scan-image-stage,.scan-preview.has-image .scan-preview-image{display:block}
 .scan-preview.has-image .fake-sheet,.scan-preview.has-image .scan-empty-state{display:none}
 .scan-status{margin:10px 4px 0;color:#E8F5FF;font-size:12px;font-weight:600}
 .scan-status>span{display:block;margin-bottom:7px}
@@ -466,3 +466,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .scan-conflict-panel p{margin:6px 0 10px;color:var(--muted);font-size:11px;line-height:1.45}
 .scan-conflict-actions{display:grid;gap:8px;margin-top:14px}
 .scan-conflict-actions>*{width:100%;min-height:44px}
+
+.scan-image-stage{position:relative;width:100%}.scan-row-crop{position:absolute;left:0;right:0;top:34%;height:10%;border:3px solid var(--cyan);background:rgba(0,194,255,.12);box-shadow:0 0 0 9999px rgba(0,0,0,.48);z-index:4;pointer-events:none;border-radius:8px}
+.scan-row-crop i{position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.85);transform:translateY(-50%)}
+.scan-single-mode{margin-top:10px;background:rgba(8,27,57,.96);border-radius:14px;padding:10px 12px;color:#fff}
+.scan-single-mode>label{display:flex;align-items:center;gap:10px;cursor:pointer}
+.scan-single-mode input[type="checkbox"]{width:20px;height:20px}
+.scan-single-mode span{display:flex;flex-direction:column;gap:2px}
+.scan-single-mode small{color:#C6D4EA;font-size:11px}
+.scan-crop-controls{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;margin-top:10px}
+.scan-crop-controls>span{font-size:11px;color:#D6E5F5}
+.scan-crop-controls input[type="range"]{width:100%}
+.scan-crop-controls button{grid-column:1/-1;width:100%;background:#fff}
+@media(max-width:540px){.scan-row-crop{left:0;right:0}.scan-crop-controls{grid-template-columns:1fr}.scan-crop-controls>span{margin-top:2px}}
+
+.scan-image-stage{display:none;position:relative;width:100%}
+.scan-preview.has-image .scan-image-stage{display:block}

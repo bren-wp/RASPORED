@@ -2,7 +2,7 @@
       <div class="hours-title-row">
         <div>
           <h1>Evidencija sati</h1>
-          <p>Bilježi stvarni ulaz i izlaz te prati odrađeno vrijeme.</p>
+          <p>Automatski se računa iz rasporeda u kalendaru — bez ručnog evidentiranja ulaza i izlaza.</p>
         </div>
         <span class="hours-date" id="hoursDate">—</span>
       </div>
@@ -11,52 +11,30 @@
         <section class="card hours-current-card">
           <div class="card-head">
             <div>
-              <small>Današnji status</small>
-              <h2 id="hoursStatus">Nema evidentiranog ulaza</h2>
+              <small>Izvor evidencije</small>
+              <h2>Raspored u kalendaru</h2>
             </div>
-            <span class="hours-status-pill" id="hoursStatusPill">Spremno</span>
+            <span class="hours-status-pill is-done">Automatski</span>
           </div>
           <div class="hours-shift-row">
             <span class="metric-icon"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg></span>
-            <div><small>Planirana smjena</small><b id="hoursPlannedShift">—</b></div>
+            <div><small>Pravilo obračuna</small><b>D / N = 12 h · custom oznake bez izmišljene satnice</b></div>
           </div>
           <div class="hours-live">
-            <div><small>Ulaz</small><b id="hoursInValue">—</b></div>
-            <div><small>Izlaz</small><b id="hoursOutValue">—</b></div>
-            <div><small>Odrađeno</small><b id="hoursDurationValue">0h 00min</b></div>
+            <div><small>Ukupno</small><b id="hoursMonthTotal">0 h</b></div>
+            <div><small>Noćni sati</small><b id="hoursNightTotal">0 h</b></div>
+            <div><small>Vikend/blagdan</small><b id="hoursWeekendTotal">0 h</b></div>
           </div>
-          <label class="hours-note hours-work-type">
-            <span>Vrsta rada</span>
-            <select id="hoursWorkType">
-              <option value="regular">Redovni rad</option>
-              <option value="shift1">1. smjena</option>
-              <option value="shift2">2. smjena</option>
-              <option value="shift3">3. smjena</option>
-              <option value="turnus">Turnus / 12-satni rad</option>
-              <option value="duty">Dežurstvo</option>
-              <option value="standby">Pripravnost</option>
-              <option value="callout">Rad po pozivu</option>
-              <option value="other">Drugi oblik rada</option>
-            </select>
-            <small>Trajanje se uvijek računa iz stvarnog ulaza i izlaza. Posebne naknade se ne izmišljaju ako za njih nema potvrđenog pravila.</small>
-          </label>
-          <div class="hours-actions">
-            <button class="primary-btn" id="clockInBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-check"></use></svg>Evidentiraj ulaz</button>
-            <button class="secondary-btn" id="clockOutBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg>Evidentiraj izlaz</button>
-          </div>
-          <label class="hours-note">
-            <span>Bilješka</span>
-            <textarea id="hoursNote" rows="3" maxlength="500" placeholder="Dodaj kratku bilješku uz evidenciju, po potrebi."></textarea>
-          </label>
+          <p class="hours-note">
+            Evidencija prikazuje detaljan mjesečni zapis izveden iz kalendara. Statistika je odvojena i služi za zbirne pokazatelje, usporedbe i trendove.
+          </p>
         </section>
 
         <section class="card hours-history-card">
           <div class="card-head">
-            <div><h2>Ovaj mjesec</h2><small id="hoursMonthLabel">—</small></div>
-            <strong id="hoursMonthTotal">0h 00min</strong>
+            <div><h2>Dnevna evidencija</h2><small id="hoursMonthLabel">—</small></div>
           </div>
           <div class="hours-history" id="hoursHistory"></div>
         </section>
       </div>
     </section>
-

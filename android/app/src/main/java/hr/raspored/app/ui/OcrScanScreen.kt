@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -35,6 +36,7 @@ import hr.raspored.app.ocr.AiScheduleVerifier
 import hr.raspored.app.ocr.ScheduleOcrEngine
 import hr.raspored.app.ocr.createOcrCaptureUri
 import hr.raspored.app.ocr.loadBitmap
+import hr.raspored.app.ocr.createSinglePersonOcrBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,6 +71,9 @@ internal fun OcrScanScreen(
     var reviewConflictIndex by remember { mutableIntStateOf(-1) }
     var customConflictCode by remember { mutableStateOf("") }
     var ocrGeneration by remember { mutableIntStateOf(0) }
+    var rosterIncomplete by remember { mutableStateOf(false) }
+    var singlePersonMode by remember { mutableStateOf(false) }
+    var personCropRange by remember { mutableStateOf(0.34f..0.44f) }
     val editedShifts = remember { mutableStateMapOf<Int, String>() }
 
     fun applyResult(recognized: RecognizedSchedule, keepReviewCells: Boolean = false) {
@@ -106,6 +111,10 @@ internal fun OcrScanScreen(
         val severeIncomplete = expectedRows?.let { expected ->
             foundRows * 100 < expected * 65
         } == true
+        rosterIncomplete = expectedRows?.let { expected ->
+            foundRows * 100 < expected * 88
+        } == true
+        val bestRowIndex = bestRecognizedRowIndex(recognized.rows)
         val rosterWarning = expectedRows?.let { expected ->
             if (foundRows * 100 < expected * 88) {
                 " Upozorenje: tablica izgleda kao raspored s približno $expected redaka, a pouzdano je očitano $foundRows. Za potpuni uvoz ponovi fotografiju tako da cijela tablica i svi stupci ostanu oštri."
@@ -125,10 +134,13 @@ internal fun OcrScanScreen(
                 message = "Osobe su pronađene, ali stupci dana nisu dovoljno pouzdano očitani. Ponovi fotografiju tako da se vide svi brojevi dana i cijela širina tablice."
             }
             severeIncomplete -> {
-                selectedRow = -1
-                phase = OcrPhase.Error
-                message = "Skeniranje nije dovoljno potpuno." + rosterWarning +
-                    " Rezultat nije označen kao dovršen kako se ne bi tiho izgubile osobe ili smjene."
+                selectedRow = bestRowIndex
+                if (bestRowIndex >= 0) {
+                    editedShifts.putAll(recognized.rows[bestRowIndex].dayShifts)
+                }
+                phase = OcrPhase.Success
+                message = "Skeniranje cijelog tima nije dovoljno potpuno." + rosterWarning +
+                    " Osobni raspored najpotpunije prepoznate osobe možeš provjeriti i spremiti; timski uvoz je blokiran dok roster nije potpun."
             }
             recognized.rows.size == 1 -> {
                 selectedRow = 0
@@ -139,13 +151,16 @@ internal fun OcrScanScreen(
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
             else -> {
-                selectedRow = -1
+                selectedRow = bestRowIndex
+                if (bestRowIndex >= 0) {
+                    editedShifts.putAll(recognized.rows[bestRowIndex].dayShifts)
+                }
                 phase = OcrPhase.Success
                 val countLabel = if (recognized.rows.size in 2..4) "${recognized.rows.size} osobe" else "${recognized.rows.size} osoba"
                 message = "Prepoznate su $countLabel i ukupno $totalRecognizedDays oznaka dana." +
                     rosterWarning +
                     if (emptyRows > 0) " $emptyRows numeriranih redaka nema pouzdano očitanu smjenu; provjeri ih." else "" +
-                    " Odaberi ime i prezime osobe čiji raspored želiš uvesti." +
+                    " Automatski je odabrana najpotpunije prepoznata osoba; izbor možeš promijeniti." +
                     if (recognized.month == null) " Mjesec nije pouzdano prepoznat; provjeri ga." else ""
             }
         }
@@ -160,19 +175,30 @@ internal fun OcrScanScreen(
         bitmap = source
         result = null
         selectedRow = -1
+        rosterIncomplete = false
         editedShifts.clear()
         editMode = false
         employeeMenu = false
         phase = OcrPhase.Processing
-        message = "Automatsko prepoznavanje..."
+        message = if (singlePersonMode) "Prepoznavanje označene osobe..." else "Automatsko prepoznavanje..."
+        val ocrSource = if (singlePersonMode) {
+            createSinglePersonOcrBitmap(
+                source = source,
+                topFraction = personCropRange.start,
+                bottomFraction = personCropRange.endInclusive
+            )
+        } else {
+            source
+        }
         ScheduleOcrEngine.recognize(
-            bitmap = source,
+            bitmap = ocrSource,
             onSuccess = { recognized ->
                 if (ocrGeneration == generation) {
                     applyResult(recognized)
                 } else if (!source.isRecycled) {
                     source.recycle()
                 }
+                if (ocrSource !== source && !ocrSource.isRecycled) ocrSource.recycle()
             },
             onError = {
                 if (ocrGeneration == generation) {
@@ -181,6 +207,7 @@ internal fun OcrScanScreen(
                 } else if (!source.isRecycled) {
                     source.recycle()
                 }
+                if (ocrSource !== source && !ocrSource.isRecycled) ocrSource.recycle()
             }
         )
     }
@@ -208,7 +235,13 @@ internal fun OcrScanScreen(
                 return@launch
             }
             if (loaded != null) {
-                process(loaded, generation)
+                if (singlePersonMode) {
+                    bitmap = loaded
+                    phase = OcrPhase.Idle
+                    message = "Namjesti plavi pojas preko imena i prezimena te cijelog retka rasporeda, zatim pokreni skeniranje označene osobe."
+                } else {
+                    process(loaded, generation)
+                }
             } else {
                 phase = OcrPhase.Error
                 message = errorMessage
@@ -370,7 +403,11 @@ internal fun OcrScanScreen(
                 Column(Modifier.weight(1f)) {
                     Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Slikaj cijelu tablicu ili učitaj fotografiju. Važno je da su vidljivi svi redci osoba i zaglavlje sa svim danima.",
+                        if (singlePersonMode) {
+                            "Učitaj cijelu fotografiju, zatim označi samo vodoravni redak jedne osobe — od imena i prezimena kroz sve dane."
+                        } else {
+                            "Slikaj cijelu tablicu ili učitaj fotografiju. Važno je da su vidljivi svi redci osoba i zaglavlje sa svim danima."
+                        },
                         color = RasporedTokens.Slate
                     )
                 }
@@ -403,6 +440,27 @@ internal fun OcrScanScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
+                            if (singlePersonMode) {
+                                Canvas(Modifier.matchParentSize()) {
+                                    val top = size.height * personCropRange.start
+                                    val bottom = size.height * personCropRange.endInclusive
+                                    drawRect(
+                                        color = Color(0x99000000),
+                                        size = androidx.compose.ui.geometry.Size(size.width, top)
+                                    )
+                                    drawRect(
+                                        color = Color(0x99000000),
+                                        topLeft = androidx.compose.ui.geometry.Offset(0f, bottom),
+                                        size = androidx.compose.ui.geometry.Size(size.width, size.height - bottom)
+                                    )
+                                    drawRect(
+                                        color = RasporedTokens.Cyan,
+                                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                                        size = androidx.compose.ui.geometry.Size(size.width, bottom - top),
+                                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f)
+                                    )
+                                }
+                            }
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
@@ -420,7 +478,11 @@ internal fun OcrScanScreen(
 
                     if (bitmap != null) {
                         Text(
-                            "OCR obrađuje cijelu fotografiju. U plavom okviru mora biti vidljiv cijeli raspored: sva imena i svi dani mjeseca.",
+                            if (singlePersonMode) {
+                                "Plavi pojas mora obuhvatiti samo jedan cijeli redak: broj retka / ime i prezime lijevo te sve ćelije rasporeda do zadnjeg dana desno. Zaglavlje dana aplikacija zadržava automatski."
+                            } else {
+                                "OCR obrađuje cijelu fotografiju. U plavom okviru mora biti vidljiv cijeli raspored: sva imena i svi dani mjeseca."
+                            },
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 9.dp),
                             color = Color.White,
                             fontSize = 11.sp
@@ -446,6 +508,73 @@ internal fun OcrScanScreen(
                             Icon(Icons.Outlined.Image, null, tint = Color.White)
                             Spacer(Modifier.width(7.dp))
                             Text("Odaberi iz galerije", color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0x1AFFFFFF),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Switch(
+                                    checked = singlePersonMode,
+                                    onCheckedChange = { enabled ->
+                                        singlePersonMode = enabled
+                                        result = null
+                                        selectedRow = -1
+                                        editedShifts.clear()
+                                        if (bitmap != null) {
+                                            phase = OcrPhase.Idle
+                                            message = if (enabled) {
+                                                "Namjesti plavi pojas preko jednog cijelog retka osobe, zatim pokreni skeniranje."
+                                            } else {
+                                                "Pokreni ponovno skeniranje cijele tablice."
+                                            }
+                                        }
+                                    }
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text("Samo jedna osoba", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("Crop redak imena + svi dani", color = Color(0xFFC6D4EA), fontSize = 11.sp)
+                                }
+                            }
+                            if (singlePersonMode && bitmap != null) {
+                                Text(
+                                    "Položaj označenog retka",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                                RangeSlider(
+                                    value = personCropRange,
+                                    onValueChange = { range ->
+                                        val minHeight = 0.035f
+                                        val start = range.start.coerceIn(0f, 0.96f)
+                                        val end = range.endInclusive.coerceIn(start + minHeight, 1f)
+                                        personCropRange = start..end
+                                    },
+                                    valueRange = 0f..1f
+                                )
+                                Button(
+                                    onClick = {
+                                        val source = bitmap
+                                        if (source != null && !source.isRecycled) {
+                                            val generation = ocrGeneration + 1
+                                            ocrGeneration = generation
+                                            process(source, generation)
+                                        }
+                                    },
+                                    enabled = phase != OcrPhase.Processing,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Outlined.Crop, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Skeniraj označenu osobu")
+                                }
+                            }
                         }
                     }
 
@@ -737,7 +866,9 @@ internal fun OcrScanScreen(
                             val rows = result?.rows.orEmpty().filter { it.dayShifts.isNotEmpty() }
                             if (rows.isNotEmpty()) onSaveTeamSchedules(recognizedMonth, rows)
                         },
-                        enabled = result?.rows.orEmpty().any { it.dayShifts.isNotEmpty() } && unresolvedConflicts == 0,
+                        enabled = !rosterIncomplete &&
+                            result?.rows.orEmpty().any { it.dayShifts.isNotEmpty() } &&
+                            unresolvedConflicts == 0,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
                     ) {
                         Icon(Icons.Outlined.Groups, null)
@@ -932,6 +1063,12 @@ private fun nextShiftCode(current: String): String {
     return order[(index + 1) % order.size]
 }
 
+
+internal fun bestRecognizedRowIndex(rows: List<RecognizedScheduleRow>): Int =
+    rows.indices.maxWithOrNull(
+        compareBy<Int> { rows[it].dayShifts.size }
+            .thenByDescending { rows[it].rowNumber ?: Int.MAX_VALUE }
+    ) ?: -1
 
 internal data class AiMergeResult(
     val schedule: RecognizedSchedule,

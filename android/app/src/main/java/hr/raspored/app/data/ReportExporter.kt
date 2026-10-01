@@ -7,9 +7,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
-import java.time.Instant
 import java.time.YearMonth
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -22,14 +20,12 @@ object ReportExporter {
         context: Context,
         month: YearMonth,
         schedule: Map<String, String>,
-        evidence: List<TimeEvidenceEntry>,
-        profileName: String = "",
-        zone: ZoneId = ZoneId.systemDefault()
+        profileName: String = ""
     ): Uri {
         val directory = File(context.cacheDir, "reports").apply { mkdirs() }
         val file = File(directory, "RASPORED-${month}.pdf")
         val document = PdfDocument()
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = 18f
             isFakeBoldText = true
@@ -41,25 +37,7 @@ object ReportExporter {
         val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 9.5f }
         val smallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 8f }
 
-        val reportNow = System.currentTimeMillis()
-        val monthStart = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val monthEnd = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
-
-        fun safeEnd(entry: TimeEvidenceEntry): Long =
-            minOf(
-                entry.endedAt ?: reportNow,
-                entry.startedAt + 36L * 60L * 60L * 1000L
-            )
-
-        fun overlaps(entry: TimeEvidenceEntry, start: Long, end: Long): Boolean =
-            entry.startedAt < end && safeEnd(entry) > start
-
-        val monthEntries = evidence.filter { overlaps(it, monthStart, monthEnd) }
-        val workedMinutes = monthEntries.sumOf { entry ->
-            val clippedStart = maxOf(entry.startedAt, monthStart)
-            val clippedEnd = minOf(safeEnd(entry), monthEnd)
-            ((clippedEnd - clippedStart).coerceAtLeast(0L) / 60_000L)
-        }
+        val summary = EvidenceAnalytics.summarize(month, schedule)
         val counts = listOf("D", "N", "GO", "BO", "PD", "SD")
             .associateWith { code ->
                 (1..month.lengthOfMonth()).count { day ->
@@ -87,7 +65,7 @@ object ReportExporter {
                 y += 14f
             }
             canvas.drawText(
-                "Odrađeno: ${workedMinutes / 60}h ${(workedMinutes % 60).toString().padStart(2, '0')}min",
+                "Sati iz kalendara: ${summary.workedMinutes / 60} h · noćni: ${summary.nightMinutes / 60} h",
                 36f,
                 y,
                 bodyPaint
@@ -102,9 +80,9 @@ object ReportExporter {
             y += 22f
             canvas.drawText("Datum", 36f, y, headingPaint)
             canvas.drawText("Raspored", 112f, y, headingPaint)
-            canvas.drawText("Evidencija rada", 220f, y, headingPaint)
+            canvas.drawText("Automatska evidencija", 300f, y, headingPaint)
             y += 9f
-            canvas.drawLine(36f, y, 560f, y, paint)
+            canvas.drawLine(36f, y, 560f, y, linePaint)
             y += 13f
         }
 
@@ -121,12 +99,9 @@ object ReportExporter {
 
         drawHeader()
         val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy.", Locale("hr", "HR"))
-        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale("hr", "HR"))
 
         for (day in 1..month.lengthOfMonth()) {
-            if (y > PAGE_HEIGHT - 52f) {
-                nextPage()
-            }
+            if (y > PAGE_HEIGHT - 52f) nextPage()
             val date = month.atDay(day)
             val code = schedule[date.toString()].orEmpty()
             val codeLabel = when (code) {
@@ -138,42 +113,24 @@ object ReportExporter {
                 "SD" -> "SD · slobodan dan"
                 else -> code.takeIf { it.isNotBlank() }?.let { "$it · vlastita oznaka" } ?: "—"
             }
-            val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
-            val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-            val entriesForDay = monthEntries.filter { overlaps(it, dayStart, dayEnd) }
-            val evidenceText = if (entriesForDay.isEmpty()) {
-                "—"
-            } else {
-                entriesForDay.joinToString(" | ") { entry ->
-                    val clippedStart = maxOf(entry.startedAt, dayStart)
-                    val clippedEnd = minOf(safeEnd(entry), dayEnd)
-                    val start = Instant.ofEpochMilli(clippedStart)
-                        .atZone(zone)
-                        .toLocalTime()
-                        .format(timeFormatter)
-                    val end = Instant.ofEpochMilli(clippedEnd)
-                        .atZone(zone)
-                        .toLocalTime()
-                        .format(timeFormatter)
-                    val active = if (entry.endedAt == null && clippedEnd == safeEnd(entry)) " · u tijeku" else ""
-                    "$start–$end (${workTypeLabel(entry.workType)})$active"
-                }.take(64)
+            val evidence = when (code) {
+                "D" -> "07:00–19:00 · 12 h"
+                "N" -> "19:00–07:00 · 12 h"
+                "GO", "BO", "PD", "SD", "" -> "—"
+                else -> "satnica nije definirana"
             }
-
             canvas.drawText(date.format(dateFormatter), 36f, y, bodyPaint)
             canvas.drawText(codeLabel, 112f, y, bodyPaint)
-            canvas.drawText(evidenceText, 220f, y, smallPaint)
+            canvas.drawText(evidence, 300f, y, smallPaint)
             y += 17f
         }
 
         y += 8f
-        if (y > PAGE_HEIGHT - 46f) {
-            nextPage()
-        }
-        canvas.drawLine(36f, y, 560f, y, paint)
+        if (y > PAGE_HEIGHT - 46f) nextPage()
+        canvas.drawLine(36f, y, 560f, y, linePaint)
         y += 15f
         canvas.drawText(
-            "Izvještaj je informativan. Noćni rad preko ponoći/mjeseca dijeli se prema stvarnom vremenu.",
+            "Evidencija je izvedena iz kalendara. Za vlastite oznake aplikacija ne izmišlja trajanje.",
             36f,
             y,
             smallPaint
@@ -183,17 +140,5 @@ object ReportExporter {
         FileOutputStream(file).use { document.writeTo(it) }
         document.close()
         return FileProvider.getUriForFile(context, context.packageName + ".files", file)
-    }
-
-    private fun workTypeLabel(type: String): String = when (WorkType.normalized(type)) {
-        WorkType.SHIFT_1 -> "1. smjena"
-        WorkType.SHIFT_2 -> "2. smjena"
-        WorkType.SHIFT_3 -> "3. smjena"
-        WorkType.TURNUS -> "turnus"
-        WorkType.DUTY -> "dežurstvo"
-        WorkType.STANDBY -> "pripravnost"
-        WorkType.CALLOUT -> "rad po pozivu"
-        WorkType.OTHER -> "drugo"
-        else -> "redovni rad"
     }
 }

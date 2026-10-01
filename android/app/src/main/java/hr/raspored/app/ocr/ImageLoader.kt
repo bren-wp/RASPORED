@@ -3,6 +3,9 @@ package hr.raspored.app.ocr
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -69,4 +72,52 @@ private fun scaleDown(bitmap: Bitmap): Bitmap {
     ).also { scaled ->
         if (scaled !== bitmap) bitmap.recycle()
     }
+}
+
+
+/**
+ * Builds a focused OCR image for one selected employee row.
+ *
+ * The top table header is preserved so day numbers remain available to the
+ * parser, while the selected horizontal row band is copied below it. This
+ * prevents other employees from polluting OCR without losing day-column
+ * geometry.
+ */
+fun createSinglePersonOcrBitmap(
+    source: Bitmap,
+    topFraction: Float,
+    bottomFraction: Float,
+    headerFraction: Float = 0.24f
+): Bitmap {
+    require(source.width > 0 && source.height > 0)
+    val top = topFraction.coerceIn(0f, 0.98f)
+    val bottom = bottomFraction.coerceIn(top + 0.01f, 1f)
+    val headerBottom = (source.height * headerFraction.coerceIn(0.08f, 0.40f))
+        .toInt()
+        .coerceIn(1, source.height)
+    val rowTop = (source.height * top).toInt().coerceIn(0, source.height - 1)
+    val rowBottom = (source.height * bottom).toInt().coerceIn(rowTop + 1, source.height)
+    val rowHeight = rowBottom - rowTop
+    val gap = (source.height * 0.01f).toInt().coerceAtLeast(4)
+    val output = Bitmap.createBitmap(
+        source.width,
+        headerBottom + gap + rowHeight,
+        Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(output)
+    canvas.drawColor(android.graphics.Color.WHITE)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+    canvas.drawBitmap(
+        source,
+        Rect(0, 0, source.width, headerBottom),
+        Rect(0, 0, output.width, headerBottom),
+        paint
+    )
+    canvas.drawBitmap(
+        source,
+        Rect(0, rowTop, source.width, rowBottom),
+        Rect(0, headerBottom + gap, output.width, headerBottom + gap + rowHeight),
+        paint
+    )
+    return output
 }

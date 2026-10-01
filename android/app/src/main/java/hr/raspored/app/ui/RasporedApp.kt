@@ -33,13 +33,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.R
+import hr.raspored.app.BuildConfig
 import hr.raspored.app.data.ScheduleStore
 import hr.raspored.app.data.CroatianHolidays
 import hr.raspored.app.data.TeamStore
 import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
-import hr.raspored.app.data.TimeEvidenceEntry
-import hr.raspored.app.data.TimeEvidenceStore
 import hr.raspored.app.data.ReportExporter
 import hr.raspored.app.data.RemoteAccountClient
 import hr.raspored.app.data.RemoteAccountStore
@@ -83,12 +82,9 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val context = LocalContext.current.applicationContext
     val store = remember(context) { ScheduleStore(context) }
     val uiSettings = remember(context) { UiSettingsStore(context) }
-    val evidenceStore = remember(context) { TimeEvidenceStore(context) }
     val teamStore = remember(context) { TeamStore(context) }
     val remoteAccountStore = remember(context) { RemoteAccountStore(context) }
     var remoteToken by remember { mutableStateOf(remoteAccountStore.token) }
-    var evidenceRevision by remember { mutableIntStateOf(0) }
-    val evidenceEntries = remember(evidenceRevision) { evidenceStore.load() }
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
@@ -96,7 +92,20 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
     val scope = rememberCoroutineScope()
     LaunchedEffect(store) {
         scheduleCodes.clear()
-        scheduleCodes.putAll(store.load())
+        var loaded = store.load()
+        if (BuildConfig.DEMO_MODE && loaded.isEmpty()) {
+            val month = YearMonth.from(appDate())
+            store.saveMonth(
+                month,
+                mapOf(
+                    1 to "D", 2 to "N", 5 to "D", 7 to "GO", 9 to "N",
+                    12 to "D", 14 to "PD", 17 to "N", 20 to "D", 23 to "BO",
+                    26 to "D", 28 to "SD", month.lengthOfMonth() to "N"
+                )
+            )
+            loaded = store.load()
+        }
+        scheduleCodes.putAll(loaded)
     }
     BackHandler(enabled = screen != Screen.Calendar) {
         screen = when (screen) {
@@ -177,7 +186,6 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                     onSync={
                         scheduleCodes.clear()
                         scheduleCodes.putAll(store.load())
-                        evidenceRevision++
                         scope.launch{snackbarHostState.showSnackbar("Podaci su osvježeni.")}
                     }
                 )
@@ -188,7 +196,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
         ){ padding ->
             Box(Modifier.padding(padding).fillMaxSize()){
                 when(screen){
-                    Screen.Home->HomeScreen(scheduleCodes,evidenceEntries){screen=it}
+                    Screen.Home->HomeScreen(scheduleCodes){screen=it}
                     Screen.Calendar->CalendarScreen(
                         scheduleCodes=scheduleCodes,
                         onShiftChange={date,code->
@@ -215,25 +223,22 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                             store.saveMonth(month, shifts)
                             (1..month.lengthOfMonth()).forEach { scheduleCodes.remove(month.atDay(it).toString()) }
                             shifts.forEach { (day, code) -> scheduleCodes[month.atDay(day).toString()] = code }
+                            scope.launch{
+                                snackbarHostState.showSnackbar("Raspored je uvezen u kalendar.")
+                            }
                             screen = Screen.Calendar
                         }
                     )
-                    Screen.Stats->StatsScreen(scheduleCodes,evidenceEntries,onPayroll={screen=Screen.Payroll})
-                    Screen.Payroll->PayrollScreen(evidenceEntries,scheduleCodes,onBack={screen=Screen.Stats})
-                    Screen.Hours->{
-                        val shift=currentShiftAt(appDateTime(),scheduleCodes)?.second
-                        TimeEvidenceScreen(
-                            plannedShiftCode=shift?.code,
-                            plannedShiftLabel=shift?.let{it.name+" · "+it.time} ?: "—",
-                            onBack={screen=Screen.Calendar},
-                            onEvidenceChanged={evidenceRevision++}
-                        )
-                    }
+                    Screen.Stats->StatsScreen(scheduleCodes,onPayroll={screen=Screen.Payroll})
+                    Screen.Payroll->PayrollScreen(scheduleCodes,onBack={screen=Screen.Stats})
+                    Screen.Hours->TimeEvidenceScreen(
+                        scheduleCodes=scheduleCodes,
+                        onBack={screen=Screen.Calendar}
+                    )
                     Screen.Settings->SettingsScreen(
                         darkMode=darkMode,
                         reducedMotion=reducedMotion,
                         scheduleCodes=scheduleCodes,
-                        evidenceEntries=evidenceEntries,
                         onDarkModeChange={
                             darkMode=it
                             uiSettings.darkMode=it
@@ -258,8 +263,16 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
             BrandMark()
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)){
-                Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
-                Text("Shift planner & evidencija sati",color=Color(0xFFC6D4EA),fontSize=10.sp)
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Text("RASPORED",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.ExtraBold)
+                    if(BuildConfig.DEMO_MODE){
+                        Spacer(Modifier.width(8.dp))
+                        Surface(shape=RoundedCornerShape(8.dp),color=Cyan){
+                            Text("DEMO",color=Navy,fontSize=9.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp))
+                        }
+                    }
+                }
+                Text("Shift planner & automatska evidencija",color=Color(0xFFC6D4EA),fontSize=10.sp)
             }
             if(screen==Screen.Calendar){
                 IconButton(onClick=onScan){
@@ -406,11 +419,6 @@ private fun minutesLabel(minutes:Long):String {
     return if(remainder==0L) hours.toString()+"h" else hours.toString()+"h "+remainder.toString().padStart(2,'0')+"min"
 }
 
-private fun signedMinutesLabel(minutes:Long):String {
-    val sign=when{minutes>0L->"+";minutes<0L->"-";else->""}
-    return sign+minutesLabel(kotlin.math.abs(minutes))
-}
-
 private fun largeMinutesLabel(minutes:Long):String {
     val safe=minutes.coerceAtLeast(0L)
     return (safe/60L).toString()+":"+((safe%60L).toString().padStart(2,'0'))+" h"
@@ -418,7 +426,6 @@ private fun largeMinutesLabel(minutes:Long):String {
 
 @Composable private fun HomeScreen(
     scheduleCodes:Map<String,String>,
-    evidenceEntries:List<TimeEvidenceEntry>,
     go:(Screen)->Unit
 ){
     val today=appDate()
@@ -426,9 +433,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     val data=scheduleFor(month,scheduleCodes)
     val analytics=EvidenceAnalytics.summarize(
         month=month,
-        entries=evidenceEntries,
-        scheduleCodes=codesForMonth(month,data),
-        fallbackToPlanned=false
+        scheduleCodes=codesForMonth(month,data)
     )
     val now=appDateTime()
     val currentEntry=currentShiftAt(now,scheduleCodes)
@@ -458,7 +463,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
                 MetricCard("Ovaj mjesec",minutesLabel(analytics.workedMinutes),"Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f))
-                MetricCard("Saldo sati",signedMinutesLabel(analytics.balanceMinutes),"Ukupni saldo",Icons.Outlined.BarChart,Modifier.weight(1f))
+                MetricCard("Broj smjena",data.values.count{it.code=="D"||it.code=="N"}.toString(),"D + N ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
             }
         }
         item{
@@ -519,7 +524,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             if(today){
                 HorizontalDivider(Modifier.padding(vertical=13.dp),color=MaterialTheme.colorScheme.outlineVariant)
                 InfoLine(Icons.Outlined.Schedule,"Radno vrijeme",if(shift.hours>0)shift.hours.toString()+"h" else "—")
-                InfoLine(Icons.Outlined.Checklist,"Evidentiraj ulaz/izlaz","›",onHours)
+                InfoLine(Icons.Outlined.Checklist,"Otvori evidenciju sati","›",onHours)
                 InfoLine(Icons.AutoMirrored.Outlined.Notes,"Bilješka","›",onHours)
             }
         }
@@ -904,7 +909,6 @@ private fun largeMinutesLabel(minutes:Long):String {
 
 @Composable private fun StatsScreen(
     scheduleCodes:Map<String,String>,
-    evidenceEntries:List<TimeEvidenceEntry>,
     onPayroll:()->Unit
 ){
     var month by remember { mutableStateOf(YearMonth.from(appDate())) }
@@ -914,15 +918,11 @@ private fun largeMinutesLabel(minutes:Long):String {
     val previousData=scheduleFor(previousMonth,scheduleCodes)
     val analytics=EvidenceAnalytics.summarize(
         month=month,
-        entries=evidenceEntries,
-        scheduleCodes=codesForMonth(month,data),
-        fallbackToPlanned=false
+        scheduleCodes=codesForMonth(month,data)
     )
     val previousAnalytics=EvidenceAnalytics.summarize(
         month=previousMonth,
-        entries=evidenceEntries,
-        scheduleCodes=codesForMonth(previousMonth,previousData),
-        fallbackToPlanned=false
+        scheduleCodes=codesForMonth(previousMonth,previousData)
     )
     val holidays=CroatianHolidays.forYear(month.year)
     val saturdayCount=data.count{(day,shift)->
@@ -1113,9 +1113,9 @@ private fun largeMinutesLabel(minutes:Long):String {
                     )
                     DetailLine(
                         Icons.Outlined.Balance,
-                        "Saldo sati",
-                        "Prema evidenciji",
-                        signedMinutesLabel(analytics.balanceMinutes)
+                        "Ukupno sati",
+                        "Automatski iz kalendara",
+                        minutesLabel(analytics.workedMinutes)
                     )
                 }
             }
@@ -1202,7 +1202,6 @@ private fun largeMinutesLabel(minutes:Long):String {
     darkMode:Boolean,
     reducedMotion:Boolean,
     scheduleCodes:Map<String,String>,
-    evidenceEntries:List<TimeEvidenceEntry>,
     onDarkModeChange:(Boolean)->Unit,
     onReducedMotionChange:(Boolean)->Unit
 ){
@@ -1225,7 +1224,6 @@ private fun largeMinutesLabel(minutes:Long):String {
                 context=context,
                 month=exportMonth,
                 schedule=scheduleCodes,
-                evidence=evidenceEntries,
                 profileName=""
             )
             val share=Intent(Intent.ACTION_SEND).apply{
@@ -1252,7 +1250,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                     Text("Izvoz",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Text(
-                        "Odaberi spremljeni mjesec i izradi PDF s rasporedom, vlastitim oznakama i evidentiranim radom.",
+                        "Odaberi spremljeni mjesec i izradi PDF s rasporedom, vlastitim oznakama i satima automatski izvedenima iz kalendara.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize=12.sp
                     )
