@@ -26,7 +26,6 @@ import hr.raspored.app.data.PayrollRegime
 import hr.raspored.app.data.PayrollSettings
 import hr.raspored.app.data.PayrollSettingsStore
 import hr.raspored.app.data.PublicSectorPayroll
-import hr.raspored.app.data.TimeEvidenceEntry
 import java.text.NumberFormat
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -34,7 +33,6 @@ import java.util.Locale
 
 @Composable
 internal fun PayrollScreen(
-    evidenceEntries: List<TimeEvidenceEntry>,
     scheduleCodes: Map<String, String>,
     onBack: () -> Unit
 ) {
@@ -109,12 +107,11 @@ internal fun PayrollScreen(
 
     val scheduleSnapshot = scheduleCodes.toSortedMap().toMap()
     val estimate = remember(
-        month, evidenceEntries, scheduleSnapshot, regimeId, coefficient, years, personalAllowance,
+        month, scheduleSnapshot, regimeId, coefficient, years, personalAllowance,
         taxLower, taxHigher, extra, secondShift, turnus, customBase
     ) {
         PublicSectorPayroll.estimate(
             month = month,
-            entries = evidenceEntries,
             scheduleCodes = scheduleSnapshot,
             regimeId = regimeId,
             coefficient = coefficient,
@@ -179,7 +176,7 @@ internal fun PayrollScreen(
                 Column(Modifier.weight(1f)) {
                     Text("Okvirna plaća", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Javni sektor RH · službeni parametri gdje postoje · stvarna Evidencija sati",
+                        "Javni sektor RH · službeni parametri gdje postoje · sati iz kalendara",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
