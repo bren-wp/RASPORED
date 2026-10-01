@@ -455,9 +455,10 @@ private fun largeMinutesLabel(minutes:Long):String {
     val monday=today.minusDays((today.dayOfWeek.value-1).toLong())
     val weekDates=(0L..6L).map{monday.plusDays(it)}
     val weekShifts=weekDates.map{date->date to shiftAt(date,scheduleCodes)}
-    val weekCount=weekShifts.count{(_,shift)->shift?.code=="D"||shift?.code=="N"}
-    val weekNight=weekShifts.count{(_,shift)->shift?.code=="N"}
-    val weekLeave=weekShifts.count{(_,shift)->shift?.code=="GO"||shift?.code=="PD"}
+    val weekTagged=weekShifts.count{(_,shift)->shift!=null}
+    val weekLeave=weekShifts.count{(_,shift)->
+        shift?.code=="GO"||shift?.code=="BO"||shift?.code=="PD"||shift?.code=="SD"
+    }
 
     LazyColumn(
         Modifier.fillMaxSize().testTag("screen-home").padding(horizontal=16.dp),
@@ -471,8 +472,8 @@ private fun largeMinutesLabel(minutes:Long):String {
         }
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-                StatMini("Smjene",weekCount.toString(),Cyan,Modifier.weight(1f))
-                StatMini("Noćne",weekNight.toString(),Purple,Modifier.weight(1f))
+                StatMini("Označeno",weekTagged.toString(),Cyan,Modifier.weight(1f))
+                StatMini("Sati",minutesLabel(analytics.workedMinutes),Purple,Modifier.weight(1f))
                 StatMini("Odsustva",weekLeave.toString(),Teal,Modifier.weight(1f))
             }
         }
