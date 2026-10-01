@@ -802,25 +802,9 @@ test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime b
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     const schedule:any={};
+    for(let day=2;day<=9;day++)schedule["2026-06-"+String(day).padStart(2,"0")]="D";
     for(let day=12;day<=22;day++)schedule["2026-06-"+String(day).padStart(2,"0")]="GO";
-    const evidence:any[]=[];
-    for(let i=0;i<8;i++){
-      const day=2+i;
-      const start=new Date("2026-06-"+String(day).padStart(2,"0")+"T07:00:00+02:00");
-      const end=new Date("2026-06-"+String(day).padStart(2,"0")+"T19:00:00+02:00");
-      evidence.push({
-        id:"june-"+i,
-        date:"2026-06-"+String(day).padStart(2,"0"),
-        in:"07:00",
-        out:"19:00",
-        note:"",
-        workType:"turnus",
-        startedAt:start.getTime(),
-        endedAt:end.getTime()
-      });
-    }
     store.set("raspored.schedule",JSON.stringify(schedule));
-    store.set("raspored.timeEntries.v1",JSON.stringify(evidence));
     await store.flush();
   });
   await openPayroll(page);
@@ -969,7 +953,7 @@ test("application data is persisted through the JSON state API", async ({page}) 
   expect(stored.ok).toBe(true);
   expect(stored.state.revision).toBeGreaterThan(0);
   expect(stored.state.schedule["2026-10-16"]).toBe("D");
-  expect(stored.state.evidence.length).toBeGreaterThan(0);
+  expect(stored.state.evidence).toEqual([]);
   expect(stored.state.profile.name).toBe("Ivana Radić");
   expect(stored.state.colleagues).toHaveLength(2);
   expect(stored.state.scanSession.people).toHaveLength(3);
