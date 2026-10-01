@@ -5,7 +5,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollToNode
 import java.time.YearMonth
 import org.junit.Rule
 import org.junit.Test
@@ -27,7 +28,8 @@ class RasporedSmokeTest {
 
         composeRule.onNodeWithTag("nav-home").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
-        composeRule.onNodeWithTag("home-hours").performScrollTo().performClick()
+        composeRule.onNodeWithTag("screen-home").performScrollToNode(hasTestTag("home-hours"))
+        composeRule.onNodeWithTag("home-hours").performClick()
         composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
         composeRule.onNodeWithText("‹ Natrag").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
