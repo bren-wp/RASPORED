@@ -118,7 +118,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
                 remoteAccountStore.clear()
                 remoteToken = null
                 snackbarHostState.showSnackbar(
-                    "Prijava je istekla ili je opozvana. Prijavi se ponovno."
+                    "Postojeća mrežna sesija je istekla ili je opozvana. Lokalne funkcije nastavljaju raditi."
                 )
             }
         }
