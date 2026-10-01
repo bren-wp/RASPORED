@@ -59,6 +59,8 @@ class RasporedSmokeTest {
 
         composeRule.onNodeWithTag("nav-settings").performClick()
         composeRule.onNodeWithTag("screen-settings").fetchSemanticsNode()
+        composeRule.onNodeWithText("Verzija " + BuildConfig.VERSION_NAME).performScrollTo().fetchSemanticsNode()
+        composeRule.onNodeWithText("Izradio Brendigo").performScrollTo().fetchSemanticsNode()
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
     }
