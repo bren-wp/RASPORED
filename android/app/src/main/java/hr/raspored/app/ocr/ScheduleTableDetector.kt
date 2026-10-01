@@ -48,7 +48,10 @@ internal object ScheduleTableDetector {
                 if (sampleWidth == cropped.width && sampleHeight == cropped.height) {
                     cropped
                 } else {
-                    Bitmap.createScaledBitmap(cropped, sampleWidth, sampleHeight, true).also {
+                    // Keep thin schedule grid rules crisp for geometry detection.
+                    // Bilinear filtering can erase 1–2 px horizontal lines after
+                    // downscaling and make a dense roster look artificially short.
+                    Bitmap.createScaledBitmap(cropped, sampleWidth, sampleHeight, false).also {
                         if (it !== cropped && !cropped.isRecycled) cropped.recycle()
                     }
                 }
