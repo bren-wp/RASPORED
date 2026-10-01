@@ -42,16 +42,19 @@ class RasporedSmokeTest {
         composeRule.onNodeWithContentDescription("Pomoć za skeniranje").performClick()
         composeRule.onNodeWithText("Kako dobiti dobar rezultat").fetchSemanticsNode()
         composeRule.onNodeWithText("U redu").performClick()
-        composeRule.onNodeWithContentDescription("Natrag").performClick()
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-stats").performClick()
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
         composeRule.onNodeWithText("Izračunaj okvirnu plaću ›").performClick()
         composeRule.onNodeWithTag("screen-payroll").fetchSemanticsNode()
-        composeRule.onNodeWithContentDescription("Natrag").performClick()
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-settings").performClick()
         composeRule.onNodeWithTag("screen-settings").fetchSemanticsNode()
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
     }
 }
