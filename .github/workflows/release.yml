@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ github.repository }}
@@ -48,6 +49,54 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+
+      - name: Backfill missing green releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          backfill_release() {
+            local version="$1"
+            local run_id="$2"
+            local target_sha="$3"
+            local dir="${RUNNER_TEMP}/backfill-v${version}"
+
+            if gh release view "v${version}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "v${version} already exists; skipping backfill."
+              return 0
+            fi
+
+            rm -rf "$dir"
+            mkdir -p "$dir"
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name RASPORED-android --dir "$dir"
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name RASPORED-web --dir "$dir"
+
+            local web_zip
+            web_zip="$(find "$dir" -maxdepth 1 -type f -name "RASPORED-web-v${version}.zip" -print -quit)"
+            test -s "$dir/RASPORED.apk"
+            test -s "$dir/RASPORED.aab"
+            test -n "$web_zip"
+            test -s "$web_zip"
+            unzip -tq "$dir/RASPORED.apk"
+            unzip -tq "$dir/RASPORED.aab"
+            unzip -tq "$web_zip"
+
+            (
+              cd "$dir"
+              sha256sum RASPORED.apk RASPORED.aab "$(basename "$web_zip")" > SHA256SUMS
+              sha256sum -c SHA256SUMS
+            )
+
+            gh release create "v${version}"               "$dir/RASPORED.apk"               "$dir/RASPORED.aab"               "$web_zip"               "$dir/SHA256SUMS"               --repo "$GITHUB_REPOSITORY"               --target "$target_sha"               --title "RASPORED v${version}"               --notes "Naknadno objavljeno izdanje iz originalnog potpuno zelenog CI runa #${run_id}. Artefakti nisu ponovno generirani iz novije verzije koda; prije objave ponovno su provjereni ZIP integritet i SHA-256."
+          }
+
+          # v1.0.13: main CI #683, merge commit PR #27.
+          backfill_release "1.0.13" "36795930413" "c458a662c333bca0b4e04c3f0494e33af81caf82"
+
+          # v1.0.14: main CI #696, merge commit PR #28. Ako ga release #37 već objavi, ovo je no-op.
+          backfill_release "1.0.14" "36798985502" "51e4746856cfac62a366c7dee82a8271d5ebd70d"
 
       - name: Detect optional Android release signing
         id: signing
