@@ -1384,7 +1384,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                         onClick={openExternal("mailto:info@brendigo.com")}
                     )
                     HorizontalDivider()
-                    Text("Developer",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Izradio",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     SupportAction(
                         icon=Icons.Outlined.Language,
                         title="Brendigo",
