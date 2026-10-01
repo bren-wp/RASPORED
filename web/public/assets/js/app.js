@@ -1074,8 +1074,14 @@ function route(name){
   }
   state.route=name;document.body.dataset.routeCurrent=name;
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
-  var navRoute=name==="payroll"?"stats":name;
-  document.querySelectorAll("[data-route]").forEach(function(x){if(x.closest(".side-nav")||x.closest(".bottom-nav"))x.classList.toggle("is-active",x.dataset.route===navRoute)});
+  var desktopNavRoute=name==="payroll"?"stats":name;
+  var mobileNavRoute=name==="home"?"calendar":name==="payroll"?"stats":name;
+  document.querySelectorAll(".side-nav [data-route]").forEach(function(x){
+    x.classList.toggle("is-active",x.dataset.route===desktopNavRoute);
+  });
+  document.querySelectorAll(".bottom-nav [data-route]").forEach(function(x){
+    x.classList.toggle("is-active",x.dataset.route===mobileNavRoute);
+  });
   if(name==="stats")renderStats();
   if(name==="hours")renderHours();
   if(name==="colleagues")renderColleagues();
