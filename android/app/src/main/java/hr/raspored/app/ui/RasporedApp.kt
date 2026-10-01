@@ -111,8 +111,8 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
         val validation = withContext(Dispatchers.IO) {
             runCatching { RemoteAccountClient.current(token) }
         }
-        validation.onSuccess { account ->
-            remoteAccountStore.updateAccount(account)
+        validation.onSuccess {
+            // Existing encrypted tokens remain valid for optional AI verification.
         }.onFailure { error ->
             if (error is RemoteSessionInvalidException) {
                 remoteAccountStore.clear()
