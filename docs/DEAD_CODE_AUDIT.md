@@ -24,4 +24,4 @@ A release is blocked when a private Kotlin symbol is provably unreferenced. JS/P
 
 ## Current cleanup
 
-The calendar redesign removed the obsolete quick-paint/multi-select flow and the dead `weeklyHours()` helper. Profile name, registration and login UI were removed from Android Settings. Further candidates found by CI are reviewed and removed before release.
+The calendar redesign removed the obsolete quick-paint/multi-select flow and the dead `weeklyHours()` helper. Profile name, registration and login UI were removed from Android Settings. v1.0.19 additionally removed the obsolete Android `TimeEvidenceStore`, clock-in/clock-out entry model and tests, plus the Web clock-in/out handlers and minute-timer refresh. Evidence, statistics, payroll and PDF reporting now derive work hours from the confirmed calendar. The demo no longer maintains a duplicate Kotlin mini-app; it compiles the production Android sources and resources with demo-only build configuration/data. Further candidates found by CI are reviewed and removed before release.
