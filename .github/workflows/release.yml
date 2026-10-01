@@ -49,13 +49,36 @@ jobs:
         with:
           node-version: 22
 
-      - name: Android QA and APK
+      - name: Prepare Android upload keystore
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        shell: bash
         run: |
           set -euo pipefail
-          gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease
+          for name in ANDROID_UPLOAD_KEYSTORE_BASE64 ANDROID_UPLOAD_STORE_PASSWORD ANDROID_UPLOAD_KEY_ALIAS ANDROID_UPLOAD_KEY_PASSWORD; do
+            [[ -n "${!name:-}" ]] || { echo "Missing required GitHub Secret: $name" >&2; exit 1; }
+          done
+          KEYSTORE_PATH="${RUNNER_TEMP}/raspored-upload.jks"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          echo "RASPORED_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "RASPORED_RELEASE_STORE_PASSWORD=$ANDROID_UPLOAD_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "RASPORED_RELEASE_KEY_ALIAS=$ANDROID_UPLOAD_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "RASPORED_RELEASE_KEY_PASSWORD=$ANDROID_UPLOAD_KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Android QA and signed release artifacts
+        run: |
+          set -euo pipefail
+          gradle -p android :app:assembleRelease :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+          cp android/app/build/outputs/apk/release/app-release.apk dist/RASPORED.apk
           cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/RASPORED.apk
+          jarsigner -verify -strict -certs dist/RASPORED.aab
 
       - name: Enable KVM
         run: |
@@ -126,7 +149,7 @@ jobs:
             dist/SHA256SUMS \
             --target "$RELEASE_SHA" \
             --title "RASPORED v${VERSION}" \
-            --notes "Produkcijsko izdanje RASPORED-a. Sadrži instalabilni Android APK, release AAB za završnu Play Console obradu i Web/PWA paket. APK je automatski potpisan standardnim Android debug potpisom. AAB se gradi kao release bundle bez trajnog upload ključa; za stvarno slanje u Google Play potreban je stabilan upload potpis izvan repozitorija."
+            --notes "Produkcijsko izdanje RASPORED-a. Sadrži release-potpisani Android APK, upload-potpisani AAB za Play Console i Web/PWA paket. Android ključevi dolaze isključivo iz GitHub Secrets i nisu dio repozitorija ni release artefakata. Prije objave workflow provjerava potpise, ZIP integritet i SHA-256 kontrolne vrijednosti."
 
       - uses: actions/upload-artifact@v4
         with:
