@@ -102,65 +102,55 @@ function holidayMap(year){
   [[1,1],[1,6],[5,1],[5,30],[6,22],[8,5],[8,15],[11,1],[11,18],[12,25],[12,26]].forEach(function(x){add(x[0],x[1])});
   var e=easter(year);out[iso(e)]=true;out[iso(addDays(e,1))]=true;out[iso(addDays(e,60))]=true;return out;
 }
-function interval(entry){
-  if(!entry||!entry.date||!entry.in)return null;
-  var start=entry.startedAt==null?NaN:Number(entry.startedAt);
-  if(!Number.isFinite(start))start=new Date(entry.date+"T"+entry.in+":00").getTime();
-  if(!Number.isFinite(start))return null;
-  var end=entry.endedAt==null?NaN:Number(entry.endedAt);
-  if(!Number.isFinite(end)){
-    if(entry.out){
-      end=new Date(entry.date+"T"+entry.out+":00").getTime();
-      if(end<=start)end+=24*60*60*1000;
-    }else end=Date.now();
-  }
-  if(!Number.isFinite(end)||end<=start)return null;
-  return {start:start,end:Math.min(end,start+36*60*60*1000)};
-}
 function evidenceForMonth(year,monthIndex){
-  var data=snapshot(),entries=Array.isArray(data.evidence)?data.evidence:[],holidays=holidayMap(year);
+  var data=snapshot();
+  var schedule=data&&data.schedule&&typeof data.schedule==="object"?data.schedule:{};
+  var holidays=holidayMap(year);
   var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,goDays:0,boDays:0,pdDays:0,sdDays:0,compensated:0,absenceCompensated:0,holidayCompensated:0,holidayCompensatedDays:0,active:false,workedDates:{}};
-  entries.forEach(function(entry){
-    var span=interval(entry);if(!span)return;
-    if(!entry.out&&entry.endedAt==null)result.active=true;
-    for(var t=span.start;t<span.end;t+=60000){
+
+  function accountShift(startDate,code){
+    var start=code==="D"
+      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),7,0,0)
+      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0);
+    var end=code==="D"
+      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0)
+      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+1,7,0,0);
+    for(var t=start.getTime();t<end.getTime();t+=60000){
       var d=new Date(t);
       if(d.getFullYear()!==year||d.getMonth()!==monthIndex)continue;
+      var key=iso(d),hour=d.getHours();
       result.total++;
-      result.workedDates[iso(d)]=true;
-      var hour=d.getHours();
+      result.workedDates[key]=true;
       if(hour>=22||hour<6)result.night++;
       if(d.getDay()===6)result.saturday++;
       if(d.getDay()===0)result.sunday++;
-      if(holidays[iso(d)])result.holiday++;
+      if(holidays[key])result.holiday++;
       if(hour>=14&&hour<22)result.secondShift++;
-      var workType=entry.workType||"regular";
-      if(workType==="shift1")result.shift1++;
-      else if(workType==="shift2")result.shift2++;
-      else if(workType==="shift3")result.shift3++;
-      else if(workType==="turnus")result.turnus++;
-      else if(workType==="duty")result.duty++;
-      else if(workType==="standby")result.standby++;
-      else if(workType==="callout")result.callout++;
+      if(code==="D")result.shift1++;else result.shift3++;
+    }
+  }
+
+  Object.keys(schedule).forEach(function(dateKey){
+    var d=new Date(dateKey+"T12:00:00");
+    if(Number.isNaN(d.getTime()))return;
+    var code=schedule[dateKey];
+    if(d.getFullYear()===year&&d.getMonth()===monthIndex){
+      if(code==="D"||code==="N")accountShift(d,code);
+      else if(code==="GO")result.goDays++;
+      else if(code==="BO")result.boDays++;
+      else if(code==="PD")result.pdDays++;
+      else if(code==="SD")result.sdDays++;
     }
   });
-  var schedule=data&&data.schedule&&typeof data.schedule==="object"?data.schedule:{};
+
+  var previous=new Date(year,monthIndex,0,12,0,0);
+  if(schedule[iso(previous)]==="N")accountShift(previous,"N");
+
+  var compensatedDates={},absenceDates={};
   Object.keys(schedule).forEach(function(dateKey){
-    var d=new Date(dateKey+"T12:00:00");
+    var code=schedule[dateKey],d=new Date(dateKey+"T12:00:00");
     if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
-    var code=schedule[dateKey];
-    if(code==="GO")result.goDays++;
-    else if(code==="BO")result.boDays++;
-    else if(code==="PD")result.pdDays++;
-    else if(code==="SD")result.sdDays++;
-  });
-  var compensatedDates={};
-  var absenceDates={};
-  Object.keys(schedule).forEach(function(dateKey){
-    var code=schedule[dateKey];
-    var d=new Date(dateKey+"T12:00:00");
-    if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
-    if((code==="GO"||code==="BO"||code==="PD")&&!result.workedDates[dateKey]){
+    if(code==="GO"||code==="BO"||code==="PD"){
       compensatedDates[dateKey]=true;
       absenceDates[dateKey]=true;
     }
@@ -169,7 +159,7 @@ function evidenceForMonth(year,monthIndex){
   Object.keys(holidays).forEach(function(dateKey){
     var d=new Date(dateKey+"T12:00:00");
     if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
-    if(d.getDay()!==0&&d.getDay()!==6&&!result.workedDates[dateKey]){
+    if(d.getDay()!==0&&d.getDay()!==6&&!result.workedDates[dateKey]&&!absenceDates[dateKey]){
       compensatedDates[dateKey]=true;
       holidayCompensatedDates[dateKey]=true;
     }
@@ -373,9 +363,9 @@ function render(){
   var overtime=Math.max(0,evidence.total+evidence.compensated-fund*60);
   var secondEnabled=!!qs("payrollSecondShift").checked&&rates.secondShift!=null;
   var turnusEnabled=!!qs("payrollTurnus").checked&&rates.turnus!=null;
-  var turnusMinutes=turnusEnabled?evidence.turnus:0;
+  var turnusMinutes=turnusEnabled?evidence.total:0;
   var secondShiftMinutes=secondEnabled
-    ?(evidence.shift2>0?evidence.shift2:(turnusMinutes>0?0:evidence.secondShift))
+    ?(turnusMinutes>0?0:evidence.secondShift)
     :0;
   var components=[];
   function addComponent(label,minutes,rate){
@@ -417,8 +407,8 @@ function render(){
   qs("payrollBasicGross").textContent=base>0?money(basicGross):"—";
   qs("payrollAdditions").textContent=base>0?money(overtimeBase+additions+customAddition):"—";
   qs("payrollEvidenceHint").textContent=evidence.total
-    ?("Iz "+hours(evidence.total)+" evidentiranog rada"+(evidence.active?" uključujući aktivnu evidenciju.":"."))
-    :"Nema evidentiranih sati; prikazana je osnovna mjesečna procjena bez dodataka iz rada.";
+    ?("Iz "+hours(evidence.total)+" rada automatski izračunatog iz kalendara.")
+    :"U kalendaru nema D/N smjena; prikazana je osnovna mjesečna procjena bez dodataka iz rada.";
   qs("payrollTaxSummary").textContent="MIO 20% · osobni odbitak "+money(allowance)+" · porez "+number(lower,1)+"% / "+number(higher,1)+"% prema prebivalištu.";
 
   var roleNote=qs("payrollRoleNote");
@@ -451,9 +441,9 @@ function render(){
   }
   if(overtime>0)rows.push({label:"Osnovna satnica prekovremenih sati",minutes:overtime,value:overtimeBase,rate:null});
   rows=rows.concat(components);
-  if(evidence.shift1)rows.push({label:"1. smjena — evidentirano",minutes:evidence.shift1,rate:null,value:null});
-  if(evidence.shift2)rows.push({label:"2. smjena — evidentirano",minutes:evidence.shift2,rate:null,value:null});
-  if(evidence.shift3)rows.push({label:"3. smjena — evidentirano",minutes:evidence.shift3,rate:null,value:null});
+  if(evidence.shift1)rows.push({label:"1. smjena — iz kalendara",minutes:evidence.shift1,rate:null,value:null});
+  if(evidence.shift2)rows.push({label:"2. smjena — iz kalendara",minutes:evidence.shift2,rate:null,value:null});
+  if(evidence.shift3)rows.push({label:"3. smjena — iz kalendara",minutes:evidence.shift3,rate:null,value:null});
   if(evidence.duty)rows.push({label:"Dežurstvo — poseban obračun",minutes:evidence.duty,rate:null,value:null});
   if(evidence.standby)rows.push({label:"Pripravnost — poseban obračun",minutes:evidence.standby,rate:null,value:null});
   if(evidence.callout)rows.push({label:"Rad po pozivu — poseban obračun",minutes:evidence.callout,rate:null,value:null});
