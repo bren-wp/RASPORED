@@ -64,8 +64,8 @@ private val Slate=RasporedTokens.Slate
 private val Dbg=RasporedTokens.CyanSoft
 private val Nbg=RasporedTokens.NavyAlt
 private val GObg=RasporedTokens.TealSoft
-private val BObg=RasporedTokens.RedSoft
-private val PDbg=RasporedTokens.Amber
+private val BObg=RasporedTokens.Amber
+private val PDbg=RasporedTokens.RedSoft
 private val SDbg=Color(0xFF1A2940)
 
 private enum class Screen { Home, Calendar, Scan, Stats, Payroll, Hours, Settings }
@@ -174,7 +174,7 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
             containerColor=MaterialTheme.colorScheme.background,
             snackbarHost={ SnackbarHost(snackbarHostState) },
             topBar={
-                if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Calendar})
+                if(screen==Screen.Scan) ScanHeader(onBack={screen=Screen.Home})
                 else BrandHeader(
                     screen=screen,
                     onScan={screen=Screen.Scan},
@@ -538,7 +538,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Spacer(Modifier.width(6.dp))
                     Text("Statistika",fontWeight=FontWeight.Bold)
                 }
-                OutlinedButton(onClick={go(Screen.Hours)},modifier=Modifier.weight(1f).height(52.dp),shape=RoundedCornerShape(15.dp)){
+                OutlinedButton(onClick={go(Screen.Hours)},modifier=Modifier.weight(1f).height(52.dp).testTag("home-hours"),shape=RoundedCornerShape(15.dp)){
                     Icon(Icons.AutoMirrored.Outlined.Notes,null)
                     Spacer(Modifier.width(6.dp))
                     Text("Evidencija",fontWeight=FontWeight.Bold)
@@ -1459,4 +1459,4 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 
 private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"GO"->GObg;"BO"->BObg;"PD"->PDbg;"SD"->SDbg;else->Color(0xFF20314A)}
-private fun shiftFg(s:Shift)=when(s.code){"D","N","GO","BO"->Color.White;"PD"->Navy;"SD"->Color(0xFFD7E3F4);else->Color(0xFFD7E3F4)}
+private fun shiftFg(s:Shift)=when(s.code){"D","N","GO","PD"->Color.White;"BO"->Navy;"SD"->Color(0xFFD7E3F4);else->Color(0xFFD7E3F4)}
