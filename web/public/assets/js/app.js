@@ -3,6 +3,7 @@
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
 var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanLocalRawText:"",aiConsentGranted:false};
+var pendingHoursWorkType=null;
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -945,7 +946,11 @@ function renderHours(){
   if(outEl)outEl.textContent=latest&&latest.out?latest.out:"—";
   if(durationEl)durationEl.textContent=latest?durationLabel(durationMinutes(latest,now)):"0h 00min";
   if(note&&document.activeElement!==note)note.value=latest&&latest.note?latest.note:"";
-  if(workType&&document.activeElement!==workType)workType.value=normalizeWorkType(latest&&latest.workType);
+  if(workType){
+    if(active)pendingHoursWorkType=normalizeWorkType(active.workType);
+    else if(pendingHoursWorkType===null)pendingHoursWorkType=normalizeWorkType(latest&&latest.workType);
+    if(document.activeElement!==workType)workType.value=normalizeWorkType(pendingHoursWorkType);
+  }
   var inBtn=document.getElementById("clockInBtn"),outBtn=document.getElementById("clockOutBtn");
   if(inBtn)inBtn.disabled=!!active;
   if(outBtn)outBtn.disabled=!active;
@@ -958,7 +963,8 @@ function clockIn(){
   var entries=loadTimeEntries(),now=appNow(),today=iso(now);
   if(activeTimeEntry(entries)){toast("Ulaz je već evidentiran.");return}
   var workType=document.getElementById("hoursWorkType");
-  entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:"",workType:normalizeWorkType(workType&&workType.value),startedAt:now.getTime(),endedAt:null});
+  pendingHoursWorkType=normalizeWorkType(workType&&workType.value);
+  entries.push({id:String(Date.now()),date:today,in:hhmm(now),out:null,note:"",workType:pendingHoursWorkType,startedAt:now.getTime(),endedAt:null});
   if(!saveTimeEntries(entries)){toast("Ulaz nije spremljen u storage/data.");return}
   renderAll();toast("Ulaz je evidentiran.")
 }
@@ -976,9 +982,11 @@ function saveHoursNote(){
   entry.note=note.value.trim().slice(0,500);if(!saveTimeEntries(entries))toast("Bilješku nije moguće spremiti.")
 }
 function saveHoursWorkType(){
-  var entries=loadTimeEntries(),today=iso(appNow()),entry=activeTimeEntry(entries)||latestTimeEntry(entries,today),select=document.getElementById("hoursWorkType");
-  if(!entry||!select)return;
-  entry.workType=normalizeWorkType(select.value);
+  var entries=loadTimeEntries(),entry=activeTimeEntry(entries),select=document.getElementById("hoursWorkType");
+  if(!select)return;
+  pendingHoursWorkType=normalizeWorkType(select.value);
+  if(!entry)return;
+  entry.workType=pendingHoursWorkType;
   if(!saveTimeEntries(entries))toast("Vrstu rada nije moguće spremiti.");
   else renderHours();
 }

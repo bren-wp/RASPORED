@@ -2,6 +2,7 @@ package hr.raspored.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -103,6 +104,14 @@ private val NONE=Shift("","Redovni slobodni dan","—",0)
         scheduleCodes.clear()
         scheduleCodes.putAll(store.load())
     }
+    BackHandler(enabled = screen != Screen.Calendar) {
+        screen = when (screen) {
+            Screen.Payroll -> Screen.Stats
+            Screen.Calendar -> Screen.Calendar
+            else -> Screen.Calendar
+        }
+    }
+
     LaunchedEffect(remoteToken) {
         val token = remoteToken ?: return@LaunchedEffect
         val validation = withContext(Dispatchers.IO) {
