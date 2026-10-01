@@ -80,8 +80,9 @@ jobs:
           APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs dist/RASPORED.apk
-          jarsigner -verify -verbose -certs dist/RASPORED.aab > dist/aab-signature.txt
-          grep -q "jar verified" dist/aab-signature.txt
+          SIGNATURE_REPORT="${RUNNER_TEMP}/raspored-aab-signature.txt"
+          jarsigner -verify -verbose -certs dist/RASPORED.aab > "$SIGNATURE_REPORT"
+          grep -q "jar verified" "$SIGNATURE_REPORT"
           unzip -l dist/RASPORED.aab | grep -Eq 'META-INF/[^/]+\.(RSA|DSA|EC)
       - name: Enable KVM
         run: |
@@ -157,7 +158,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: raspored-v${{ steps.version.outputs.version }}
-          path: dist/*
+          path: |
+            dist/RASPORED.apk
+            dist/RASPORED.aab
+            dist/RASPORED-web-v${{ steps.version.outputs.version }}.zip
+            dist/SHA256SUMS
           if-no-files-found: error
 
 
