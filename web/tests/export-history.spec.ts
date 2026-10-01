@@ -73,6 +73,60 @@ test("schedule storage and state API normalize OCR zero variants", async ({page}
 });
 
 
+test("smart OCR review session survives server round-trip and reload", async ({page}) => {
+  await openReady(page);
+  const before=await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    const saved=store.set("raspored.scan.v1",JSON.stringify({
+      people:[
+        {row:4,name:"Ana Horvat",dayShifts:{"1":"D","2":"G0"}}
+      ],
+      reviewCells:[
+        {
+          employeeRow:4,
+          employeeName:"Ana Horvat",
+          day:1,
+          localCode:"D",
+          aiCode:"N",
+          selectedCode:"D",
+          source:"local",
+          conflict:true,
+          manuallyConfirmed:false
+        }
+      ],
+      selected:0,
+      month:{year:2026,month:10},
+      expectedRows:27,
+      incomplete:true
+    }));
+    if(!saved)throw new Error("Scan session could not be queued after app readiness.");
+    await store.flush();
+    return JSON.parse(store.get("raspored.scan.v1")||"{}");
+  });
+
+  expect(before.people[0].dayShifts["2"]).toBe("GO");
+  expect(before.reviewCells).toHaveLength(1);
+  expect(before.reviewCells[0].conflict).toBe(true);
+  expect(before.expectedRows).toBe(27);
+  expect(before.incomplete).toBe(true);
+
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const after=await page.evaluate(() => {
+    return JSON.parse((window as any).RasporedDataStore.get("raspored.scan.v1")||"{}");
+  });
+
+  expect(after.reviewCells).toHaveLength(1);
+  expect(after.reviewCells[0].employeeName).toBe("Ana Horvat");
+  expect(after.reviewCells[0].localCode).toBe("D");
+  expect(after.reviewCells[0].aiCode).toBe("N");
+  expect(after.reviewCells[0].conflict).toBe(true);
+  expect(after.reviewCells[0].manuallyConfirmed).toBe(false);
+  expect(after.expectedRows).toBe(27);
+  expect(after.incomplete).toBe(true);
+});
+
+
 test("legacy evidence without millisecond timestamps keeps its worked duration", async ({page}) => {
   await openReady(page);
   const width=page.viewportSize()?.width ?? 1440;
