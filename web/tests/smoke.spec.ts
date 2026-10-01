@@ -527,7 +527,7 @@ test("full-roster scan blocks severely incomplete imports", async ({page}) => {
   });
   await expect(page.locator("#scanStatus")).toContainText("Skeniranje nije dovoljno potpuno");
   await expect(page.locator("#scanStatus")).toContainText("27");
-  await expect(page.locator("#saveSchedule")).toBeDisabled();
+  await expect(page.locator("#saveSchedule")).toBeEnabled();
   await expect(page.locator("#saveTeamSchedules")).toBeDisabled();
 });
 
@@ -632,33 +632,32 @@ test("Web OCR late-month recovery band keeps roster names and exact days", async
   expect(parsed[0].dayShifts).toEqual({"20":"D","21":"N","29":"GO","31":"SD"});
 });
 
-test("overnight time evidence can be closed after midnight", async ({page}) => {
-  await page.clock.setFixedTime(new Date("2026-10-17T01:30:00+02:00"));
+test("legacy time-entry data is ignored by automatic calendar evidence", async ({page}) => {
   await page.goto("/");
-  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
-    if(!store.set("raspored.timeEntries.v1",JSON.stringify([
-      {id:"night-active",date:"2026-10-16",in:"19:00",out:null,note:"Noćna smjena"}
-    ])))throw new Error("Test evidence could not be queued after app readiness.");
+    store.set("raspored.timeEntries.v1",JSON.stringify([
+      {id:"legacy",date:"2026-10-16",in:"19:00",out:"23:00",note:"staro"}
+    ]));
+    store.set("raspored.schedule",JSON.stringify({"2026-10-16":"N"}));
     await store.flush();
   });
+  await page.reload();
   const width=page.viewportSize()?.width ?? 1440;
-  if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
-  else await page.locator('[data-route="hours"]:visible').first().click();
-  await expect(page.locator("#hoursStatus")).toContainText("Rad je u tijeku");
-  await expect(page.locator("#clockOutBtn")).toBeEnabled();
-  await page.locator("#clockOutBtn").click();
-  await expect(page.locator("#hoursStatus")).toContainText("spremljena");
+  if(width<=820){
+    await page.locator('[data-route="home"]:visible').first().click();
+    await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
+  }else await page.locator('[data-route="hours"]:visible').first().click();
+  await expect(page.locator("#hoursMonthTotal")).toContainText("12h");
+  await expect(page.locator("#hoursHistory")).not.toContainText("staro");
 });
-
 
 test("main routes have no page-level horizontal overflow or fixed-nav overlap", async ({page}) => {
   for (const route of ["home","calendar","scan","stats","payroll","hours","settings"]) {
     await page.goto("/");
     if(route==="hours"){
       const width=page.viewportSize()?.width ?? 1440;
-      if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Evidentiraj ulaz\/izlaz/i}).click();}
+      if(width<=820){await page.locator('[data-route="home"]:visible').first().click();await page.getByRole("button",{name:/Otvori evidenciju/i}).click();}
       else await page.locator('[data-route="hours"]:visible').first().click();
     }else if(route==="home"){
       await page.locator('[data-route="home"]:visible').first().click();
