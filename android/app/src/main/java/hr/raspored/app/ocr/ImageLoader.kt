@@ -11,6 +11,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import java.io.File
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.sqrt
 
@@ -92,16 +93,35 @@ fun createSinglePersonOcrBitmap(
     require(source.width > 0 && source.height > 0)
     val top = topFraction.coerceIn(0f, 0.98f)
     val bottom = bottomFraction.coerceIn(top + 0.01f, 1f)
-    val headerBottom = (source.height * headerFraction.coerceIn(0.08f, 0.40f))
-        .toInt()
-        .coerceIn(1, source.height)
     val rowTop = (source.height * top).toInt().coerceIn(0, source.height - 1)
     val rowBottom = (source.height * bottom).toInt().coerceIn(rowTop + 1, source.height)
+
+    val targetCenter = (rowTop + rowBottom) / 2.0
+    val detectedBand = ScheduleTableDetector
+        .detectEmployeeRowBands(source, rowsPerBand = 1)
+        .minByOrNull { band ->
+            abs(((band.bodyTop + band.bodyBottom) / 2.0) - targetCenter)
+        }
+
+    val left = detectedBand?.left?.coerceIn(0, source.width - 1) ?: 0
+    val right = detectedBand?.right?.coerceIn(left + 1, source.width) ?: source.width
+    val headerTop = detectedBand?.headerTop?.coerceIn(0, source.height - 1) ?: 0
+    val fallbackHeaderBottom = min(
+        (source.height * headerFraction.coerceIn(0.08f, 0.40f)).toInt(),
+        (rowTop - source.height * 0.015f).toInt().coerceAtLeast(1)
+    )
+    val headerBottom = (
+        detectedBand?.headerBottom
+            ?: fallbackHeaderBottom
+    ).coerceIn(headerTop + 1, source.height)
+
+    val cropWidth = right - left
+    val headerHeight = headerBottom - headerTop
     val rowHeight = rowBottom - rowTop
-    val gap = (source.height * 0.01f).toInt().coerceAtLeast(4)
+    val gap = (source.height * 0.008f).toInt().coerceAtLeast(4)
     val output = Bitmap.createBitmap(
-        source.width,
-        headerBottom + gap + rowHeight,
+        cropWidth,
+        headerHeight + gap + rowHeight,
         Bitmap.Config.ARGB_8888
     )
     val canvas = Canvas(output)
@@ -109,14 +129,14 @@ fun createSinglePersonOcrBitmap(
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
     canvas.drawBitmap(
         source,
-        Rect(0, 0, source.width, headerBottom),
-        Rect(0, 0, output.width, headerBottom),
+        Rect(left, headerTop, right, headerBottom),
+        Rect(0, 0, output.width, headerHeight),
         paint
     )
     canvas.drawBitmap(
         source,
-        Rect(0, rowTop, source.width, rowBottom),
-        Rect(0, headerBottom + gap, output.width, headerBottom + gap + rowHeight),
+        Rect(left, rowTop, right, rowBottom),
+        Rect(0, headerHeight + gap, output.width, headerHeight + gap + rowHeight),
         paint
     )
     return output
