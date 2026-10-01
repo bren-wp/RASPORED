@@ -100,4 +100,17 @@ class OcrAiMergeTest {
         assertFalse(merged.schedule.rows[1].dayShifts.containsKey(16))
         assertFalse(merged.cells.first { it.employeeRow == 2 && it.day == 17 }.conflict)
     }
+
+    @Test
+    fun selectsMostCompleteRecognizedPersonForImmediatePersonalImport() {
+        val rows = listOf(
+            RecognizedScheduleRow(4, "Ana Horvat", mapOf(1 to "D", 2 to "N", 3 to "GO")),
+            RecognizedScheduleRow(9, "Luka Babić", mapOf(1 to "D")),
+            RecognizedScheduleRow(12, "Petra Novak", mapOf(1 to "N", 17 to "D"))
+        )
+
+        assertEquals(0, bestRecognizedRowIndex(rows))
+        assertEquals(-1, bestRecognizedRowIndex(emptyList()))
+    }
+
 }
