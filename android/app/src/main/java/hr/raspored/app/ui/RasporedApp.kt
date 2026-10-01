@@ -457,7 +457,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     val weekShifts=weekDates.map{date->date to shiftAt(date,scheduleCodes)}
     val weekCount=weekShifts.count{(_,shift)->shift?.code=="D"||shift?.code=="N"}
     val weekNight=weekShifts.count{(_,shift)->shift?.code=="N"}
-    val weekLeave=weekShifts.count{(_,shift)->shift?.code in setOf("GO","PD")}
+    val weekLeave=weekShifts.count{(_,shift)->shift?.code=="GO"||shift?.code=="PD"}
 
     LazyColumn(
         Modifier.fillMaxSize().testTag("screen-home").padding(horizontal=16.dp),
