@@ -52,7 +52,6 @@ class TimeEvidenceStore(context: Context) {
         entries
             .distinctBy { it.startedAt }
             .sortedBy { it.startedAt }
-            .takeLast(3000)
             .forEach { entry ->
                 val safe = entry.copy(
                     id = entry.startedAt,
