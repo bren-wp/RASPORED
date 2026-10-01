@@ -43,6 +43,7 @@ android {
         versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
+        buildConfigField("boolean", "DEMO_MODE", "false")
     }
     compileOptions {
         sourceCompatibility = org.gradle.api.JavaVersion.VERSION_17
