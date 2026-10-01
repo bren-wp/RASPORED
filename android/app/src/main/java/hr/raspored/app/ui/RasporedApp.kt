@@ -1084,7 +1084,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                         StatMini("Dnevni sati",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
                         StatMini("Noćni sati",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
                         StatMini("GO",data.values.count{it.code=="GO"}.toString()+" d",Teal,Modifier.weight(1f))
-                        StatMini("BO",data.values.count{it.code=="BO"}.toString()+" d",Red,Modifier.weight(1f))
+                        StatMini("BO",data.values.count{it.code=="BO"}.toString()+" d",RasporedTokens.Amber,Modifier.weight(1f))
                     }
                 }
             }
@@ -1222,7 +1222,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                 )
                 if(otherSweep>0f){
                     drawArc(
-                        color=Color(0xFFB8D0ED),
+                        color=Color(0xFF60738F),
                         startAngle=-90f+daySweep+nightSweep,
                         sweepAngle=otherSweep,
                         useCenter=false,
