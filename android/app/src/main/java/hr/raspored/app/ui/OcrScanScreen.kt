@@ -91,19 +91,31 @@ internal fun OcrScanScreen(
         message = "Odabran je redak ${safeIndex + 1} od ${detectedCropRanges.size}. Provjeri plavi pojas i pokreni skeniranje."
     }
 
-    fun detectSinglePersonRows(source: Bitmap) {
+    fun detectSinglePersonRows(source: Bitmap, generation: Int = ocrGeneration) {
         if (source.isRecycled) return
+        phase = OcrPhase.Processing
         scope.launch {
-            val ranges = withContext(Dispatchers.Default) {
-                ScheduleTableDetector.detectEmployeeRowBands(source, rowsPerBand = 1)
-                    .mapNotNull { band ->
-                        val top = band.bodyTop.toFloat() / source.height.toFloat()
-                        val bottom = band.bodyBottom.toFloat() / source.height.toFloat()
-                        if (bottom - top >= 0.008f) top.coerceIn(0f, 0.99f)..bottom.coerceIn(0.01f, 1f)
-                        else null
-                    }
+            val ranges = runCatching {
+                withContext(Dispatchers.Default) {
+                    ScheduleTableDetector.detectEmployeeRowBands(source, rowsPerBand = 1)
+                        .mapNotNull { band ->
+                            val top = band.bodyTop.toFloat() / source.height.toFloat()
+                            val bottom = band.bodyBottom.toFloat() / source.height.toFloat()
+                            if (bottom - top >= 0.008f) {
+                                top.coerceIn(0f, 0.99f)..bottom.coerceIn(0.01f, 1f)
+                            } else {
+                                null
+                            }
+                        }
+                }
+            }.getOrElse { emptyList() }
+
+            if (ocrGeneration != generation || bitmap !== source || source.isRecycled) {
+                if (bitmap !== source && !source.isRecycled) source.recycle()
+                return@launch
             }
-            if (bitmap !== source || source.isRecycled) return@launch
+
+            phase = OcrPhase.Idle
             detectedCropRanges = ranges
             if (ranges.isNotEmpty()) {
                 val center = (personCropRange.start + personCropRange.endInclusive) / 2f
@@ -290,7 +302,7 @@ internal fun OcrScanScreen(
                     bitmap = loaded
                     phase = OcrPhase.Idle
                     message = "Tražim retke tablice..."
-                    detectSinglePersonRows(loaded)
+                    detectSinglePersonRows(loaded, generation)
                 } else {
                     process(loaded, generation)
                 }
