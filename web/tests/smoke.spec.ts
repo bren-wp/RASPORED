@@ -938,7 +938,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
   await expect(page.locator(".about-takto")).toContainText("Takto");
-  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.23");
+  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.24");
   await expect(page.locator(".about-takto")).toContainText("Brendigo");
 });
 
