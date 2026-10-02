@@ -453,7 +453,7 @@ internal fun OcrScanScreen(
         customConflictCode = ""
         val remaining = reviewCells.count { it.conflict && !it.manuallyConfirmed }
         message = if (remaining == 0) {
-            "Raspored je spreman za uvoz. Svi AI/OCR konflikti su ručno potvrđeni."
+            "Raspored je spreman za uvoz. Sve razlike između dviju provjera su potvrđene."
         } else {
             "Za provjeru je ostalo " + remaining + " nejasnih stavki."
         }
@@ -495,15 +495,15 @@ internal fun OcrScanScreen(
                 reviewConflictIndex = -1
                 val conflictCount = mergedResult.cells.count { it.conflict }
                 val conflictText = if (conflictCount > 0) {
-                    " " + conflictCount + " ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru."
+                    " " + conflictCount + " stavki razlikuje se od lokalnog prepoznavanja i ostavljeno je za ručnu provjeru."
                 } else {
-                    " Nisu pronađeni sukobi s lokalnim OCR-om."
+                    " Nisu pronađene razlike u odnosu na lokalno prepoznavanje."
                 }
                 message += conflictText
             }.onFailure { error ->
                 phase = if (local != null) OcrPhase.Success else OcrPhase.Error
                 message = error.message
-                    ?: "AI provjera nije uspjela. Lokalni OCR i dalje je dostupan."
+                    ?: "Dodatna provjera nije uspjela. Lokalno prepoznavanje i dalje je dostupno."
             }
             if (verificationSource !== source && !verificationSource.isRecycled) {
                 verificationSource.recycle()
@@ -1046,10 +1046,10 @@ internal fun OcrScanScreen(
                         ) {
                             Icon(Icons.Outlined.AutoAwesome, null)
                             Spacer(Modifier.width(8.dp))
-                            Text(if (aiBusy) "AI provjera..." else "AI provjera cijelog rasporeda")
+                            Text(if (aiBusy) "Dodatna provjera..." else "Dodatna provjera cijelog rasporeda")
                         }
                         Text(
-                            "Opcionalno: slika se šalje Takto poslužitelju i OpenAI API-ju samo kad ovo pokreneš. API ključ nije spremljen u Android aplikaciji.",
+                            "Opcionalno: fotografija se šalje Takto poslužitelju i vanjskom servisu za analizu samo kada to pokreneš. Bez tvoje potvrde fotografija ne napušta uređaj.",
                             modifier = Modifier.padding(top = 5.dp),
                             color = RasporedTokens.Slate,
                             fontSize = 10.sp
@@ -1126,10 +1126,10 @@ internal fun OcrScanScreen(
         AlertDialog(
             onDismissRequest = { aiConsentOpen = false },
             icon = { Icon(Icons.Outlined.PrivacyTip, null, tint = RasporedTokens.Cyan) },
-            title = { Text("AI analiza fotografije") },
+            title = { Text("Dodatna analiza fotografije") },
             text = {
                 Text(
-                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
+                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj i šalje se Takto poslužitelju te vanjskom servisu za analizu. Lokalno prepoznavanje radi i bez ove provjere."
                 )
             },
             confirmButton = {
@@ -1139,10 +1139,10 @@ internal fun OcrScanScreen(
                         aiConsentGranted = true
                         runAiVerification()
                     }
-                ) { Text("Pošalji na AI provjeru") }
+                ) { Text("Pokreni dodatnu provjeru") }
             },
             dismissButton = {
-                TextButton(onClick = { aiConsentOpen = false }) { Text("Ostani na lokalnom OCR-u") }
+                TextButton(onClick = { aiConsentOpen = false }) { Text("Ostani na lokalnom prepoznavanju") }
             }
         )
     }
@@ -1153,7 +1153,7 @@ internal fun OcrScanScreen(
             AlertDialog(
                 onDismissRequest = { reviewConflictIndex = -1 },
                 icon = { Icon(Icons.Outlined.WarningAmber, null, tint = RasporedTokens.Amber) },
-                title = { Text("Nejasna OCR stavka") },
+                title = { Text("Nejasna stavka") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
@@ -1162,8 +1162,8 @@ internal fun OcrScanScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Lokalni OCR: " + (conflict.localCode ?: "prazno") +
-                                " · AI: " + (conflict.aiCode ?: "prazno"),
+                            "Lokalno prepoznavanje: " + (conflict.localCode ?: "prazno") +
+                                " · Dodatna provjera: " + (conflict.aiCode ?: "prazno"),
                             color = RasporedTokens.Slate
                         )
                         conflict.localCode?.let { code ->
@@ -1176,7 +1176,7 @@ internal fun OcrScanScreen(
                             OutlinedButton(
                                 onClick = { resolveConflict(code) },
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("Odaberi AI: " + code) }
+                            ) { Text("Odaberi dodatnu vrijednost: " + code) }
                         }
                         OutlinedButton(
                             onClick = { resolveConflict(null) },
@@ -1215,7 +1215,7 @@ internal fun OcrScanScreen(
                     Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
                     Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
-                    Text("• Kalendar i lokalni OCR rade bez računa. Android Postavke nemaju prijavu ni registraciju; lokalni rad ne ovisi o mreži.")
+                    Text("• Kalendar i lokalno prepoznavanje rade bez računa i bez stalne internetske veze.")
                     Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
                 }
