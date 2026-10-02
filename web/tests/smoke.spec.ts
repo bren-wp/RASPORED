@@ -813,7 +813,7 @@ test("salary estimator uses verified KBC Rijeka settings and persists choices", 
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await page.locator("#payrollYears").fill("10");
   await page.locator("#payrollYears").blur();
-  await page.locator("#payrollTurnus").check();
+  await expect(page.locator("#payrollTurnus")).toBeDisabled();
   await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
 
   await expect(page.locator("#payrollBase")).toContainText("1.025");
@@ -821,14 +821,14 @@ test("salary estimator uses verified KBC Rijeka settings and persists choices", 
   await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
   await expect(page.locator("#payrollNet")).not.toHaveText("—");
   await expect(page.locator("#payrollDailyGross")).not.toHaveText("—");
-  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
   await page.reload();
   await openPayroll(page);
   await expect(page.locator("#payrollRole")).toHaveValue("health-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await expect(page.locator("#payrollYears")).toHaveValue("10");
-  await expect(page.locator("#payrollTurnus")).toBeChecked();
+  await expect(page.locator("#payrollTurnus")).not.toBeChecked();
 });
 
 test("salary estimator switches between police, fire and manual local regimes", async ({page}) => {
@@ -895,7 +895,7 @@ test("salary estimator applies residence tax presets independently from institut
   expect(stored.taxHigher).toBe(29.5);
 });
 
-test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime base separately", async ({page}) => {
+test("salary estimator counts GO BO PD only on regular fund days", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
@@ -910,8 +910,31 @@ test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime b
   await page.locator("#payrollMonth").fill("2026-06");
   await page.locator("#payrollMonth").dispatchEvent("change");
   await expect(page.locator("#payrollBreakdown")).toContainText("Planirani izostanci");
+  await expect(page.locator("#payrollBreakdown")).toContainText("56 h");
+  await expect(page.locator("#payrollBreakdown")).not.toContainText("Osnovna satnica prekovremenih sati");
+});
+
+test("statistics and salary estimator expose real overtime above monthly fund", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  await page.evaluate(async () => {
+    const store=(window as any).RasporedDataStore;
+    const schedule:any={};
+    for(let day=1;day<=16;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
+    expect(store.set("raspored.schedule",JSON.stringify(schedule))).toBe(true);
+    await store.flush();
+  });
+  await page.reload();
+  await page.locator('[data-route="stats"]:visible').first().click();
+  await expect(page.locator("#statsCategories")).toContainText("Prekovremeni");
+  await expect(page.locator("#statsCategories")).toContainText("16h");
+  await expect(page.locator("#statsPayrollOvertime")).toContainText("16h");
+
+  await openPayroll(page);
+  await page.locator("#payrollMonth").fill("2026-10");
+  await page.locator("#payrollMonth").dispatchEvent("change");
   await expect(page.locator("#payrollBreakdown")).toContainText("Osnovna satnica prekovremenih sati");
-  await expect(page.locator("#payrollBreakdown")).toContainText("8 h");
+  await expect(page.locator("#payrollBreakdown")).toContainText("16 h");
 });
 
 test("salary estimator exposes official sources and clearly labels approximation limits", async ({page}) => {
