@@ -730,14 +730,17 @@ test("Web OCR late-month recovery band keeps roster names and exact days", async
 
 test("legacy time-entry data is ignored by automatic calendar evidence", async ({page}) => {
   await page.goto("/");
-  await page.evaluate(async () => {
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const writesAccepted=await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
-    store.set("raspored.timeEntries.v1",JSON.stringify([
+    const evidenceAccepted=store.set("raspored.timeEntries.v1",JSON.stringify([
       {id:"legacy",date:"2026-10-16",in:"19:00",out:"23:00",note:"staro"}
     ]));
-    store.set("raspored.schedule",JSON.stringify({"2026-10-16":"N"}));
+    const scheduleAccepted=store.set("raspored.schedule",JSON.stringify({"2026-10-16":"N"}));
     await store.flush();
+    return evidenceAccepted&&scheduleAccepted;
   });
+  expect(writesAccepted).toBe(true);
   await page.reload();
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
