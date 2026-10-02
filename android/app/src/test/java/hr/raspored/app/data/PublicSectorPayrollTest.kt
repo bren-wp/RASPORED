@@ -18,9 +18,21 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun verifiedKbcRijekaPresetUses2026NightAndTurnusRates() {
+    fun kbcRijekaUsesCurrentPublicServiceRatesWithoutInventedTurnus() {
         val regime = PublicSectorPayroll.regime("kbc-rijeka-2026")
-        assertEquals(0.50, regime.rates.night ?: -1.0, 0.001)
+        assertEquals(0.40, regime.rates.night ?: -1.0, 0.001)
+        assertEquals(null, regime.rates.turnus)
+        assertEquals(0.25, regime.rates.saturday ?: -1.0, 0.001)
+        assertEquals(0.50, regime.rates.sunday ?: -1.0, 0.001)
+        assertEquals(1.50, regime.rates.holiday ?: -1.0, 0.001)
+        assertEquals(0.10, regime.rates.secondShift ?: -1.0, 0.001)
+        assertEquals(0.50, regime.rates.overtime ?: -1.0, 0.001)
+    }
+
+    @Test
+    fun stateServiceUsesCurrentCollectiveAgreementRates() {
+        val regime = PublicSectorPayroll.regime("state-service")
+        assertEquals(0.40, regime.rates.night ?: -1.0, 0.001)
         assertEquals(0.05, regime.rates.turnus ?: -1.0, 0.001)
         assertEquals(0.25, regime.rates.saturday ?: -1.0, 0.001)
         assertEquals(0.50, regime.rates.sunday ?: -1.0, 0.001)
@@ -81,7 +93,7 @@ class PublicSectorPayrollTest {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
             scheduleCodes = mapOf("2026-10-16" to "D"),
-            regimeId = "kbc-rijeka-2026",
+            regimeId = "state-service",
             coefficient = 1.25,
             yearsService = 0,
             personalAllowance = 600.0,
@@ -184,7 +196,7 @@ class PublicSectorPayrollTest {
             taxHigher = 25.0,
             extraPercent = 0.0,
             secondShift = false,
-            turnus = true
+            turnus = false
         )
 
         assertEquals(11, estimate.evidence.goDays)
