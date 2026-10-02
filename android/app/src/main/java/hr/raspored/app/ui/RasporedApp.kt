@@ -75,7 +75,7 @@ private val GO=Shift("GO","Godišnji odmor","—",0)
 private val BO=Shift("BO","Bolovanje","—",0)
 private val PD=Shift("PD","Plaćeni dopust","—",0)
 private val SD=Shift("SD","Slobodan dan","—",0)
-private val NONE=Shift("","Redovni slobodni dan","—",0)
+private val NONE=Shift("","Nije označeno","—",0)
 
 @Composable fun RasporedApp(){
     var screen by remember { mutableStateOf(Screen.Home) }
@@ -470,6 +470,10 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text("Tvoj raspored. Na tvoj način.",fontSize=19.sp,fontWeight=FontWeight.Bold,color=Cyan)
             Text(dateTitle,fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        item{ShiftCard("Danas",current,true,statusText=shiftStatusLabel(currentDate,current,now),onOpen={go(Screen.Calendar)},onHours={go(Screen.Hours)})}
+        if(nextEntry!=null){
+            item{ShiftCard("Sljedeća smjena",next,false,statusText=nextShiftStatus(today,nextEntry.first,nextEntry.second),onOpen={go(Screen.Calendar)},onHours=null)}
+        }
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                 StatMini("Označeno",weekTagged.toString(),Cyan,Modifier.weight(1f))
@@ -525,10 +529,6 @@ private fun largeMinutesLabel(minutes:Long):String {
                 Spacer(Modifier.width(10.dp))
                 Text("Skeniraj raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)
             }
-        }
-        item{ShiftCard("Danas",current,true,statusText=shiftStatusLabel(currentDate,current,now),onOpen={go(Screen.Calendar)},onHours={go(Screen.Hours)})}
-        if(nextEntry!=null){
-            item{ShiftCard("Sljedeća smjena",next,false,statusText=nextShiftStatus(today,nextEntry.first,nextEntry.second),onOpen={go(Screen.Calendar)},onHours=null)}
         }
         item{ShiftLegendGrid()}
         item{
