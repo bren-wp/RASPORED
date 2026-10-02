@@ -840,7 +840,7 @@ test("salary estimator switches between police, fire and manual local regimes", 
   await page.locator("#payrollInstitutionCustom").fill("Policijska postaja Primjer");
   await expect(page.locator("#payrollRole")).toHaveValue("police-station");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.70");
-  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
   await page.locator("#payrollSector").selectOption("Vatrogastvo");
   await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
@@ -917,13 +917,15 @@ test("salary estimator counts GO BO PD only on regular fund days", async ({page}
 test("statistics and salary estimator expose real overtime above monthly fund", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
-  await page.evaluate(async () => {
+  const accepted=await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     const schedule:any={};
     for(let day=1;day<=16;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
-    expect(store.set("raspored.schedule",JSON.stringify(schedule))).toBe(true);
+    const ok=store.set("raspored.schedule",JSON.stringify(schedule));
     await store.flush();
+    return ok;
   });
+  expect(accepted).toBe(true);
   await page.reload();
   await page.locator('[data-route="stats"]:visible').first().click();
   await expect(page.locator("#statsCategories")).toContainText("Prekovremeni");
