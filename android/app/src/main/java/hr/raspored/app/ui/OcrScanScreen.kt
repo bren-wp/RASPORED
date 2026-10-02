@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -40,6 +41,7 @@ import hr.raspored.app.ocr.ScheduleTableDetector
 import hr.raspored.app.ocr.createOcrCaptureUri
 import hr.raspored.app.ocr.loadBitmap
 import hr.raspored.app.ocr.createSinglePersonOcrBitmap
+import hr.raspored.app.ocr.rotateBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,6 +93,24 @@ internal fun OcrScanScreen(
         message = "Odabran je redak ${safeIndex + 1} od ${detectedCropRanges.size}. Provjeri plavi pojas i pokreni skeniranje."
     }
 
+    fun moveCrop(deltaFraction: Float) {
+        val height = (personCropRange.endInclusive - personCropRange.start).coerceIn(0.02f, 0.28f)
+        val start = (personCropRange.start + deltaFraction).coerceIn(0f, 1f - height)
+        personCropRange = start..(start + height)
+        detectedCropIndex = -1
+        message = "Označeni redak je pomaknut. Provjeri da plavi pojas obuhvaća samo jednu osobu."
+    }
+
+    fun resizeCrop(deltaHeight: Float) {
+        val center = (personCropRange.start + personCropRange.endInclusive) / 2f
+        val height = (personCropRange.endInclusive - personCropRange.start + deltaHeight)
+            .coerceIn(0.02f, 0.28f)
+        val start = (center - height / 2f).coerceIn(0f, 1f - height)
+        personCropRange = start..(start + height)
+        detectedCropIndex = -1
+        message = "Širina označenog retka je prilagođena."
+    }
+
     fun detectSinglePersonRows(source: Bitmap, generation: Int = ocrGeneration) {
         if (source.isRecycled) return
         phase = OcrPhase.Processing
@@ -133,7 +153,8 @@ internal fun OcrScanScreen(
         }
     }
 
-    fun applyResult(recognized: RecognizedSchedule, keepReviewCells: Boolean = false) {
+    fun applyResult(incoming: RecognizedSchedule, keepReviewCells: Boolean = false) {
+        val recognized = if (singlePersonMode) constrainSinglePersonResult(incoming) else incoming
         if (!keepReviewCells) {
             reviewCells.clear()
             reviewConflictIndex = -1
@@ -273,6 +294,33 @@ internal fun OcrScanScreen(
                 if (ocrSource !== source && !ocrSource.isRecycled) ocrSource.recycle()
             }
         )
+    }
+
+    fun rotateLoadedPhoto(degrees: Int) {
+        val source = bitmap ?: return
+        if (source.isRecycled || phase == OcrPhase.Processing) return
+        val rotated = runCatching { rotateBitmap(source, degrees) }.getOrNull() ?: run {
+            message = "Fotografiju nije moguće zakrenuti."
+            return
+        }
+        if (rotated === source) return
+        val generation = ocrGeneration + 1
+        ocrGeneration = generation
+        bitmap = rotated
+        result = null
+        selectedRow = -1
+        editedShifts.clear()
+        detectedCropRanges = emptyList()
+        detectedCropIndex = -1
+        personCropRange = 0.34f..0.38f
+        phase = OcrPhase.Idle
+        if (singlePersonMode) {
+            message = "Fotografija je zakrenuta. Ponovno tražim retke osoba..."
+            detectSinglePersonRows(rotated, generation)
+        } else {
+            message = "Fotografija je zakrenuta. Ponovno prepoznajem raspored..."
+            process(rotated, generation)
+        }
     }
 
     fun loadAndProcess(uri: android.net.Uri, errorMessage: String) {
@@ -1188,6 +1236,16 @@ private fun nextShiftCode(current: String): String {
     return order[(index + 1) % order.size]
 }
 
+
+internal fun constrainSinglePersonResult(recognized: RecognizedSchedule): RecognizedSchedule {
+    if (recognized.rows.size <= 1) {
+        return if (recognized.rows.isEmpty()) recognized
+        else recognized.copy(expectedRowCount = 1)
+    }
+    val best = bestRecognizedRowIndex(recognized.rows)
+    val selected = recognized.rows.getOrNull(best) ?: recognized.rows.first()
+    return recognized.copy(rows = listOf(selected), expectedRowCount = 1)
+}
 
 internal fun bestRecognizedRowIndex(rows: List<RecognizedScheduleRow>): Int =
     rows.indices.maxWithOrNull(
