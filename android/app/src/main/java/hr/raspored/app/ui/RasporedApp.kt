@@ -1138,6 +1138,36 @@ private fun largeMinutesLabel(minutes:Long):String {
             }
         }
         item{
+            Surface(
+                onClick=onPayroll,
+                shape=RoundedCornerShape(20.dp),
+                color=MaterialTheme.colorScheme.secondaryContainer,
+                modifier=Modifier.fillMaxWidth().testTag("stats-payroll-preview")
+            ){
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.spacedBy(12.dp)
+                ){
+                    Icon(Icons.Outlined.Payments,null,modifier=Modifier.size(28.dp))
+                    Column(Modifier.weight(1f)){
+                        Text("Procjena plaće",fontWeight=FontWeight.ExtraBold,fontSize=17.sp)
+                        Text(
+                            if(payrollAvailable) payrollNet+" neto" else "Dovrši podatke za obračun",
+                            fontWeight=FontWeight.Bold,
+                            fontSize=20.sp
+                        )
+                        Text(
+                            "Prema spremljenom radnom mjestu, stažu, porezu i rasporedu. Dodirni za detaljan obračun.",
+                            fontSize=10.sp,
+                            color=MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                    Icon(Icons.Outlined.ChevronRight,null)
+                }
+            }
+        }
+        item{
             Surface(shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
                     BoxWithConstraints(Modifier.fillMaxWidth()){
@@ -1218,36 +1248,6 @@ private fun largeMinutesLabel(minutes:Long):String {
                         fontSize=10.sp,
                         lineHeight=14.sp
                     )
-                }
-            }
-        }
-        item{
-            Surface(
-                onClick=onPayroll,
-                shape=RoundedCornerShape(20.dp),
-                color=MaterialTheme.colorScheme.secondaryContainer,
-                modifier=Modifier.fillMaxWidth().testTag("stats-payroll-preview")
-            ){
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment=Alignment.CenterVertically,
-                    horizontalArrangement=Arrangement.spacedBy(12.dp)
-                ){
-                    Icon(Icons.Outlined.Payments,null,modifier=Modifier.size(28.dp))
-                    Column(Modifier.weight(1f)){
-                        Text("Procjena plaće",fontWeight=FontWeight.ExtraBold,fontSize=17.sp)
-                        Text(
-                            if(payrollAvailable) payrollNet+" neto" else "Dovrši podatke za obračun",
-                            fontWeight=FontWeight.Bold,
-                            fontSize=20.sp
-                        )
-                        Text(
-                            "Prema spremljenom radnom mjestu, stažu, porezu i rasporedu. Dodirni za detaljan obračun.",
-                            fontSize=10.sp,
-                            color=MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-                    Icon(Icons.Outlined.ChevronRight,null)
                 }
             }
         }
