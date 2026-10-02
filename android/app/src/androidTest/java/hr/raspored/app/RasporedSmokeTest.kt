@@ -62,7 +62,7 @@ class RasporedSmokeTest {
 
         composeRule.onNodeWithTag("nav-stats").performClick()
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
-        composeRule.onNodeWithText("Izračunaj okvirnu plaću ›").performClick()
+        composeRule.onNodeWithTag("stats-payroll-preview").performClick()
         composeRule.onNodeWithTag("screen-payroll").fetchSemanticsNode()
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
