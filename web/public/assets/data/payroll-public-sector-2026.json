@@ -247,18 +247,18 @@
     {
       "id": "kbc-rijeka-2026",
       "sector": "Zdravstvo",
-      "label": "KBC Rijeka — provjereni obračunski preset 2026",
+      "label": "KBC Rijeka — javne službe / zdravstvo 2026",
       "baseType": "publicService",
       "additions": {
-        "night": 0.5,
+        "night": 0.4,
         "overtime": 0.5,
         "saturday": 0.25,
         "sunday": 0.5,
         "holiday": 1.5,
         "secondShift": 0.1,
-        "turnus": 0.05
+        "turnus": null
       },
-      "note": "KBC Rijeka Pravilnik o radu potvrđuje 12-satni turnus (uz stanku 60 min) i navodi da radnik u pravilu ne smije raditi dulje od 16 sati neprekidno, osim više sile ili potrebe hitne intervencije. Zato se 24-satno trajanje ne tretira kao obična smjena nego kao poseban oblik rada koji treba provjeriti prema stvarnoj evidenciji/rješenju."
+      "note": "Izmjene Pravilnika o radu KBC-a Rijeka od 15.03.2024. vežu plaću i dodatke uz Zakon o plaćama i važeće kolektivne ugovore. TKU 2024 propisuje noć 40%, prekovremeni 50%, subotu 25%, nedjelju 50%, blagdan 150% i drugu smjenu 10%; dodatak za turnus ne pretpostavlja se bez primjenjivog granskog pravila."
     },
     {
       "id": "public-education",
@@ -281,22 +281,7 @@
       "label": "Državna služba / ministarstva",
       "baseType": "stateService",
       "additions": {
-        "night": 0.5,
-        "overtime": 0.5,
-        "saturday": 0.25,
-        "sunday": 0.5,
-        "holiday": 1.5,
-        "secondShift": 0.1,
-        "turnus": 0.05
-      }
-    },
-    {
-      "id": "police",
-      "sector": "Policija",
-      "label": "MUP / policija",
-      "baseType": "stateService",
-      "additions": {
-        "night": 0.5,
+        "night": 0.4,
         "overtime": 0.5,
         "saturday": 0.25,
         "sunday": 0.5,
@@ -304,7 +289,23 @@
         "secondShift": 0.1,
         "turnus": 0.05
       },
-      "note": "Policijska radna mjesta imaju velik broj posebnih službenih naziva i koeficijenata; odaberi točan naziv ili ručni unos."
+      "note": "Kolektivni ugovor za državne službenike i namještenike, izmjene NN 29/2024: noć 40%, prekovremeni 50%, druga smjena 10%, turnus 5%, subota 25%, nedjelja 50% i blagdan/neradni dan 150%."
+    },
+    {
+      "id": "police",
+      "sector": "Policija",
+      "label": "MUP / policija",
+      "baseType": "stateService",
+      "additions": {
+        "night": 0.4,
+        "overtime": 0.5,
+        "saturday": 0.25,
+        "sunday": 0.5,
+        "holiday": 1.5,
+        "secondShift": 0.1,
+        "turnus": 0.05
+      },
+      "note": "Za osnovne dodatke primjenjuje se KU državnih službenika (NN 29/2024). Policijska radna mjesta mogu imati dodatna prava i posebne dodatke koji se bez konkretnog radnog mjesta/rješenja ne pretpostavljaju."
     },
     {
       "id": "firefighter",
@@ -1588,5 +1589,13 @@
       "label": "KBC Rijeka — Pravilnik o radu (radno vrijeme, turnus i odmori)",
       "url": "https://kbc-rijeka.hr/wp-content/uploads/2023/06/Pravilnik-o-radu-KBC-a-Rijeka-12.06.23..pdf"
     }
+  ],
+  "verifiedAt": "2026-10-02",
+  "sourceNotes": [
+    "Osnovice javnih i državnih službi za 2026.: NN 11/2026.",
+    "Temeljni kolektivni ugovor za zaposlenike u javnim službama: NN 29/2024.",
+    "Kolektivni ugovor za državne službenike i namještenike, izmjene: NN 29/2024.",
+    "KBC Rijeka: Izmjene Pravilnika o radu od 15.03.2024.; plaća i dodaci vezani su uz zakon i važeće kolektivne ugovore.",
+    "Porezne stope ovise o mjestu prebivališta; ugrađene lokalne vrijednosti treba provjeravati prema važećoj odluci JLS-a."
   ]
 }
