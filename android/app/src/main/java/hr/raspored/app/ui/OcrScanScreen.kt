@@ -100,42 +100,6 @@ internal fun OcrScanScreen(
         message = "Odabir je pomaknut. Provjeri plavi okvir pa pokreni prepoznavanje."
     }
 
-    fun rotatePhoto(degrees: Int) {
-        val source = bitmap ?: return
-        if (source.isRecycled || phase == OcrPhase.Processing) return
-        val generation = ocrGeneration + 1
-        ocrGeneration = generation
-        phase = OcrPhase.Processing
-        message = "Okrećem fotografiju..."
-        result = null
-        selectedRow = -1
-        editedShifts.clear()
-        scope.launch {
-            val rotated = runCatching {
-                withContext(Dispatchers.Default) { rotateOcrBitmap(source, degrees) }
-            }.getOrNull()
-            if (ocrGeneration != generation || rotated == null) {
-                if (rotated != null && rotated !== source && !rotated.isRecycled) rotated.recycle()
-                if (rotated == null) {
-                    phase = OcrPhase.Error
-                    message = "Fotografiju nije moguće okrenuti."
-                }
-                return@launch
-            }
-            bitmap = rotated
-            if (rotated !== source && !source.isRecycled) source.recycle()
-            personCropRange = 0.34f..0.38f
-            detectedCropRanges = emptyList()
-            detectedCropIndex = -1
-            if (singlePersonMode) {
-                phase = OcrPhase.Idle
-                message = "Tražim retke osoba..."
-                detectSinglePersonRows(rotated, generation)
-            } else {
-                process(rotated, generation)
-            }
-        }
-    }
 
     fun detectSinglePersonRows(source: Bitmap, generation: Int = ocrGeneration) {
         if (source.isRecycled) return
@@ -316,6 +280,44 @@ internal fun OcrScanScreen(
             }
         )
     }
+
+    fun rotatePhoto(degrees: Int) {
+        val source = bitmap ?: return
+        if (source.isRecycled || phase == OcrPhase.Processing) return
+        val generation = ocrGeneration + 1
+        ocrGeneration = generation
+        phase = OcrPhase.Processing
+        message = "Okrećem fotografiju..."
+        result = null
+        selectedRow = -1
+        editedShifts.clear()
+        scope.launch {
+            val rotated = runCatching {
+                withContext(Dispatchers.Default) { rotateOcrBitmap(source, degrees) }
+            }.getOrNull()
+            if (ocrGeneration != generation || rotated == null) {
+                if (rotated != null && rotated !== source && !rotated.isRecycled) rotated.recycle()
+                if (rotated == null) {
+                    phase = OcrPhase.Error
+                    message = "Fotografiju nije moguće okrenuti."
+                }
+                return@launch
+            }
+            bitmap = rotated
+            if (rotated !== source && !source.isRecycled) source.recycle()
+            personCropRange = 0.34f..0.38f
+            detectedCropRanges = emptyList()
+            detectedCropIndex = -1
+            if (singlePersonMode) {
+                phase = OcrPhase.Idle
+                message = "Tražim retke osoba..."
+                detectSinglePersonRows(rotated, generation)
+            } else {
+                process(rotated, generation)
+            }
+        }
+    }
+
 
     fun loadAndProcess(uri: android.net.Uri, errorMessage: String) {
         val previousBitmap = bitmap
