@@ -34,7 +34,7 @@ GitHub Secrets nisu obavezni za release. Ako su sva četiri opcionalna signing s
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
-Takto je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**. Početni ekran daje pozdrav prema dobu dana, tjedni pregled, brze akcije i mjesečne sažetke bez forsiranja samo dnevnih/noćnih smjena.
+Takto je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**. Od v1.0.23 početni ekran prvo prikazuje današnju ili aktivnu noćnu smjenu i sljedeću radnu smjenu, a tek zatim tjedni pregled, brze akcije i mjesečne sažetke.
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
@@ -64,7 +64,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
 | **Mjesečni kalendar** | Zaseban Android kalendarski ekran s velikom 7-stupčanom mrežom preko gotovo cijelog dostupnog prostora. Od v1.0.22 dodir dana otvara veliki Takto quick-edit sheet s D/N/GO/BO/PD/SD pločicama za unos jednim dodirom, vlastitom oznakom do 8 znakova i čišćenjem dana. Web koristi iste veće brze ciljeve za uređivanje odabranog datuma. |
-| **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
+| **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. Prazan dan ostaje **Nije označeno** i nikada se automatski ne tretira kao SD. |
 | **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, stvarne horizontalne linije mreže, točni pojasevi redaka zaposlenika, preklapajući pojasevi, zasebni roster prolazi i fokusirani recovery tileovi. Za guste 27–31 redne tablice sustav može raditi i završni OCR **redak po redak** uz izvorno zaglavlje dana te blokira očito nepotpun uvoz kada geometrija tablice pokazuje više djelatnika nego što je OCR pouzdano pročitao. |
 | **Automatska evidencija sati** | D i N smjene iz potvrđenog kalendara automatski daju 12 sati; noćni dio N smjene računa se prema stvarnom intervalu 22:00–06:00. GO/BO/PD/SD ne stvaraju izmišljene radne sate, a custom oznake ostaju bez satnice dok se njihovo značenje ne definira. |
 | **Odvojena statistika** | Statistika agregira kalendarske sate i smjene, ali nije duplikat dnevnog evidencijskog ledgera. |
