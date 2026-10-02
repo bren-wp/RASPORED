@@ -63,13 +63,14 @@ test("home is the start view and manual calendar editing persists", async ({page
 });
 
 
-test("blank calendar cell remains a regular day off and is not SD", async ({page}) => {
+test("blank calendar cell remains unassigned and is not SD", async ({page}) => {
   await page.goto("/");
   await page.locator('[data-route="calendar"]:visible').first().click();
   await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   const blank=page.locator('[data-date="2026-10-18"]:visible').first();
   await blank.click();
-  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("Nije označeno");\n  await expect(page.locator("#selectedDayCard .selected-shift")).not.toContainText("Slobodan dan");
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("Nije označeno");
+  await expect(page.locator("#selectedDayCard .selected-shift")).not.toContainText("Slobodan dan");
   await expect(page.locator("#selectedDayCard .selected-shift > .shift")).toHaveText("—");
   await expect(page.locator('[data-date="2026-10-18"]:visible .code')).toHaveCount(0);
 });
