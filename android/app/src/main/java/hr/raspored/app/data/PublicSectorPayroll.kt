@@ -154,9 +154,9 @@ object PublicSectorPayroll {
             "Turnus i druga posebna prava mogu ovisiti o granskom ili ustanovnom pravilu."
         ),
         PayrollRegime(
-            "kbc-rijeka-2026", "Zdravstvo", "KBC Rijeka — provjereni obračunski preset 2026", "public",
-            PayrollRates(0.50, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
-            "KBC Rijeka Pravilnik o radu potvrđuje 12-satni turnus i navodi da radnik u pravilu ne smije raditi dulje od 16 sati neprekidno, osim više sile ili hitne intervencije. Zato se 24-satni zapis tretira kao poseban oblik rada, ne kao obična smjena."
+            "kbc-rijeka-2026", "Zdravstvo", "KBC Rijeka — javne službe 2026", "public",
+            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, null),
+            "Dodaci za noć, prekovremeni rad, subotu, nedjelju i blagdan prate TKU javnih službi NN 29/2024. Zaseban postotni dodatak za turnus ne primjenjuje se bez važećeg granskog ili ustanovnog izvora; rad u drugoj smjeni obračunava se prema stvarno odrađenim satima."
         ),
         PayrollRegime(
             "public-education", "Školstvo i obrazovanje", "Škole i učenički domovi", "public",
@@ -164,11 +164,11 @@ object PublicSectorPayroll {
         ),
         PayrollRegime(
             "state-service", "Državna služba", "Državna služba / ministarstva", "state",
-            PayrollRates(0.50, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05)
+            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05)
         ),
         PayrollRegime(
             "police", "Policija", "MUP / policija", "state",
-            PayrollRates(0.50, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
+            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
             "Policija ima velik broj službenih naziva radnih mjesta; odaberi točan naziv ili koristi ručni unos."
         ),
         PayrollRegime(

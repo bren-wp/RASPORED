@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Matrix
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
@@ -74,6 +75,26 @@ private fun scaleDown(bitmap: Bitmap): Bitmap {
         if (scaled !== bitmap) bitmap.recycle()
     }
 }
+
+fun rotateOcrBitmap(source: Bitmap, degrees: Int): Bitmap {
+    require(!source.isRecycled) { "Bitmap is recycled" }
+    val normalized = ((degrees % 360) + 360) % 360
+    if (normalized == 0) return source
+    require(normalized == 90 || normalized == 180 || normalized == 270) {
+        "Rotation must be 90, 180 or 270 degrees"
+    }
+    val matrix = Matrix().apply { postRotate(normalized.toFloat()) }
+    return Bitmap.createBitmap(
+        source,
+        0,
+        0,
+        source.width,
+        source.height,
+        matrix,
+        true
+    )
+}
+
 
 
 /**

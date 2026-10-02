@@ -7,6 +7,10 @@ import java.time.YearMonth
 data class EvidenceMonthSummary(
     val plannedMinutes: Long,
     val workedMinutes: Long,
+    val creditedMinutes: Long,
+    val overtimeMinutes: Long,
+    val compensatedAbsenceMinutes: Long,
+    val holidayCreditMinutes: Long,
     val dayMinutes: Long,
     val nightMinutes: Long,
     val otherMinutes: Long,
@@ -16,20 +20,22 @@ data class EvidenceMonthSummary(
     val weekendHolidayMinutes: Long,
     val weekMinutes: List<Long>
 ) {
-    val balanceMinutes: Long get() = workedMinutes - plannedMinutes
+    val balanceMinutes: Long get() = creditedMinutes - plannedMinutes
 }
 
 /**
- * Calendar-derived work evidence.
+ * Calendar-derived monthly work summary.
  *
- * RASPORED no longer requires clock-in/clock-out tracking. The calendar is the
- * source of truth: D and N represent 12-hour shifts. Unknown/custom codes are
- * preserved by the schedule store but do not receive invented durations.
+ * D and N are 12-hour shifts. GO/BO/PD receive an 8-hour monthly-fund credit
+ * only on ordinary Monday-Friday workdays. SD, blank days and custom codes do
+ * not receive invented hours. A weekday public holiday receives an 8-hour
+ * fund credit when no D/N shift is worked that day.
  */
 object EvidenceAnalytics {
     const val DAY_SHIFT_MINUTES = 12L * 60L
     const val NIGHT_SHIFT_MINUTES = 12L * 60L
     const val NIGHT_WINDOW_MINUTES = 8L * 60L
+    const val STANDARD_DAY_MINUTES = 8L * 60L
 
     fun summarize(
         month: YearMonth,
@@ -43,38 +49,74 @@ object EvidenceAnalytics {
         var sundayMinutes = 0L
         var holidayMinutes = 0L
         var weekendHolidayMinutes = 0L
+        var compensatedAbsenceMinutes = 0L
+        var holidayCreditMinutes = 0L
         val weeks = MutableList(5) { 0L }
+
+        val plannedMinutes = (1..month.lengthOfMonth()).sumOf { day ->
+            val date = month.atDay(day)
+            if (
+                date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
+                !holidays.containsKey(date)
+            ) {
+                STANDARD_DAY_MINUTES
+            } else {
+                0L
+            }
+        }
 
         for (day in 1..month.lengthOfMonth()) {
             val date = month.atDay(day)
-            val code = scheduleCodes[date.toString()].orEmpty()
+            val code = ScheduleStore.normalizeCode(scheduleCodes[date.toString()]).orEmpty()
             val shiftMinutes = minutesForCode(code)
-            if (shiftMinutes == 0L) continue
 
-            worked += shiftMinutes
-            if (code == "D") {
-                dayMinutes += shiftMinutes
-            } else if (code == "N") {
-                nightMinutes += NIGHT_WINDOW_MINUTES
-                dayMinutes += shiftMinutes - NIGHT_WINDOW_MINUTES
+            if (shiftMinutes > 0L) {
+                worked += shiftMinutes
+                if (code == "D") {
+                    dayMinutes += shiftMinutes
+                } else if (code == "N") {
+                    nightMinutes += NIGHT_WINDOW_MINUTES
+                    dayMinutes += shiftMinutes - NIGHT_WINDOW_MINUTES
+                }
+
+                when (date.dayOfWeek) {
+                    DayOfWeek.SATURDAY -> saturdayMinutes += shiftMinutes
+                    DayOfWeek.SUNDAY -> sundayMinutes += shiftMinutes
+                    else -> Unit
+                }
+                val holiday = holidays.containsKey(date)
+                if (holiday) holidayMinutes += shiftMinutes
+                if (date.dayOfWeek in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) || holiday) {
+                    weekendHolidayMinutes += shiftMinutes
+                }
+                weeks[minOf(4, (day - 1) / 7)] += shiftMinutes
             }
 
-            when (date.dayOfWeek) {
-                DayOfWeek.SATURDAY -> saturdayMinutes += shiftMinutes
-                DayOfWeek.SUNDAY -> sundayMinutes += shiftMinutes
-                else -> Unit
+            val ordinaryWeekday =
+                date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
+                    !holidays.containsKey(date)
+            if (ordinaryWeekday && code in setOf("GO", "BO", "PD")) {
+                compensatedAbsenceMinutes += STANDARD_DAY_MINUTES
             }
-            val holiday = holidays.containsKey(date)
-            if (holiday) holidayMinutes += shiftMinutes
-            if (date.dayOfWeek in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) || holiday) {
-                weekendHolidayMinutes += shiftMinutes
+
+            val weekdayHoliday =
+                date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
+                    holidays.containsKey(date)
+            if (weekdayHoliday && code !in setOf("D", "N")) {
+                holidayCreditMinutes += STANDARD_DAY_MINUTES
             }
-            weeks[minOf(4, (day - 1) / 7)] += shiftMinutes
         }
 
+        val creditedMinutes = worked + compensatedAbsenceMinutes + holidayCreditMinutes
+        val overtimeMinutes = (creditedMinutes - plannedMinutes).coerceAtLeast(0L)
+
         return EvidenceMonthSummary(
-            plannedMinutes = worked,
+            plannedMinutes = plannedMinutes,
             workedMinutes = worked,
+            creditedMinutes = creditedMinutes,
+            overtimeMinutes = overtimeMinutes,
+            compensatedAbsenceMinutes = compensatedAbsenceMinutes,
+            holidayCreditMinutes = holidayCreditMinutes,
             dayMinutes = dayMinutes,
             nightMinutes = nightMinutes,
             otherMinutes = 0L,
@@ -106,7 +148,7 @@ object EvidenceAnalytics {
         "BO" -> "Bolovanje"
         "PD" -> "Plaćeni dopust"
         "SD" -> "Slobodan dan"
-        null -> "Bez smjene"
+        null -> "Nije označeno"
         else -> "Vlastita oznaka $normalized"
     }
 

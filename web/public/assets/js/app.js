@@ -565,14 +565,15 @@ function signedHoursText(minutes){
   return sign+hoursText(Math.abs(mins));
 }
 function largeHoursText(minutes){
-  var mins=Math.max(0,Math.round(minutes||0));
-  return Math.floor(mins/60)+":"+String(mins%60).padStart(2,"0")+" h";
+  var mins=Math.max(0,Math.round(minutes||0)),hours=Math.floor(mins/60),remainder=mins%60;
+  return remainder===0?hours+" h":hours+" h "+String(remainder).padStart(2,"0")+" min";
 }
 function monthData(y,m){
   var out={
     worked:0,workedMinutes:0,dayMinutes:0,night:0,nightMinutes:0,otherMinutes:0,
     sat:0,sun:0,holidays:0,satMinutes:0,sunMinutes:0,holidayMinutes:0,weekendHolidayMinutes:0,
-    go:0,bo:0,pd:0,sd:0,planned:0,balance:0,balanceMinutes:0,
+    go:0,bo:0,pd:0,sd:0,planned:0,plannedMinutes:0,creditedMinutes:0,overtimeMinutes:0,
+    compensatedAbsenceMinutes:0,holidayCreditMinutes:0,balance:0,balanceMinutes:0,
     counts:{D:0,N:0,GO:0,BO:0,PD:0,SD:0},
     weeks:[{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0}]
   };
@@ -601,18 +602,25 @@ function monthData(y,m){
 
   for(var day=1;day<=days;day++){
     var date=new Date(y,m,day,12,0,0),key=iso(date),code=normalizeScheduleCode(state.schedule[key]||"");
-    if(!code)continue;
-    out.counts[code]=(out.counts[code]||0)+1;
-    if(code==="D"||code==="N"){
-      out.planned+=12;
-      if(date.getDay()===6)out.sat++;
-      if(date.getDay()===0)out.sun++;
-      if(hm[key])out.holidays++;
-      accountShift(date,code);
-    }else if(code==="GO")out.go++;
-    else if(code==="BO")out.bo++;
-    else if(code==="PD")out.pd++;
-    else if(code==="SD")out.sd++;
+    var ordinaryWeekday=date.getDay()!==0&&date.getDay()!==6&&!hm[key];
+    var weekdayHoliday=date.getDay()!==0&&date.getDay()!==6&&!!hm[key];
+    if(ordinaryWeekday)out.plannedMinutes+=8*60;
+
+    if(code){
+      out.counts[code]=(out.counts[code]||0)+1;
+      if(code==="D"||code==="N"){
+        if(date.getDay()===6)out.sat++;
+        if(date.getDay()===0)out.sun++;
+        if(hm[key])out.holidays++;
+        accountShift(date,code);
+      }else if(code==="GO")out.go++;
+      else if(code==="BO")out.bo++;
+      else if(code==="PD")out.pd++;
+      else if(code==="SD")out.sd++;
+    }
+
+    if(ordinaryWeekday&&["GO","BO","PD"].includes(code))out.compensatedAbsenceMinutes+=8*60;
+    if(weekdayHoliday&&code!=="D"&&code!=="N")out.holidayCreditMinutes+=8*60;
   }
 
   var previous=new Date(y,m,0,12,0,0);
@@ -621,8 +629,11 @@ function monthData(y,m){
   out.otherMinutes=0;
   out.worked=out.workedMinutes/60;
   out.night=out.nightMinutes/60;
-  out.balanceMinutes=0;
-  out.balance=0;
+  out.planned=out.plannedMinutes/60;
+  out.creditedMinutes=out.workedMinutes+out.compensatedAbsenceMinutes+out.holidayCreditMinutes;
+  out.balanceMinutes=out.creditedMinutes-out.plannedMinutes;
+  out.balance=out.balanceMinutes/60;
+  out.overtimeMinutes=Math.max(0,out.balanceMinutes);
   return out;
 }
 function statsForCursor(){return monthData(state.cursor.getFullYear(),state.cursor.getMonth())}
@@ -855,6 +866,8 @@ function renderStats(){
     ["#FFB51F","BO",d.bo+" dana","Bolovanje"],
     ["#E53648","PD",d.pd+" dana","Plaćeni dopust"],
     ["#60738F","SD",d.sd+" dana","Slobodan dan"],
+    ["#4CABFF","Fond sati",hoursText(d.plannedMinutes),"Kalendarski mjesečni fond"],
+    ["#12D6A0","Iznad fonda",hoursText(d.overtimeMinutes),"Kreditirani sati iznad fonda"],
     ["#4CABFF","Ukupno sati",hoursText(d.workedMinutes),"Automatski iz kalendara"]
   ],el=document.getElementById("statsCategories");
   if(el)el.innerHTML=cats.map(function(x){return '<div class="stat-cat"><span><i style="background:'+x[0]+'"></i><b>'+x[2]+'</b></span><small>'+x[1]+' · '+x[3]+'</small></div>'}).join("");
@@ -875,6 +888,9 @@ function renderStats(){
     ["calendar","PD",d.pd+" dana","Plaćeni dopust"],
     ["calendar","SD",d.sd+" dana","Slobodan dan"],
     ["calendar","Nedjelje",d.sun+" smjene",hoursText(d.sunMinutes)],
+    ["scale","Fond sati","Kalendarski mjesečni fond",hoursText(d.plannedMinutes)],
+    ["chart","Iznad fonda","Kreditirani sati iznad fonda",hoursText(d.overtimeMinutes)],
+    ["scale","Saldo","Kreditirani sati minus fond",signedHoursText(d.balanceMinutes)],
     ["scale","Ukupno sati","Automatski iz kalendara",hoursText(d.workedMinutes)]
   ].map(function(x){return '<div class="detail-item"><i>'+icon(x[0])+'</i><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span><b>'+x[3]+'</b></div>'}).join("");
 }

@@ -43,6 +43,31 @@ test("calendar and statistics remain interactive", async ({page}) => {
   await expect(page.locator("#statsPeriodMenu")).toBeVisible();
 });
 
+test("statistics show monthly fund and hours above fund", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const accepted=await page.evaluate(async () => {
+    const schedule:any={};
+    for(let day=1;day<=16;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
+    const store=(window as any).RasporedDataStore;
+    const ok=store.set("raspored.schedule",JSON.stringify(schedule));
+    await store.flush();
+    return ok;
+  });
+  expect(accepted).toBe(true);
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  await page.locator('[data-route="stats"]:visible').first().click();
+
+  await expect(page.locator("#workedTotal")).toHaveText("192 h");
+  await expect(page.locator("#detailStats")).toContainText("Fond sati");
+  await expect(page.locator("#detailStats")).toContainText("176h");
+  await expect(page.locator("#detailStats")).toContainText("Iznad fonda");
+  await expect(page.locator("#detailStats")).toContainText("16h");
+  await expect(page.locator("#detailStats")).toContainText("Saldo");
+  await expect(page.locator("#detailStats")).toContainText("+16h");
+});
+
 test("home is the start view and manual calendar editing persists", async ({page}) => {
   await page.goto("/");
   await expect(page.locator('[data-view="home"]')).toBeVisible();
@@ -800,7 +825,7 @@ async function openPayroll(page:any){
   await expect(page.locator('[data-view="payroll"]')).toBeVisible();
 }
 
-test("salary estimator uses verified KBC Rijeka settings and persists choices", async ({page}) => {
+test("salary estimator uses current KBC Rijeka public-service settings and persists choices", async ({page}) => {
   await page.goto("/");
   await openPayroll(page);
   await expect(page.locator("#payrollCounty")).toHaveValue("Primorsko-goranska");
@@ -813,7 +838,7 @@ test("salary estimator uses verified KBC Rijeka settings and persists choices", 
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await page.locator("#payrollYears").fill("10");
   await page.locator("#payrollYears").blur();
-  await page.locator("#payrollTurnus").check();
+  await expect(page.locator("#payrollTurnus")).toBeDisabled();
   await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
 
   await expect(page.locator("#payrollBase")).toContainText("1.025");
@@ -821,14 +846,14 @@ test("salary estimator uses verified KBC Rijeka settings and persists choices", 
   await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
   await expect(page.locator("#payrollNet")).not.toHaveText("—");
   await expect(page.locator("#payrollDailyGross")).not.toHaveText("—");
-  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
   await page.reload();
   await openPayroll(page);
   await expect(page.locator("#payrollRole")).toHaveValue("health-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await expect(page.locator("#payrollYears")).toHaveValue("10");
-  await expect(page.locator("#payrollTurnus")).toBeChecked();
+  await expect(page.locator("#payrollTurnus")).toBeDisabled();
 });
 
 test("salary estimator switches between police, fire and manual local regimes", async ({page}) => {
@@ -840,7 +865,7 @@ test("salary estimator switches between police, fire and manual local regimes", 
   await page.locator("#payrollInstitutionCustom").fill("Policijska postaja Primjer");
   await expect(page.locator("#payrollRole")).toHaveValue("police-station");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.70");
-  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
   await page.locator("#payrollSector").selectOption("Vatrogastvo");
   await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
@@ -953,7 +978,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
   await expect(page.locator(".about-takto")).toContainText("Takto");
-  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.25");
+  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.26");
   await expect(page.locator(".about-takto")).toContainText("Brendigo");
 });
 
