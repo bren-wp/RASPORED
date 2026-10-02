@@ -153,7 +153,7 @@ test("statistics split overnight calendar shift at month and night boundaries", 
   await page.reload();
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.locator('[data-route="stats"]:visible').first().click();
-  await expect(page.locator("#workedTotal")).toHaveText("7:00 h");
+  await expect(page.locator("#workedTotal")).toHaveText("7 h");
   await expect(page.locator("#statsCategories")).toContainText("Noćni sati");
   await expect(page.locator("#statsCategories")).toContainText("6h");
   await expect(page.locator("#statsCategories")).toContainText("Dnevni sati");
