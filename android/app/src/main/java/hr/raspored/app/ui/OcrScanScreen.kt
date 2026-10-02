@@ -32,16 +32,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hr.raspored.app.data.ScheduleStore
-import hr.raspored.app.ocr.RecognizedSchedule
-import hr.raspored.app.ocr.RecognizedScheduleRow
-import hr.raspored.app.ocr.RecognitionCellReview
-import hr.raspored.app.ocr.AiScheduleVerifier
-import hr.raspored.app.ocr.ScheduleOcrEngine
-import hr.raspored.app.ocr.ScheduleTableDetector
-import hr.raspored.app.ocr.createOcrCaptureUri
-import hr.raspored.app.ocr.loadBitmap
-import hr.raspored.app.ocr.createSinglePersonOcrBitmap
-import hr.raspored.app.ocr.rotateBitmap
+import hr.raspored.app.prepoznavanje.RecognizedSchedule
+import hr.raspored.app.prepoznavanje.RecognizedScheduleRow
+import hr.raspored.app.prepoznavanje.RecognitionCellReview
+import hr.raspored.app.prepoznavanje.AiScheduleVerifier
+import hr.raspored.app.prepoznavanje.ScheduleOcrEngine
+import hr.raspored.app.prepoznavanje.ScheduleTableDetector
+import hr.raspored.app.prepoznavanje.createOcrCaptureUri
+import hr.raspored.app.prepoznavanje.loadBitmap
+import hr.raspored.app.prepoznavanje.createSinglePersonOcrBitmap
+import hr.raspored.app.prepoznavanje.rotateBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,7 +55,7 @@ internal fun OcrScanScreen(
     defaultMonth: YearMonth,
     allowTeamImport: Boolean = true,
     remoteAccountToken: String? = null,
-    onSaveTeamSchedules: (YearMonth, List<hr.raspored.app.ocr.RecognizedScheduleRow>) -> Unit = { _, _ -> },
+    onSaveTeamSchedules: (YearMonth, List<hr.raspored.app.prepoznavanje.RecognizedScheduleRow>) -> Unit = { _, _ -> },
     onSaveSchedule: (YearMonth, Map<Int, String>) -> Unit
 ) {
     val context = LocalContext.current
@@ -76,7 +76,7 @@ internal fun OcrScanScreen(
     val reviewCells = remember { mutableStateListOf<RecognitionCellReview>() }
     var reviewConflictIndex by remember { mutableIntStateOf(-1) }
     var customConflictCode by remember { mutableStateOf("") }
-    var ocrGeneration by remember { mutableIntStateOf(0) }
+    var prepoznavanjeGeneration by remember { mutableIntStateOf(0) }
     var rosterIncomplete by remember { mutableStateOf(false) }
     var singlePersonMode by remember { mutableStateOf(false) }
     var personCropRange by remember { mutableStateOf(0.34f..0.38f) }
@@ -111,7 +111,7 @@ internal fun OcrScanScreen(
         message = "Širina označenog retka je prilagođena."
     }
 
-    fun detectSinglePersonRows(source: Bitmap, generation: Int = ocrGeneration) {
+    fun detectSinglePersonRows(source: Bitmap, generation: Int = prepoznavanjeGeneration) {
         if (source.isRecycled) return
         phase = OcrPhase.Processing
         scope.launch {
@@ -130,7 +130,7 @@ internal fun OcrScanScreen(
                 }
             }.getOrElse { emptyList() }
 
-            if (ocrGeneration != generation || bitmap !== source || source.isRecycled) {
+            if (prepoznavanjeGeneration != generation || bitmap !== source || source.isRecycled) {
                 if (bitmap !== source && !source.isRecycled) source.recycle()
                 return@launch
             }
@@ -250,7 +250,7 @@ internal fun OcrScanScreen(
     }
 
     fun process(source: Bitmap, generation: Int) {
-        if (ocrGeneration != generation) {
+        if (prepoznavanjeGeneration != generation) {
             source.recycle()
             return
         }
@@ -265,7 +265,7 @@ internal fun OcrScanScreen(
         employeeMenu = false
         phase = OcrPhase.Processing
         message = if (singlePersonMode) "Prepoznavanje označene osobe..." else "Automatsko prepoznavanje..."
-        val ocrSource = if (singlePersonMode) {
+        val prepoznavanjeSource = if (singlePersonMode) {
             createSinglePersonOcrBitmap(
                 source = source,
                 topFraction = personCropRange.start,
@@ -275,23 +275,23 @@ internal fun OcrScanScreen(
             source
         }
         ScheduleOcrEngine.recognize(
-            bitmap = ocrSource,
+            bitmap = prepoznavanjeSource,
             onSuccess = { recognized ->
-                if (ocrGeneration == generation) {
+                if (prepoznavanjeGeneration == generation) {
                     applyResult(recognized)
                 } else if (!source.isRecycled) {
                     source.recycle()
                 }
-                if (ocrSource !== source && !ocrSource.isRecycled) ocrSource.recycle()
+                if (prepoznavanjeSource !== source && !prepoznavanjeSource.isRecycled) prepoznavanjeSource.recycle()
             },
             onError = {
-                if (ocrGeneration == generation) {
+                if (prepoznavanjeGeneration == generation) {
                     phase = OcrPhase.Error
                     message = "Prepoznavanje nije uspjelo. Pokušaj ponovno ili odaberi drugu fotografiju."
                 } else if (!source.isRecycled) {
                     source.recycle()
                 }
-                if (ocrSource !== source && !ocrSource.isRecycled) ocrSource.recycle()
+                if (prepoznavanjeSource !== source && !prepoznavanjeSource.isRecycled) prepoznavanjeSource.recycle()
             }
         )
     }
@@ -304,8 +304,8 @@ internal fun OcrScanScreen(
             return
         }
         if (rotated === source) return
-        val generation = ocrGeneration + 1
-        ocrGeneration = generation
+        val generation = prepoznavanjeGeneration + 1
+        prepoznavanjeGeneration = generation
         bitmap = rotated
         result = null
         selectedRow = -1
@@ -326,8 +326,8 @@ internal fun OcrScanScreen(
     fun loadAndProcess(uri: android.net.Uri, errorMessage: String) {
         val previousBitmap = bitmap
         val previousWasProcessing = phase == OcrPhase.Processing
-        val generation = ocrGeneration + 1
-        ocrGeneration = generation
+        val generation = prepoznavanjeGeneration + 1
+        prepoznavanjeGeneration = generation
         if (!previousWasProcessing && previousBitmap != null && !previousBitmap.isRecycled) {
             previousBitmap.recycle()
             if (bitmap === previousBitmap) bitmap = null
@@ -341,7 +341,7 @@ internal fun OcrScanScreen(
         message = "Učitavanje fotografije..."
         scope.launch {
             val loaded = withContext(Dispatchers.IO) { loadBitmap(context, uri) }
-            if (ocrGeneration != generation) {
+            if (prepoznavanjeGeneration != generation) {
                 loaded?.recycle()
                 return@launch
             }
@@ -363,7 +363,7 @@ internal fun OcrScanScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            ocrGeneration += 1
+            prepoznavanjeGeneration += 1
             if (phase != OcrPhase.Processing) {
                 bitmap?.takeIf { !it.isRecycled }?.recycle()
             }
@@ -453,7 +453,7 @@ internal fun OcrScanScreen(
         customConflictCode = ""
         val remaining = reviewCells.count { it.conflict && !it.manuallyConfirmed }
         message = if (remaining == 0) {
-            "Raspored je spreman za uvoz. Svi AI/OCR konflikti su ručno potvrđeni."
+            "Raspored je spreman za uvoz. Svi AI/prepoznavanje konflikti su ručno potvrđeni."
         } else {
             "Za provjeru je ostalo " + remaining + " nejasnih stavki."
         }
@@ -495,15 +495,15 @@ internal fun OcrScanScreen(
                 reviewConflictIndex = -1
                 val conflictCount = mergedResult.cells.count { it.conflict }
                 val conflictText = if (conflictCount > 0) {
-                    " " + conflictCount + " ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru."
+                    " " + conflictCount + " ćelija razlikuje se od lokalnog prepoznavanje-a i ostavljena je za ručnu provjeru."
                 } else {
-                    " Nisu pronađeni sukobi s lokalnim OCR-om."
+                    " Nisu pronađeni sukobi s lokalnim prepoznavanje-om."
                 }
                 message += conflictText
             }.onFailure { error ->
                 phase = if (local != null) OcrPhase.Success else OcrPhase.Error
                 message = error.message
-                    ?: "AI provjera nije uspjela. Lokalni OCR i dalje je dostupan."
+                    ?: "AI provjera nije uspjela. Lokalni prepoznavanje i dalje je dostupan."
             }
             if (verificationSource !== source && !verificationSource.isRecycled) {
                 verificationSource.recycle()
@@ -571,7 +571,16 @@ internal fun OcrScanScreen(
                                         val start = (fraction - halfHeight).coerceIn(0f, 1f - halfHeight * 2f)
                                         personCropRange = start..(start + halfHeight * 2f)
                                         detectedCropIndex = -1
-                                        message = "Crop je centriran na dodirnuti redak. Po potrebi ga fino prilagodi."
+                                        message = "Plavi pojas je postavljen na dodirnuti redak. Po potrebi ga pomakni ili proširi."
+                                    }
+                                }
+                            }
+                            .pointerInput(singlePersonMode, bitmap, personCropRange) {
+                                if (!singlePersonMode || bitmap == null) return@pointerInput
+                                detectDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    if (size.height > 0) {
+                                        moveCrop(dragAmount.y / size.height.toFloat())
                                     }
                                 }
                             },
@@ -580,7 +589,7 @@ internal fun OcrScanScreen(
                         if (bitmap != null) {
                             Image(
                                 bitmap = bitmap!!.asImageBitmap(),
-                                contentDescription = "Fotografija rasporeda za OCR",
+                                contentDescription = "Fotografija rasporeda",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
@@ -625,12 +634,38 @@ internal fun OcrScanScreen(
                             if (singlePersonMode) {
                                 "Plavi pojas mora obuhvatiti samo jedan cijeli redak: broj retka / ime i prezime lijevo te sve ćelije rasporeda do zadnjeg dana desno. Zaglavlje dana aplikacija zadržava automatski."
                             } else {
-                                "OCR obrađuje cijelu fotografiju. U plavom okviru mora biti vidljiv cijeli raspored: sva imena i svi dani mjeseca."
+                                "Aplikacija čita cijelu fotografiju. U okviru moraju biti vidljivi cijeli raspored, sva imena i svi dani mjeseca."
                             },
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 9.dp),
                             color = Color.White,
                             fontSize = 11.sp
                         )
+                    }
+
+                    if (bitmap != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { rotateLoadedPhoto(-90) },
+                                enabled = phase != OcrPhase.Processing,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Outlined.RotateLeft, null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Zakreni lijevo", maxLines = 1)
+                            }
+                            OutlinedButton(
+                                onClick = { rotateLoadedPhoto(90) },
+                                enabled = phase != OcrPhase.Processing,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Zakreni desno", maxLines = 1)
+                                Spacer(Modifier.width(6.dp))
+                                Icon(Icons.Outlined.RotateRight, null)
+                            }
+                        }
                     }
 
                     Row(
@@ -683,7 +718,7 @@ internal fun OcrScanScreen(
                                 Spacer(Modifier.width(8.dp))
                                 Column {
                                     Text("Samo jedna osoba", color = Color.White, fontWeight = FontWeight.Bold)
-                                    Text("Crop redak imena + svi dani", color = Color(0xFFC6D4EA), fontSize = 11.sp)
+                                    Text("Označi samo jednu osobu i sve njezine dane", color = Color(0xFFC6D4EA), fontSize = 11.sp)
                                 }
                             }
                             if (singlePersonMode && bitmap != null) {
@@ -734,12 +769,51 @@ internal fun OcrScanScreen(
                                     },
                                     valueRange = 0f..1f
                                 )
+                                Text(
+                                    "Povuci plavi pojas gore ili dolje po fotografiji. Za fino podešavanje koristi gumbe ispod.",
+                                    color = Color(0xFFC6D4EA),
+                                    fontSize = 10.sp
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { moveCrop(-0.012f) },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Gore")
+                                    }
+                                    OutlinedButton(
+                                        onClick = { moveCrop(0.012f) },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Dolje")
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = { resizeCrop(-0.012f) },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Uži redak")
+                                    }
+                                    TextButton(
+                                        onClick = { resizeCrop(0.012f) },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Širi redak")
+                                    }
+                                }
                                 Button(
                                     onClick = {
                                         val source = bitmap
                                         if (source != null && !source.isRecycled) {
-                                            val generation = ocrGeneration + 1
-                                            ocrGeneration = generation
+                                            val generation = prepoznavanjeGeneration + 1
+                                            prepoznavanjeGeneration = generation
                                             process(source, generation)
                                         }
                                     },
@@ -906,7 +980,7 @@ internal fun OcrScanScreen(
 
                     if (editedShifts.isEmpty()) {
                         Text(
-                            "Nakon OCR prepoznavanja ovdje će se prikazati raspored odabrane osobe.",
+                            "Nakon prepoznavanje prepoznavanja ovdje će se prikazati raspored odabrane osobe.",
                             color = RasporedTokens.Slate,
                             modifier = Modifier.padding(vertical = 20.dp)
                         )
@@ -1063,7 +1137,7 @@ internal fun OcrScanScreen(
             title = { Text("AI analiza fotografije") },
             text = {
                 Text(
-                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
+                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni prepoznavanje radi i bez AI provjere."
                 )
             },
             confirmButton = {
@@ -1076,7 +1150,7 @@ internal fun OcrScanScreen(
                 ) { Text("Pošalji na AI provjeru") }
             },
             dismissButton = {
-                TextButton(onClick = { aiConsentOpen = false }) { Text("Ostani na lokalnom OCR-u") }
+                TextButton(onClick = { aiConsentOpen = false }) { Text("Ostani na lokalnom prepoznavanje-u") }
             }
         )
     }
@@ -1087,7 +1161,7 @@ internal fun OcrScanScreen(
             AlertDialog(
                 onDismissRequest = { reviewConflictIndex = -1 },
                 icon = { Icon(Icons.Outlined.WarningAmber, null, tint = RasporedTokens.Amber) },
-                title = { Text("Nejasna OCR stavka") },
+                title = { Text("Nejasna prepoznavanje stavka") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
@@ -1096,7 +1170,7 @@ internal fun OcrScanScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Lokalni OCR: " + (conflict.localCode ?: "prazno") +
+                            "Lokalni prepoznavanje: " + (conflict.localCode ?: "prazno") +
                                 " · AI: " + (conflict.aiCode ?: "prazno"),
                             color = RasporedTokens.Slate
                         )
@@ -1149,7 +1223,7 @@ internal fun OcrScanScreen(
                     Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
                     Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
-                    Text("• Kalendar i lokalni OCR rade bez računa. Android Postavke nemaju prijavu ni registraciju; lokalni rad ne ovisi o mreži.")
+                    Text("• Kalendar i lokalni prepoznavanje rade bez računa. Android Postavke nemaju prijavu ni registraciju; lokalni rad ne ovisi o mreži.")
                     Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
                 }
