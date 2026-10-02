@@ -602,6 +602,7 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun CalendarScreen(
     scheduleCodes: Map<String, String>,
     onShiftChange: (LocalDate, String?) -> Unit
@@ -697,86 +698,151 @@ private fun largeMinutesLabel(minutes:Long):String {
 
     editingDate?.let { date ->
         val currentCode = scheduleCodes[date.toString()].orEmpty()
-        AlertDialog(
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
             onDismissRequest = { editingDate = null },
-            title = {
-                Column {
-                    Text(
-                        date.dayOfWeek
-                            .getDisplayName(TextStyle.FULL, Locale("hr", "HR"))
-                            .replaceFirstChar { it.titlecase(Locale("hr", "HR")) },
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        date.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy.")),
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "Odaberi oznaku za ovaj dan ili upiši vlastitu.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
-                    )
-                    listOf(
-                        listOf(D, N, GO),
-                        listOf(BO, PD, SD)
-                    ).forEach { row ->
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .45f)
+                )
+            }
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 18.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            date.dayOfWeek
+                                .getDisplayName(TextStyle.FULL, Locale("hr", "HR"))
+                                .replaceFirstChar { it.titlecase(Locale("hr", "HR")) },
+                            fontSize = 25.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            date.format(java.time.format.DateTimeFormatter.ofPattern("dd. MMMM yyyy.", Locale("hr", "HR"))),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (currentCode.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = shiftFromCode(currentCode)?.let(::shiftBg)
+                                ?: MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            row.forEach { shift ->
-                                FilledTonalButton(
-                                    onClick = {
-                                        onShiftChange(date, shift.code)
-                                        editingDate = null
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("calendar-dialog-code-" + shift.code.lowercase(Locale.ROOT)),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = shiftBg(shift),
-                                        contentColor = shiftFg(shift)
-                                    )
+                            Text(
+                                currentCode,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                color = shiftFromCode(currentCode)?.let(::shiftFg)
+                                    ?: MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    "Odaberi oznaku jednim dodirom.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+
+                listOf(
+                    listOf(D, N, GO),
+                    listOf(BO, PD, SD)
+                ).forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(9.dp)
+                    ) {
+                        row.forEach { shift ->
+                            val isSelected = currentCode == shift.code
+                            Surface(
+                                onClick = {
+                                    onShiftChange(date, shift.code)
+                                    editingDate = null
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(84.dp)
+                                    .testTag("calendar-dialog-code-" + shift.code.lowercase(Locale.ROOT)),
+                                shape = RoundedCornerShape(18.dp),
+                                color = shiftBg(shift),
+                                border = if (isSelected) {
+                                    BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .8f))
+                                } else null
+                            ) {
+                                Column(
+                                    Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
                                 ) {
-                                    Text(shift.code, fontWeight = FontWeight.ExtraBold)
+                                    Text(
+                                        shift.code,
+                                        color = shiftFg(shift),
+                                        fontSize = 23.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                    Text(
+                                        when (shift.code) {
+                                            "D" -> "Dan"
+                                            "N" -> "Noć"
+                                            "GO" -> "Godišnji"
+                                            "BO" -> "Bolovanje"
+                                            "PD" -> "Plaćeni dopust"
+                                            else -> "Slobodan dan"
+                                        },
+                                        color = shiftFg(shift).copy(alpha = .9f),
+                                        fontSize = 10.sp,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 2
+                                    )
                                 }
                             }
                         }
                     }
-                    OutlinedTextField(
-                        value = customCode,
-                        onValueChange = { value ->
-                            customCode = value
-                                .uppercase(Locale("hr", "HR"))
-                                .filter { it.isLetterOrDigit() }
-                                .take(8)
-                        },
-                        label = { Text("Vlastita oznaka") },
-                        placeholder = { Text("npr. J, S, P1") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("calendar-custom-code")
-                    )
                 }
-            },
-            confirmButton = {
+
+                OutlinedTextField(
+                    value = customCode,
+                    onValueChange = { value ->
+                        customCode = value
+                            .uppercase(Locale("hr", "HR"))
+                            .filter { it.isLetterOrDigit() }
+                            .take(8)
+                    },
+                    label = { Text("Vlastita oznaka") },
+                    placeholder = { Text("npr. J, S, P1") },
+                    leadingIcon = { Icon(Icons.Outlined.Edit, null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("calendar-custom-code")
+                )
+
                 Button(
                     enabled = ScheduleStore.normalizeCode(customCode) != null,
                     onClick = {
                         val normalized = ScheduleStore.normalizeCode(customCode) ?: return@Button
                         onShiftChange(date, normalized)
                         editingDate = null
-                    }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(15.dp)
                 ) {
-                    Text("Spremi oznaku")
+                    Text("Spremi vlastitu oznaku", fontWeight = FontWeight.Bold)
                 }
-            },
-            dismissButton = {
-                Row {
+
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     if (currentCode.isNotBlank()) {
                         TextButton(
                             onClick = {
@@ -784,15 +850,19 @@ private fun largeMinutesLabel(minutes:Long):String {
                                 editingDate = null
                             }
                         ) {
-                            Text("Očisti", color = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Outlined.DeleteOutline, null)
+                            Spacer(Modifier.width(5.dp))
+                            Text("Očisti dan", color = MaterialTheme.colorScheme.error)
                         }
+                    } else {
+                        Spacer(Modifier.width(1.dp))
                     }
                     TextButton(onClick = { editingDate = null }) {
-                        Text("Odustani")
+                        Text("Zatvori")
                     }
                 }
             }
-        )
+        }
     }
 
     if (monthPickerDialog) {
