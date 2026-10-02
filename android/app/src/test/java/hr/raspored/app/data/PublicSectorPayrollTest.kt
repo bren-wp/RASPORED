@@ -206,6 +206,31 @@ class PublicSectorPayrollTest {
     }
 
     @Test
+    fun weekendAbsenceDoesNotCreateFundHoursOrOvertime() {
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 10),
+            scheduleCodes = mapOf(
+                "2026-10-03" to "GO",
+                "2026-10-04" to "BO"
+            ),
+            regimeId = "public-health",
+            coefficient = 1.25,
+            yearsService = 0,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = false
+        )
+
+        assertEquals(1, estimate.evidence.goDays)
+        assertEquals(1, estimate.evidence.boDays)
+        assertEquals(0L, estimate.evidence.compensatedAbsenceMinutes)
+        assertEquals(0L, estimate.evidence.overtimeMinutes)
+    }
+
+    @Test
     fun customCalendarCodesDoNotInventPayrollHours() {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
