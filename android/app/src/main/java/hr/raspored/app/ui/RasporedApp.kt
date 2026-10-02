@@ -739,12 +739,13 @@ private fun largeMinutesLabel(minutes:Long):String {
                         } else {
                             shiftFromCode(currentCode)?.let(::shiftBg)
                                 ?: MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        modifier = Modifier.testTag("calendar-dialog-current-state")
+                        }
                     ) {
                         Text(
                             currentCode.ifBlank { "Nije označeno" },
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            modifier = Modifier
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .testTag("calendar-dialog-current-state"),
                             color = if (currentCode.isBlank()) {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             } else {
