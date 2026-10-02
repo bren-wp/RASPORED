@@ -447,7 +447,7 @@ internal fun OcrScanScreen(
         customConflictCode = ""
         val remaining = reviewCells.count { it.conflict && !it.manuallyConfirmed }
         message = if (remaining == 0) {
-            "Raspored je spreman za uvoz. Svi AI/OCR konflikti su ručno potvrđeni."
+            "Raspored je spreman za uvoz. Sve nejasne stavke su potvrđene."
         } else {
             "Za provjeru je ostalo " + remaining + " nejasnih stavki."
         }
@@ -645,7 +645,7 @@ internal fun OcrScanScreen(
                     if (bitmap != null) {
                         Text(
                             if (singlePersonMode) {
-                                "Plavi pojas mora obuhvatiti samo jedan cijeli redak: broj retka / ime i prezime lijevo te sve ćelije rasporeda do zadnjeg dana desno. Zaglavlje dana aplikacija zadržava automatski."
+                                "Plavi okvir treba obuhvatiti samo jednu osobu i njezin redak kroz sve dane. Gornji red s brojevima dana aplikacija zadržava automatski."
                             } else {
                                 "Prepoznavanje koristi cijelu fotografiju. U okviru trebaju biti vidljiva sva imena i svi dani mjeseca."
                             },
