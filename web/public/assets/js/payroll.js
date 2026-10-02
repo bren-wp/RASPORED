@@ -151,8 +151,10 @@ function evidenceForMonth(year,monthIndex){
     var code=schedule[dateKey],d=new Date(dateKey+"T12:00:00");
     if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
     if(code==="GO"||code==="BO"||code==="PD"){
-      compensatedDates[dateKey]=true;
-      absenceDates[dateKey]=true;
+      if(d.getDay()!==0&&d.getDay()!==6){
+        compensatedDates[dateKey]=true;
+        absenceDates[dateKey]=true;
+      }
     }
   });
   var holidayCompensatedDates={};
@@ -171,6 +173,51 @@ function evidenceForMonth(year,monthIndex){
   result.workedDays=Object.keys(result.workedDates).length;
   return result;
 }
+function payrollPreview(monthKey){
+  if(!config||!/^2026-(0[1-9]|1[0-2])$/.test(monthKey||""))return null;
+  var p=snapshot().payroll||{},parts=monthKey.split("-").map(Number),year=parts[0],monthIndex=parts[1]-1;
+  var regime=regimeById(p.regimeId)||defaultRegimeForSector(p.sector||"Zdravstvo");
+  var coefficient=Math.max(.1,Math.min(10,Number(p.coefficient)||1));
+  var years=Math.max(0,Math.min(60,Math.trunc(Number(p.yearsService)||0)));
+  var extraPercent=Math.max(0,Math.min(100,Number(p.extraPercent)||0));
+  var customBase=Number(p.customBase)||0;
+  var base=baseFor(regime,monthKey,customBase);
+  var fund=monthlyFund(year,monthIndex);
+  var evidence=evidenceForMonth(year,monthIndex);
+  var basicGross=base*coefficient*(1+years*.005);
+  var hourly=fund>0?basicGross/fund:0;
+  var rates=regime&&regime.additions||{};
+  var overtime=Math.max(0,evidence.total+evidence.compensated-fund*60);
+  var turnusEnabled=!!p.turnus&&rates.turnus!=null;
+  var secondEnabled=!!p.secondShift&&rates.secondShift!=null;
+  var turnusMinutes=turnusEnabled?evidence.total:0;
+  var secondMinutes=secondEnabled&&turnusMinutes===0?evidence.secondShift:0;
+  function addition(minutes,rate){return rate==null?0:hourly*(minutes/60)*Number(rate)}
+  var additions=
+    addition(evidence.night,rates.night)+
+    addition(evidence.saturday,rates.saturday)+
+    addition(evidence.sunday,rates.sunday)+
+    addition(evidence.holiday,rates.holiday)+
+    hourly*(overtime/60)+
+    addition(overtime,rates.overtime)+
+    addition(secondMinutes,rates.secondShift)+
+    addition(turnusMinutes,rates.turnus)+
+    basicGross*(extraPercent/100);
+  var gross=basicGross+additions;
+  var allowance=Math.max(0,Math.min(10000,Number(p.personalAllowance)||Number(config.tax.basicPersonalAllowance)||600));
+  var lower=Math.max(0,Math.min(50,Number(p.taxLower)||20));
+  var higher=Math.max(0,Math.min(50,Number(p.taxHigher)||30));
+  var net=estimateNet(gross,allowance,lower,higher);
+  return {
+    available:base>0,
+    gross:gross,
+    net:net.net,
+    overtimeMinutes:overtime,
+    fundMinutes:fund*60,
+    money:money
+  };
+}
+
 function isPlaceholderInstitution(item){
   return !!(item&&(item.county==="*"||item.city==="*"));
 }
@@ -516,6 +563,6 @@ async function init(){
     qs("payrollLegalText").textContent="Službeni parametri za izračun trenutačno nisu dostupni.";
   }
 }
-window.RasporedPayroll={init:init,render:render};
+window.RasporedPayroll={init:init,render:render,preview:payrollPreview};
 window.addEventListener("raspored:storage-synced",function(){if(document.body.dataset.routeCurrent==="payroll")render()});
 })();
