@@ -553,7 +553,7 @@ function punctuatedDate(date,options){
 }
 function shiftMeta(code){
   var normalized=normalizeScheduleCode(code);
-  if(!normalized)return {name:"Redovni slobodni dan",time:"—",hours:0};
+  if(!normalized)return {name:"Nije označeno",time:"—",hours:0};
   return {D:{name:"Dnevna smjena",time:"07:00 – 19:00 (12h)",hours:12},N:{name:"Noćna smjena",time:"19:00 – 07:00 (12h)",hours:12},GO:{name:"Godišnji odmor",time:"—",hours:0},BO:{name:"Bolovanje",time:"—",hours:0},PD:{name:"Plaćeni dopust",time:"—",hours:0},SD:{name:"Slobodan dan (odobreno)",time:"—",hours:0}}[normalized]||{name:"Vlastita oznaka "+normalized,time:"—",hours:0};
 }
 function hoursText(minutes){
