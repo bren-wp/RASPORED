@@ -63,13 +63,14 @@ test("home is the start view and manual calendar editing persists", async ({page
 });
 
 
-test("blank calendar cell remains a regular day off and is not SD", async ({page}) => {
+test("blank calendar cell remains unassigned and is not SD", async ({page}) => {
   await page.goto("/");
   await page.locator('[data-route="calendar"]:visible').first().click();
   await expect(page.locator('[data-view="calendar"]')).toBeVisible();
   const blank=page.locator('[data-date="2026-10-18"]:visible').first();
   await blank.click();
-  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("Redovni slobodni dan");
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("Nije označeno");
+  await expect(page.locator("#selectedDayCard .selected-shift")).not.toContainText("Slobodan dan");
   await expect(page.locator("#selectedDayCard .selected-shift > .shift")).toHaveText("—");
   await expect(page.locator('[data-date="2026-10-18"]:visible .code')).toHaveCount(0);
 });
@@ -937,7 +938,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
   await expect(page.locator(".about-takto")).toContainText("Takto");
-  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.22");
+  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.23");
   await expect(page.locator(".about-takto")).toContainText("Brendigo");
 });
 

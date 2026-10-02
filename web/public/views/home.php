@@ -6,7 +6,8 @@
           <small id="mobileTodayTitle">—</small>
         </div>
 
-        <div class="mobile-metric-grid" id="mobileMetricGrid"></div>
+        <section class="card mobile-shift-card" id="mobileCurrentShift"></section>
+        <section class="card mobile-shift-card mobile-shift-card--next" id="mobileNextShift"></section>
 
         <section class="card takto-week-card">
           <div class="takto-week-head"><strong>Ovaj tjedan</strong><button class="link-btn" data-route="calendar">Prikaži kalendar ›</button></div>
@@ -24,8 +25,7 @@
           <button data-route="payroll"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scale"></use></svg><span>Plaća</span></button>
         </div>
 
-        <section class="card mobile-shift-card" id="mobileCurrentShift"></section>
-        <section class="card mobile-shift-card mobile-shift-card--next" id="mobileNextShift"></section>
+        <div class="mobile-metric-grid" id="mobileMetricGrid"></div>
 
         <div class="mobile-shift-chips" aria-label="Oznake smjena">
           <span><i class="shift d">D</i><small>Dan</small></span>
