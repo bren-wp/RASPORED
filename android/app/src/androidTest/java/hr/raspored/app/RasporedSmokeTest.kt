@@ -26,6 +26,12 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(2)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
+        // Make the neutral-state assertion deterministic even when another instrumented
+        // test has left persisted schedule data for this date.
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
+        composeRule.onNodeWithText("Očisti dan").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextEquals("Nije označeno")
         composeRule.onNodeWithText("Zatvori").performClick()
