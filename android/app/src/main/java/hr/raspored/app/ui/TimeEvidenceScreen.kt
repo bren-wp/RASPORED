@@ -49,7 +49,7 @@ internal fun TimeEvidenceScreen(
                 Column {
                     Text("Evidencija sati", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Automatski iz kalendara — bez ručnog evidentiranja ulaza i izlaza.",
+                        "Iz potvrđenog kalendara — bez ručnog evidentiranja ulaza i izlaza.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -83,8 +83,22 @@ internal fun TimeEvidenceScreen(
                         Modifier.fillMaxWidth().padding(top = 14.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        EvidenceMetric("Ukupno sati", minutesLabel(summary.workedMinutes), Modifier.weight(1f))
+                        EvidenceMetric("Odrađeno", minutesLabel(summary.workedMinutes), Modifier.weight(1f))
+                        EvidenceMetric("Mjesečni fond", minutesLabel(summary.plannedMinutes), Modifier.weight(1f))
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        EvidenceMetric("Prekovremeni", minutesLabel(summary.overtimeMinutes), Modifier.weight(1f))
+                        EvidenceMetric("Saldo", signedEvidenceMinutes(summary.balanceMinutes), Modifier.weight(1f))
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         EvidenceMetric("Noćni sati", minutesLabel(summary.nightMinutes), Modifier.weight(1f))
+                        EvidenceMetric("Obračunski sati", minutesLabel(summary.accountedMinutes), Modifier.weight(1f))
                     }
                     Row(
                         Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -208,5 +222,19 @@ private fun EvidenceMetric(label: String, value: String, modifier: Modifier) {
     }
 }
 
-private fun minutesLabel(minutes: Long): String =
-    (minutes.coerceAtLeast(0L) / 60L).toString() + " h"
+private fun minutesLabel(minutes: Long): String {
+    val safe = minutes.coerceAtLeast(0L)
+    val hours = safe / 60L
+    val remainder = safe % 60L
+    return if (remainder == 0L) hours.toString() + " h"
+    else hours.toString() + " h " + remainder.toString().padStart(2, '0') + " min"
+}
+
+private fun signedEvidenceMinutes(minutes: Long): String {
+    val sign = when {
+        minutes > 0L -> "+"
+        minutes < 0L -> "−"
+        else -> ""
+    }
+    return sign + minutesLabel(kotlin.math.abs(minutes))
+}
