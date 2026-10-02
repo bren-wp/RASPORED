@@ -25,7 +25,7 @@
         <h2>Izvoz podataka</h2>
         <p class="settings-help">Preuzmi sigurnosnu kopiju svih spremljenih podataka u JSON-u ili odaberi bilo koji spremljeni mjesec za mjesečni izvještaj i ispis / spremanje kao PDF u pregledniku.</p>
         <label class="setting-field report-month-field">
-          <span><b>Mjesec izvještaja</b><small>Prošli mjeseci ostaju dostupni dok su spremljeni u RASPORED-u.</small></span>
+          <span><b>Mjesec izvještaja</b><small>Prošli mjeseci ostaju dostupni dok su spremljeni u Takto aplikaciji.</small></span>
           <input type="month" id="reportMonth" min="2000-01" max="2100-12">
         </label>
         <div class="account-actions">
@@ -35,7 +35,7 @@
       </section>
       <section class="card settings-card">
         <h2>Izgled i pristupačnost</h2>
-        <label class="setting-row"><span><b>Tamni način</b><small>Koristi navy/dark surface uz iste statusne boje.</small></span><input type="checkbox" id="themeToggle"></label>
+        <label class="setting-row"><span><b>Tamni način</b><small>Takto tamna tema je primarni izgled; svijetli način ostaje dostupan po želji.</small></span><input type="checkbox" id="themeToggle"></label>
         <label class="setting-row"><span><b>Smanjene animacije</b><small>Poštuje prefers-reduced-motion i dodatnu lokalnu postavku.</small></span><input type="checkbox" id="motionToggle"></label>
       </section>
       <section class="card settings-card support-card">
@@ -45,13 +45,21 @@
           <a href="https://wa.me/385919010092" target="_blank" rel="noopener noreferrer" class="support-link" aria-label="WhatsApp podrška +385 91 901 0092">
             <span><b>WhatsApp</b><small>+385 91 901 0092</small></span><span aria-hidden="true">›</span>
           </a>
-          <a href="mailto:info@raspored.eu" class="support-link">
-            <span><b>E-mail</b><small>info@raspored.eu</small></span><span aria-hidden="true">›</span>
+          <a href="mailto:info@brendigo.com" class="support-link">
+            <span><b>E-mail</b><small>info@brendigo.com</small></span><span aria-hidden="true">›</span>
           </a>
           <a href="https://brendigo.com" target="_blank" rel="noopener noreferrer" class="support-link">
-            <span><b>Developer — Brendigo Studio</b><small>brendigo.com</small></span><span aria-hidden="true">›</span>
+            <span><b>Izradio — Brendigo</b><small>brendigo.com</small></span><span aria-hidden="true">›</span>
           </a>
         </div>
+      </section>
+      <section class="card settings-card about-takto">
+        <div class="about-takto-brand">
+          <img src="assets/brand/logo.svg" alt="" width="52" height="52">
+          <div><h2>Takto</h2><small>Verzija <?= htmlspecialchars($version, ENT_QUOTES) ?></small></div>
+        </div>
+        <p class="about-takto-tagline">Dodirni. Označi. Radi.</p>
+        <p class="settings-help">Izradio <b>Brendigo</b> · brendigo.com · info@brendigo.com</p>
       </section>
     </section>
   </main>

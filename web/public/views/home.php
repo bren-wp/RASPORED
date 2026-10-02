@@ -1,31 +1,44 @@
     <section class="view" id="view-home" data-view="home">
       <div class="mobile-home-dashboard">
         <div class="mobile-greeting">
-          <h1 id="mobileTodayTitle">—</h1>
-          <p id="mobileGreeting">Dobar dan! 👋</p>
+          <p id="mobileGreeting" class="takto-greeting">Dobar dan!</p>
+          <h1>Tvoj raspored.<br><span>Na prvi pogled.</span></h1>
+          <small id="mobileTodayTitle">—</small>
+        </div>
+
+        <div class="mobile-metric-grid" id="mobileMetricGrid"></div>
+
+        <section class="card takto-week-card">
+          <div class="takto-week-head"><strong>Ovaj tjedan</strong><button class="link-btn" data-route="calendar">Prikaži kalendar ›</button></div>
+          <div class="takto-week-strip" id="mobileWeekStrip" aria-label="Raspored za ovaj tjedan"></div>
+          <button class="primary-btn takto-add-shift" data-route="calendar"><span aria-hidden="true">＋</span> Dodaj ili označi dan</button>
+        </section>
+
+        <button class="primary-btn mobile-scan-cta" data-route="scan">
+          <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><span>Skeniraj raspored</span><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-right"></use></svg>
+        </button>
+
+        <div class="takto-home-actions" aria-label="Brze akcije">
+          <button data-route="hours"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg><span>Evidencija</span></button>
+          <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><span>Statistika</span></button>
+          <button data-route="payroll"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scale"></use></svg><span>Plaća</span></button>
         </div>
 
         <section class="card mobile-shift-card" id="mobileCurrentShift"></section>
         <section class="card mobile-shift-card mobile-shift-card--next" id="mobileNextShift"></section>
 
         <div class="mobile-shift-chips" aria-label="Oznake smjena">
-          <span><i class="shift d">D</i><small>Dnevna</small></span>
-          <span><i class="shift n">N</i><small>Noćna</small></span>
+          <span><i class="shift d">D</i><small>Dan</small></span>
+          <span><i class="shift n">N</i><small>Noć</small></span>
           <span><i class="shift go">GO</i><small>Godišnji</small></span>
           <span><i class="shift bo">BO</i><small>Bolovanje</small></span>
           <span><i class="shift pd">PD</i><small>Plaćeni dopust</small></span>
           <span><i class="shift sd">SD</i><small>Slobodan dan</small></span>
         </div>
-
-        <div class="mobile-metric-grid" id="mobileMetricGrid"></div>
-
-        <button class="primary-btn mobile-scan-cta" data-route="scan">
-          <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><span>Skeniraj raspored</span><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-right"></use></svg>
-        </button>
       </div>
 
       <div class="page-head">
-        <div><h1 id="welcomeTitle">Dobro došao!</h1><p>Ovdje možeš pregledati svoj raspored, evidenciju sati i statistiku.</p></div>
+        <div><h1 id="welcomeTitle">Dobro došao u Takto!</h1><p>Tvoj raspored, evidencija i statistika na jednom mjestu.</p></div>
         <button class="primary-btn" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Uvezi / Skeniraj raspored <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chevron-down"></use></svg></button>
       </div>
 

@@ -708,7 +708,7 @@ internal fun OcrScanScreen(
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xE60B1F44),
+                        color = RasporedTokens.Navy.copy(alpha = .90f),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(Modifier.padding(12.dp)) {
@@ -935,7 +935,7 @@ internal fun OcrScanScreen(
                             Text(if (aiBusy) "AI provjera..." else "AI provjera cijelog rasporeda")
                         }
                         Text(
-                            "Opcionalno: slika se šalje RASPORED poslužitelju i OpenAI API-ju samo kad ovo pokreneš. API ključ nije spremljen u Android aplikaciji.",
+                            "Opcionalno: slika se šalje Takto poslužitelju i OpenAI API-ju samo kad ovo pokreneš. API ključ nije spremljen u Android aplikaciji.",
                             modifier = Modifier.padding(top = 5.dp),
                             color = RasporedTokens.Slate,
                             fontSize = 10.sp
@@ -1015,7 +1015,7 @@ internal fun OcrScanScreen(
             title = { Text("AI analiza fotografije") },
             text = {
                 Text(
-                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se RASPORED backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
+                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
                 )
             },
             confirmButton = {
@@ -1144,19 +1144,16 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
         "D" -> RasporedTokens.CyanSoft
         "N" -> RasporedTokens.NavyAlt
         "GO" -> RasporedTokens.TealSoft
-        "BO" -> RasporedTokens.RedSoft
-        "PD" -> Color(0xFFFFF3D6)
-        "SD" -> Color(0xFFE9EEF5)
-        else -> Color(0xFFF1F5F9)
+        "BO" -> RasporedTokens.Amber
+        "PD" -> RasporedTokens.RedSoft
+        "SD" -> Color(0xFF20314A)
+        else -> Color(0xFF20314A)
     }
     val fg = when (code) {
-        "D" -> Color(0xFF087BC9)
-        "N" -> Color.White
-        "GO" -> Color(0xFF07865F)
-        "BO" -> Color(0xFFD22333)
-        "PD" -> Color(0xFF9A6500)
-        "SD" -> Color(0xFF475569)
-        else -> RasporedTokens.Slate
+        "D", "N", "GO", "PD" -> Color.White
+        "BO" -> RasporedTokens.Navy
+        "SD" -> Color(0xFFD7E3F4)
+        else -> Color(0xFFD7E3F4)
     }
     Surface(
         shape = RoundedCornerShape(12.dp),

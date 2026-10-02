@@ -230,7 +230,7 @@ jobs:
             SIGNING_NOTE="GitHub Secrets nisu potrebni: APK je instalabilni debug-signed artefakt, a AAB je release bundle za daljnju Play Console obradu."
           fi
 
-          gh release create "v${VERSION}"             dist/RASPORED.apk             dist/RASPORED.aab             dist/raspored_demo.apk             "dist/RASPORED-web-v${VERSION}.zip"             dist/SHA256SUMS             --target "$RELEASE_SHA"             --title "RASPORED v${VERSION}"             --notes "Produkcijsko izdanje RASPORED-a za Android i Web/PWA. ${SIGNING_NOTE} Workflow prije objave provjerava build, testove, emulator smoke test, ZIP integritet i SHA-256 kontrolne vrijednosti."
+          gh release create "v${VERSION}"             dist/RASPORED.apk             dist/RASPORED.aab             dist/raspored_demo.apk             "dist/RASPORED-web-v${VERSION}.zip"             dist/SHA256SUMS             --target "$RELEASE_SHA"             --title "Takto v${VERSION}"             --notes "Produkcijsko izdanje Takto aplikacije za Android i Web/PWA. Tehnički nazivi artefakata RASPORED zadržani su radi kompatibilnosti. ${SIGNING_NOTE} Workflow prije objave provjerava build, testove, emulator smoke test, ZIP integritet i SHA-256 kontrolne vrijednosti."
 
       - uses: actions/upload-artifact@v4
         with:

@@ -1,1 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0B1F44"/><g transform="translate(92 92) scale(1.28)"><rect x="22" y="28" width="212" height="206" rx="45" fill="#075985"/><rect x="44" y="59" width="168" height="151" rx="26" fill="#fff"/><path d="M44 93h84v117H70a26 26 0 0 1-26-26z" fill="#00C2FF"/><path d="M128 93h84v91a26 26 0 0 1-26 26h-58z" fill="#163A78"/><rect x="72" y="17" width="20" height="55" rx="10" fill="#fff"/><rect x="164" y="17" width="20" height="55" rx="10" fill="#fff"/><circle cx="87" cy="146" r="24" fill="#F59E0B"/><path d="M181 118a36 36 0 1 0 0 58 30 30 0 1 1 0-58z" fill="#fff"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Takto">
+<defs>
+  <linearGradient id="top" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#12D6A0"/><stop offset=".48" stop-color="#0A8CFF"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient>
+  <linearGradient id="stem" x1=".2" y1="0" x2=".8" y2="1"><stop stop-color="#0A8CFF"/><stop offset=".55" stop-color="#6D28D9"/><stop offset="1" stop-color="#B23CF3"/></linearGradient>
+</defs>
+<rect width="512" height="512" rx="120" fill="#07111F"/>
+<path d="M112 154c0-24 20-44 44-44h236c18 0 32 14 32 32v46c0 16-14 30-30 30H292l-38 38H112V154z" fill="url(#top)"/>
+<path d="M196 218h96v86c0 18-8 36-20 48l-62 62c-24 24-64 8-64-26V268z" fill="url(#stem)"/>
+</svg>

@@ -2,7 +2,7 @@
 "use strict";
 var months=["Siječanj","Veljača","Ožujak","Travanj","Svibanj","Lipanj","Srpanj","Kolovoz","Rujan","Listopad","Studeni","Prosinac"];
 var weekdays=["Ned","Pon","Uto","Sri","Čet","Pet","Sub"];
-var state={route:"calendar",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanOriginalFile:null,scanSingleMode:false,scanCropTop:34,scanCropBottom:38,scanDetectedRows:[],scanDetectedRowIndex:-1,scanDetectedFrame:null,scanLocalRawText:"",aiConsentGranted:false};
+var state={route:"home",cursor:new Date(),selected:new Date(),schedule:{},scanPeople:[],scanReviewCells:[],scanSelected:-1,scanMonth:null,scanExpectedRows:0,scanIncomplete:false,editRecognition:false,scanGeneration:0,scanSourceFile:null,scanOriginalFile:null,scanSingleMode:false,scanCropTop:34,scanCropBottom:38,scanDetectedRows:[],scanDetectedRowIndex:-1,scanDetectedFrame:null,scanLocalRawText:"",aiConsentGranted:false};
 var appBound=false;
 state.cursor=new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 state.selected=new Date();
@@ -101,8 +101,9 @@ function configureProfile(){
   if(nameEl)nameEl.textContent=display;
   if(initialEl)initialEl.textContent=initials;
   if(welcome){
-    if(name&&name!=="Korisnik")welcome.textContent="Dobro došao, "+parts[0]+"!";
-    else welcome.textContent="Dobro došao!";
+    var hour=appNow().getHours();
+    var greeting=hour>=5&&hour<12?"Dobro jutro":hour>=12&&hour<18?"Dobar dan":"Dobra večer";
+    welcome.textContent=name&&name!=="Korisnik"?greeting+", "+parts[0]+"!":greeting+"!";
   }
   if(input&&document.activeElement!==input)input.value=name;
 }
@@ -716,6 +717,18 @@ function renderMobileHome(){
   var date=appNow(),entry=currentShiftFor(date),code=entry?entry.code:null,current=shiftMeta(code),data=monthData(date.getFullYear(),date.getMonth());
   var title=document.getElementById("mobileTodayTitle");
   if(title){var dateText=punctuatedDate(date,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});title.textContent=dateText.charAt(0).toUpperCase()+dateText.slice(1)}
+  var greeting=document.getElementById("mobileGreeting");
+  if(greeting){
+    var hour=date.getHours();
+    greeting.textContent=(hour>=5&&hour<12?"Dobro jutro":hour>=12&&hour<18?"Dobar dan":"Dobra večer")+"!";
+  }
+  var monday=addDays(date,-((date.getDay()+6)%7)),week=document.getElementById("mobileWeekStrip");
+  if(week){
+    week.innerHTML=Array.from({length:7},function(_,index){
+      var day=addDays(monday,index),dayCode=state.schedule[iso(day)]||"",cls=scheduleCodeClass(dayCode);
+      return '<button type="button" class="takto-week-day '+(iso(day)===iso(date)?'is-today ':'')+(dayCode?'has-shift '+cls:'')+'" data-open-date="'+iso(day)+'"><small>'+weekdays[day.getDay()]+'</small><b>'+day.getDate()+'</b><i>'+escapeHtml(dayCode||"—")+'</i></button>';
+    }).join("");
+  }
   var currentEl=document.getElementById("mobileCurrentShift");
   if(currentEl){currentEl.innerHTML='<button type="button" class="mobile-shift-card-head mobile-shift-card-head--button" data-route-dynamic="calendar"><h2>Današnja smjena</h2>'+icon("chevron-right")+'</button><div class="mobile-shift-card-body">'+(code?'<i class="shift '+scheduleCodeClass(code)+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code?'<span class="shift-countdown">'+shiftStatus(entry?entry.date:date,code)+'</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("clock")+'<span>Otvori evidenciju</span>'+icon("chevron-right")+'</button></div>'}
   var next=null;
@@ -723,7 +736,7 @@ function renderMobileHome(){
   var nextEl=document.getElementById("mobileNextShift");
   if(nextEl){if(next){var nm=shiftMeta(next.code);nextEl.innerHTML='<button type="button" class="mobile-shift-card-head mobile-shift-card-head--button" data-open-date="'+iso(next.date)+'"><h2>Sljedeća smjena</h2>'+icon("chevron-right")+'</button><div class="mobile-shift-card-body"><i class="shift '+next.code.toLowerCase()+'">'+next.code+'</i><span class="mobile-shift-copy"><b>'+nm.name+'</b><small>'+nm.time+'</small></span><span class="shift-countdown">'+next.date.toLocaleDateString("hr-HR",{weekday:"short"})+'</span></div>'}else{nextEl.innerHTML='<div class="mobile-shift-card-head"><h2>Sljedeća smjena</h2></div><p class="empty">Nema nadolazeće smjene.</p>'}}
   var metrics=document.getElementById("mobileMetricGrid");
-  if(metrics){var weekendMinutes=data.weekendHolidayMinutes,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""],["moon","Noćni sati",hoursText(data.nightMinutes),"Ovaj mjesec","night"],["holiday","Vikendi i blagdani",hoursText(weekendMinutes),"Ovaj mjesec","weekend"]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
+  if(metrics){var weekendMinutes=data.weekendHolidayMinutes,prefix=date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+"-",monthCodes=Object.keys(state.schedule).filter(function(key){return key.indexOf(prefix)===0}).map(function(key){return state.schedule[key]});var shiftCount=monthCodes.filter(function(value){return value==="D"||value==="N"}).length,absenceCount=monthCodes.filter(function(value){return ["GO","BO","PD","SD"].indexOf(value)>=0}).length,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Radne smjene",String(shiftCount),"Ovaj mjesec",""],["holiday","Odsustva",String(absenceCount),"Ovaj mjesec","weekend"],["clock","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
 }
 function nextShifts(){var list=[],start=appNow();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c==="D"||c==="N")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<button type="button" class="next-shift next-shift--button" data-open-date="'+iso(x[0])+'"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></button>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
 function renderSelected(){
@@ -830,18 +843,18 @@ function renderStats(){
     }else trendEl.textContent="Nema podataka za prethodni mjesec";
   }
   var donut=document.getElementById("donut"),total=Math.max(1,d.workedMinutes),dayPct=Math.round(d.dayMinutes/total*100),nightPct=Math.round(d.nightMinutes/total*100);
-  if(donut)donut.style.background="conic-gradient(#20B7EB 0 "+dayPct+"%,#27388D "+dayPct+"% "+(dayPct+nightPct)+"%,#B8D0ED "+(dayPct+nightPct)+"% 100%)";
+  if(donut)donut.style.background="conic-gradient(#147DF5 0 "+dayPct+"%,#6D28D9 "+dayPct+"% "+(dayPct+nightPct)+"%,#60738F "+(dayPct+nightPct)+"% 100%)";
   var cats=[
-    ["#20B7EB","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
-    ["#27388D","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
-    ["#B8D0ED","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
-    ["#FF6B61","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
-    ["#F59E0B","Blagdani",hoursText(d.holidayMinutes),d.holidays+" smjena"],
-    ["#14B8A6","GO",d.go+" dana","Godišnji odmor"],
-    ["#FB7185","BO",d.bo+" dana","Bolovanje"],
-    ["#F59E0B","PD",d.pd+" dana","Plaćeni dopust"],
-    ["#94A3B8","SD",d.sd+" dana","Slobodan dan"],
-    ["#BFEFFF","Ukupno sati",hoursText(d.workedMinutes),"Automatski iz kalendara"]
+    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
+    ["#6D28D9","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
+    ["#60738F","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
+    ["#FF4655","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
+    ["#FFB51F","Blagdani",hoursText(d.holidayMinutes),d.holidays+" smjena"],
+    ["#12D6A0","GO",d.go+" dana","Godišnji odmor"],
+    ["#FFB51F","BO",d.bo+" dana","Bolovanje"],
+    ["#E53648","PD",d.pd+" dana","Plaćeni dopust"],
+    ["#60738F","SD",d.sd+" dana","Slobodan dan"],
+    ["#4CABFF","Ukupno sati",hoursText(d.workedMinutes),"Automatski iz kalendara"]
   ],el=document.getElementById("statsCategories");
   if(el)el.innerHTML=cats.map(function(x){return '<div class="stat-cat"><span><i style="background:'+x[0]+'"></i><b>'+x[2]+'</b></span><small>'+x[1]+' · '+x[3]+'</small></div>'}).join("");
   var max=1;d.weeks.forEach(function(w){max=Math.max(max,w.d+w.n+w.o)});
@@ -1162,7 +1175,7 @@ function route(name){
   state.route=name;document.body.dataset.routeCurrent=name;
   document.querySelectorAll(".view").forEach(function(x){x.classList.toggle("is-active",x.dataset.view===name)});
   var desktopNavRoute=name==="payroll"?"stats":name;
-  var mobileNavRoute=name==="home"?"calendar":name==="payroll"?"stats":name;
+  var mobileNavRoute=name==="hours"?"home":name==="payroll"?"stats":name;
   document.querySelectorAll(".side-nav [data-route]").forEach(function(x){
     x.classList.toggle("is-active",x.dataset.route===desktopNavRoute);
   });
@@ -1187,9 +1200,10 @@ function applyStoredAppearance(){
   if(motion)motion.checked=reduced;
   document.body.dataset.reducedMotion=reduced?"true":"false";
   var th=storageGet("raspored.theme");
-  document.documentElement.dataset.theme=th==="dark"?"dark":"light";
+  var selectedTheme=th==="light"?"light":"dark";
+  document.documentElement.dataset.theme=selectedTheme;
   var theme=document.getElementById("themeToggle");
-  if(theme)theme.checked=th==="dark";
+  if(theme)theme.checked=selectedTheme==="dark";
 }
 function bind(){
   if(appBound)return;
@@ -1414,7 +1428,7 @@ function bind(){
   window.addEventListener("online",connectivity);window.addEventListener("offline",connectivity);connectivity();
 }
 async function initApp(){
-  if(!window.RasporedDataStore){throw new Error("RASPORED data store nije učitan.");}
+  if(!window.RasporedDataStore){throw new Error("Takto podatkovni sloj nije učitan.");}
   document.body.dataset.appReady="loading";
   window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
 

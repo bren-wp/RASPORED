@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <application android:theme="@style/Theme.Raspored" android:label="RASPORED" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:supportsRtl="true">
+    <application android:theme="@style/Theme.Raspored" android:label="Takto" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:supportsRtl="true">
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

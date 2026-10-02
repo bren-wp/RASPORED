@@ -1,12 +1,14 @@
 <div align="center">
 
-<img src="web/public/assets/brand/logo.svg" alt="RASPORED logo" width="112">
+<img src="web/public/assets/brand/logo.svg" alt="Takto logo" width="112">
 
-# RASPORED
+# Takto
 
-### Smjene, evidencija sati i statistika — u jednoj modernoj aplikaciji.
+### Dodirni. Označi. Radi.
 
-**RASPORED** pretvara papirnate rasporede u pregledan digitalni kalendar, automatski izvodi evidenciju sati iz potvrđenog kalendara i daje jasan mjesečni pregled rada na **Androidu** i kao **Web/PWA** aplikacija.
+**Takto** je pregledna aplikacija za raspored rada: mjesečni kalendar, brzo označavanje smjena, OCR skeniranje rasporeda, automatska evidencija sati i statistika na **Androidu** i kao **Web/PWA** aplikacija. Primarni izgled je tamna Takto tema, a svijetli način ostaje dostupan po želji.
+
+> Repo i release artefakti zadržavaju tehnički naziv **RASPORED** radi kompatibilnosti postojećih instalacija, buildova i automatizacije; korisnički brend aplikacije od verzije **1.0.21** je **Takto**.
 
 [![CI](https://github.com/bren-wp/RASPORED/actions/workflows/ci.yml/badge.svg)](https://github.com/bren-wp/RASPORED/actions/workflows/ci.yml)
 
@@ -32,17 +34,17 @@ GitHub Secrets nisu obavezni za release. Ako su sva četiri opcionalna signing s
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
-RASPORED je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**.
+Takto je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**. Početni ekran daje pozdrav prema dobu dana, tjedni pregled, brze akcije i mjesečne sažetke bez forsiranja samo dnevnih/noćnih smjena.
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
-- **Kalendar smjena** — glavni početni ekran i najveći dio Android sučelja. Mjesečna 7-stupčana mreža koristi velike ćelije; klik na ćeliju otvara unos oznake baš za taj datum. U istom dijalogu moguće je odabrati D, N, GO, BO, PD ili SD, upisati vlastitu oznaku do 8 znakova ili očistiti dan. Stari blok brzog unosa i višestrukog odabira ispod kalendara uklonjen je u potpunosti.
+- **Početna + kalendar smjena** — Takto se otvara na početnom pregledu s tjednom trakom i brzim akcijama; Kalendar ostaje zaseban veliki 7-stupčani mjesečni prikaz. Dodir ćelije otvara unos D, N, GO, BO, PD ili SD, vlastitu oznaku do 8 znakova ili čišćenje dana.
 - **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
 - **Evidencija sati** — detaljni mjesečni ledger automatski izveden iz kalendara; nema ručnog clock-in/clock-out toka.
 - **Statistika** — odvojeni zbirni analitički ekran za dnevne/noćne sate, vikende, blagdane, broj smjena i raspodjelu po tjednima.
 - **Android + Web/PWA** — isti vizualni identitet i ista semantika podataka na obje platforme.
 
-## Stvarna Android aplikacija
+## Stvarna Takto Android aplikacija
 
 > Slike ispod su **stvarni screenshotovi pokrenute Android aplikacije** snimljeni na API 36 emulatoru tijekom GitHub Actions instrumentation QA procesa. Nisu mockupovi, renderi ni screenshotovi Web/PWA stranice. Prikazani podaci nastaju isključivo kroz testni scenarij.
 
@@ -52,23 +54,23 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 <td width="50%" align="center"><b>Skeniranje rasporeda</b></td>
 </tr>
 <tr>
-<td><img src="docs/media/android-calendar.png" alt="RASPORED Android mjesečni kalendar — stvarni emulator screenshot"></td>
-<td><img src="docs/media/android-scan.png" alt="RASPORED Android skeniranje rasporeda — stvarni emulator screenshot"></td>
+<td><img src="docs/media/android-calendar.png" alt="Takto Android mjesečni kalendar — stvarni emulator screenshot"></td>
+<td><img src="docs/media/android-scan.png" alt="Takto Android skeniranje rasporeda — stvarni emulator screenshot"></td>
 </tr>
 </table>
 
-## Što RASPORED radi
+## Što Takto radi
 
 | Funkcija | Što korisnik dobiva |
 | --- | --- |
-| **Mjesečni kalendar** | Početni Android ekran s velikom 7-stupčanom mrežom preko gotovo cijelog dostupnog prostora. Klik na dan otvara uređivanje te ćelije: standardna ili vlastita kratka oznaka do 8 slova/brojeva, uz mogućnost brisanja. |
+| **Mjesečni kalendar** | Zaseban Android kalendarski ekran s velikom 7-stupčanom mrežom preko gotovo cijelog dostupnog prostora. Dodir dana otvara uređivanje te ćelije: standardna ili vlastita kratka oznaka do 8 slova/brojeva, uz mogućnost brisanja. |
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. |
 | **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, stvarne horizontalne linije mreže, točni pojasevi redaka zaposlenika, preklapajući pojasevi, zasebni roster prolazi i fokusirani recovery tileovi. Za guste 27–31 redne tablice sustav može raditi i završni OCR **redak po redak** uz izvorno zaglavlje dana te blokira očito nepotpun uvoz kada geometrija tablice pokazuje više djelatnika nego što je OCR pouzdano pročitao. |
 | **Automatska evidencija sati** | D i N smjene iz potvrđenog kalendara automatski daju 12 sati; noćni dio N smjene računa se prema stvarnom intervalu 22:00–06:00. GO/BO/PD/SD ne stvaraju izmišljene radne sate, a custom oznake ostaju bez satnice dok se njihovo značenje ne definira. |
 | **Odvojena statistika** | Statistika agregira kalendarske sate i smjene, ali nije duplikat dnevnog evidencijskog ledgera. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
 | **Tjedna statistika** | Vizualna raspodjela rada po tjednima u mjesecu. |
-| **Dark mode** | Trajna Android postavka tamnog izgleda. |
+| **Tamna tema** | Primarni Takto izgled na novim instalacijama; svijetla tema ostaje izbor u Postavkama. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
 | **Okvirna plaća** | Android i Web/PWA koriste provjerljive 2026 parametre gdje postoje; lokalno uređeni i privatni sektor imaju ručni način bez izmišljanja osnovice, koeficijenta ili dodataka. |
 | **Korisnički račun** | Android Postavke više nemaju ime/prezime, registraciju ni prijavu; osnovni Android rad je lokalni. Web/PWA zadržava vlastiti opcionalni račun za svoje mrežne funkcije. Postojeća Android šifrirana sesija može se samo validirati radi kompatibilnosti sa starijim instalacijama. |
@@ -109,15 +111,15 @@ Kalendar je izvor istine za evidenciju. Korisnik više ne mora pokretati i zaust
 
 ## Oznake rasporeda i Evidencija sati
 
-RASPORED izvodi evidenciju iz potvrđenog kalendara. Podržane semantičke oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. Kratke oznake koje ustanova koristi, a RASPORED im nema potvrđenu semantiku, čuvaju se kao vlastite oznake umjesto da se odbace ili pogrešno prevedu. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
+Takto izvodi evidenciju iz potvrđenog kalendara. Podržane semantičke oznake rasporeda su **D** (dnevna smjena), **N** (noćna smjena), **GO** (godišnji odmor), **BO** (bolovanje), **PD** (plaćeni dopust) i **SD** (odobreni slobodan dan). **Prazna ćelija nije SD**: ostaje prazna i znači redovni slobodni dan. OCR zato nikada ne smije sam pretvarati praznu kućicu u SD niti pomaknuti kasniju oznaku na raniji datum. Kratke oznake koje ustanova koristi, a Takto im nema potvrđenu semantiku, čuvaju se kao vlastite oznake umjesto da se odbace ili pogrešno prevedu. OCR review zadržava točan dan/stupac i dopušta ručnu korekciju prije spremanja.
 
 Blagdan je svojstvo datuma, a ne posebna oznaka rasporeda. Prazna ćelija na blagdan ostaje prazna i prikazuje se kao blagdan/neradni dan; aplikacija ne dodaje +150 % dodatka ako na taj datum nema stvarno odrađenog rada. Za javne službe TKU predviđa pravo na naknadu plaće kada zaposlenik ne radi zbog državnog blagdana ili neradnog dana, pa taj slučaj ne pretvaramo u BO, SD ili izmišljenu smjenu.
 
-RASPORED ne izmišlja trajanje ni dodatke za ustanovne/custom oznake. Posebni obrasci rada i dodaci u kalkulatoru plaće primjenjuju se samo kada postoji odgovarajući korisnički odabir i provjerljivo pravilo; osnovni sati i kategorije rada dolaze iz kalendarskih D/N smjena.
+Takto ne izmišlja trajanje ni dodatke za ustanovne/custom oznake. Posebni obrasci rada i dodaci u kalkulatoru plaće primjenjuju se samo kada postoji odgovarajući korisnički odabir i provjerljivo pravilo; osnovni sati i kategorije rada dolaze iz kalendarskih D/N smjena.
 
 ## Okvirna plaća — javni sektor i ručni način za ostale poslodavce
 
-Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija RASPORED-a. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
+Android i Web/PWA imaju zaseban kalkulator **okvirne plaće**, ali kalendar, raspored i evidencija sati ostaju primarna funkcija Takto aplikacije. Odabir je organiziran kao **županija ustanove → grad/općina prebivališta i porezne stope → sektor → ustanova → radno mjesto**.
 
 Za 2026. ugrađene su službene osnovice javnih i državnih službi po razdobljima te provjerljivi koeficijenti za odabrana radna mjesta u zdravstvu, školstvu, policiji i profesionalnom vatrogastvu. Web katalog sadrži aktualni popis bolničkih zdravstvenih ustanova Ministarstva zdravstva, a posebna pravila pojedine ustanove ne primjenjuju se na druge ustanove bez provjerljivog izvora.
 
@@ -127,17 +129,19 @@ Procjena koristi sate automatski izvedene iz kalendara za noćni, subotnji, nedj
 
 Kalkulator je pomoćni informativni sloj, ne obračunska isprava. Bolovanje, godišnji odmor po prosjeku, pripravnost, dežurstva, posebni uvjeti rada, neoporezivi primici, prijevoz, obustave i individualna porezna prava ne dodaju se bez odgovarajućeg podatka ili provjerljivog pravila.
 
-## Brand
+## Takto brand
+
+Takto koristi kompaktni **T** znak s prijelazom teal → plava → ljubičasta, tamni navy app-shell i visokokontrastne kodove smjena. Korisnički slogan je **„Dodirni. Označi. Radi.”**
 
 <table>
 <tr>
 <td width="50%" align="center">
-<img src="web/public/assets/brand/logo.svg" alt="RASPORED glavni logo" width="150"><br>
+<img src="web/public/assets/brand/logo.svg" alt="Takto glavni logo" width="150"><br>
 <b>Glavni logo</b><br>
-<sub>Kalendar + dan + noć</sub>
+<sub>Takto T znak</sub>
 </td>
 <td width="50%" align="center">
-<img src="web/public/assets/brand/icon-maskable.svg" alt="RASPORED maskable PWA ikona" width="150"><br>
+<img src="web/public/assets/brand/icon-maskable.svg" alt="Takto maskable PWA ikona" width="150"><br>
 <b>PWA / maskable ikona</b><br>
 <sub>Isti proizvodni vizualni identitet</sub>
 </td>
@@ -146,7 +150,7 @@ Kalkulator je pomoćni informativni sloj, ne obračunska isprava. Bolovanje, god
 
 ### Produkcijske ikonice
 
-<img src="docs/media/icon-showcase.svg" alt="RASPORED produkcijske ikonice" width="100%">
+<img src="docs/media/icon-showcase.svg" alt="Takto produkcijske ikonice" width="100%">
 
 Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi zajednički SVG sprite iz <code>web/public/assets/brand/icons.svg</code>, a Android koristi platformske vector / Compose ikone uz projektni launcher asset.
 
@@ -154,13 +158,13 @@ Ikonice u aplikaciji nisu emoji ni privremeni Unicode placeholderi. Web koristi 
 
 | Token | Vrijednost | Namjena |
 | --- | --- | --- |
-| Midnight Navy | <code>#0B1F44</code> | navigacija, noćna smjena, brand |
-| Electric Cyan | <code>#00C2FF</code> | primarna akcija, dnevna smjena |
-| Teal | <code>#14B8A6</code> | slobodni dan / pozitivni statusi |
-| Slate Gray | <code>#94A3B8</code> | sekundarni tekst |
-| Background | <code>#F6F8FB</code> | svijetla površina aplikacije |
-| Amber | <code>#F59E0B</code> | sunce / naglasci |
-| Red | <code>#EF4444</code> | bolovanje / upozorenja |
+| Takto Midnight | <code>#07111F</code> | primarna tamna pozadina i chrome |
+| Takto Blue | <code>#0A8CFF</code> | primarna akcija / D |
+| Takto Purple | <code>#8B5CF6</code> | brand prijelaz / N |
+| Takto Teal | <code>#12D6A0</code> | brand prijelaz / GO |
+| Amber | <code>#FFB51F</code> | BO |
+| Coral Red | <code>#FF4655</code> | PD / upozorenja |
+| Slate | <code>#A9B7CB</code> | sekundarni tekst |
 
 ## Demo Android aplikacija
 
@@ -183,7 +187,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 - okvirna bruto/neto procjena uz službene javne presete i ručni način za ostale sektore
 - hrvatski fiksni i pomični blagdani
 - funkcionalni dark mode
-- mobilna primarna navigacija: Kalendar, Evidencija, istaknuti Skeniraj, Statistika i Više
+- mobilna primarna navigacija: Početna, Kalendar, istaknuti Skeniraj, Statistika i Više; Evidencija ostaje brza akcija s Početne
 - Keystore-backed kompatibilnost za ranije povezane Android sesije uz provjeru isteka/opoziva; novi login/registracija UI je uklonjen
 - stvarni mjesečni PDF izvoz rasporeda/evidencije bez profila ime/prezime u Postavkama
 - debug APK + release AAB + zasebni `raspored_demo.apk` build provjera
@@ -208,8 +212,8 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 ## Podrška
 
 - WhatsApp: **+385 91 901 0092**
-- E-mail: **info@raspored.eu**
-- Developer: **Brendigo Studio** — brendigo.com
+- E-mail: **info@brendigo.com**
+- Izradio: **Brendigo** — brendigo.com
 
 ## Privatnost i podaci
 
@@ -219,7 +223,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 - **Web/PWA:** gostujući način koristi per-instalacijski JSON vezan uz nasumični HttpOnly identifikator. Registrirani korisnik koristi zaseban JSON vezan uz nasumični ID računa; e-mail se ne koristi kao naziv datoteke.
 - **Računi:** Web lozinke se ne spremaju u čistom tekstu; koriste PHP `password_hash` / `password_verify` i HttpOnly/SameSite session cookie. Android više nema account UI; eventualni token iz ranije verzije ostaje u Keystore-backed šifriranoj pohrani samo radi kompatibilnosti i briše se kada je istekao ili opozvan.
 - **Zaštita Web spremišta:** runtime prvenstveno sprema JSON u privatni direktorij izvan document root-a; put se može eksplicitno zadati s `RASPORED_STORAGE_DIR`. `storage/.htaccess` ostaje kompatibilni fallback za Apache. Zapis ide kroz API s validacijom, sanitizacijom, ograničenjem veličine, zaključavanjem i atomskim zapisom.
-- **Android OCR:** primarno lokalna obrada teksta preko ML Kit modela na uređaju. Ako prijavljeni korisnik izričito pokrene AI provjeru, fotografija se šalje preko RASPORED HTTPS backenda OpenAI Responses API-ju; OpenAI API ključ nije ugrađen u APK.
+- **Android OCR:** primarno lokalna obrada teksta preko ML Kit modela na uređaju. Ako prijavljeni korisnik izričito pokrene AI provjeru, fotografija se šalje preko Takto HTTPS backenda OpenAI Responses API-ju; OpenAI API ključ nije ugrađen u APK.
 - **Web OCR:** primarno se obrađuje u pregledniku; sama fotografija ne zapisuje se u `storage/data`. Registrirani korisnik može izričito pokrenuti AI provjeru preko server-side endpointa koji čita `OPENAI_API_KEY` iz okoline, validira MIME, veličinu, dimenzije i broj piksela, primjenjuje account/IP rate limit i šalje `store:false`. Privremeni upload uklanja se prije poziva AI servisu.
 - **Legacy migracija:** postojeći podaci iz starog `localStorage/sessionStorage` modela mogu se jednokratno prenijeti u JSON spremište, nakon čega se stari ključevi brišu.
 
@@ -279,7 +283,7 @@ Kod rada iz repozitorija API zapisuje JSON u <code>web/storage/data/</code>. Pro
 
 ## Produkcijski status
 
-RASPORED se verzionira zajednički za Android, Web/PWA i demo paket. Produkcijski runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika; samo `hr.raspored.demo` pri prvom pokretanju dobiva izmišljene demo podatke. QA podaci postoje samo u automatiziranim testovima.
+Takto se tehnički verzionira zajednički kroz postojeći RASPORED Android, Web/PWA i demo pipeline. Produkcijski runtime ne sadrži demo raspored, fiksni razvojni datum ni hardkodirana imena korisnika; samo `hr.raspored.demo` pri prvom pokretanju dobiva izmišljene demo podatke. QA podaci postoje samo u automatiziranim testovima.
 
 Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne, responzivne i screenshot testove.
 
@@ -289,7 +293,7 @@ Prije svake objave CI provjerava Android build/test/lint i Web/PWA funkcionalne,
 
 <img src="web/public/assets/brand/logo.svg" alt="" width="56">
 
-**RASPORED**  
-*Shift planner & evidencija sati*
+**Takto**  
+*Dodirni. Označi. Radi.*
 
 </div>
