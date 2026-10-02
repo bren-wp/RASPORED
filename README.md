@@ -34,12 +34,12 @@ GitHub Secrets nisu obavezni za release. Ako su sva četiri opcionalna signing s
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
-Takto je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**. Od v1.0.23 početni ekran prvo prikazuje današnju ili aktivnu noćnu smjenu i sljedeću radnu smjenu, a tek zatim tjedni pregled, brze akcije i mjesečne sažetke. Od v1.0.24 Android quick-edit jasno prikazuje **Nije označeno** za prazan dan, bez implicitnog tretiranja kao SD. Od v1.0.25 Web/PWA OCR pregled prazne dane prikazuje kao **Nije označeno**, uključujući pristupačni opis, pa skenirani prazni dan više nije implicitno slobodan dan.
+Takto je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima, koliko je odradio i kako se ti sati odnose na mjesečni fond**. Od v1.0.26 Statistika i Evidencija sati zasebno prikazuju **mjesečni fond, obračunske sate, saldo i kalendarski višak/prekovremene sate**, a Statistika odmah prikazuje i sažetu procjenu plaće za odabrani mjesec. Način **Samo jedna osoba** sada tvrdo ograničava rezultat na jednu osobu te omogućuje zakretanje fotografije, povlačenje plavog pojasa gore/dolje i fino sužavanje ili proširivanje odabranog retka.
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
 - **Početna + kalendar smjena** — Takto se otvara na početnom pregledu s tjednom trakom i brzim akcijama; Kalendar ostaje zaseban veliki 7-stupčani mjesečni prikaz. Dodir ćelije otvara unos D, N, GO, BO, PD ili SD, vlastitu oznaku do 8 znakova ili čišćenje dana.
-- **Skeniranje rasporeda** — kamera ili galerija; Android koristi on-device ML Kit OCR.
+- **Skeniranje rasporeda** — kamera ili galerija; fotografija se može zakrenuti, a kod jedne osobe odabrani redak se može povlačiti i fino namjestiti prije prepoznavanja.
 - **Evidencija sati** — detaljni mjesečni ledger automatski izveden iz kalendara; nema ručnog clock-in/clock-out toka.
 - **Statistika** — odvojeni zbirni analitički ekran za dnevne/noćne sate, vikende, blagdane, broj smjena i raspodjelu po tjednima.
 - **Android + Web/PWA** — isti vizualni identitet i ista semantika podataka na obje platforme.
@@ -67,12 +67,12 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 | **D / N / GO / BO / PD / SD model** | Jednostavna i konzistentna semantika smjena, dopusta, bolovanja i slobodnog dana kroz cijelu aplikaciju. Prazan dan ostaje **Nije označeno** i nikada se automatski ne tretira kao SD. |
 | **OCR na Androidu i Web/PWA** | Cijela fotografija rasporeda obrađuje se u više prolaza. Uz puni kadar koriste se detekcija tablice, stvarne horizontalne linije mreže, točni pojasevi redaka zaposlenika, preklapajući pojasevi, zasebni roster prolazi i fokusirani recovery tileovi. Za guste 27–31 redne tablice sustav može raditi i završni OCR **redak po redak** uz izvorno zaglavlje dana te blokira očito nepotpun uvoz kada geometrija tablice pokazuje više djelatnika nego što je OCR pouzdano pročitao. |
 | **Automatska evidencija sati** | D i N smjene iz potvrđenog kalendara automatski daju 12 sati; noćni dio N smjene računa se prema stvarnom intervalu 22:00–06:00. GO/BO/PD/SD ne stvaraju izmišljene radne sate, a custom oznake ostaju bez satnice dok se njihovo značenje ne definira. |
-| **Odvojena statistika** | Statistika agregira kalendarske sate i smjene, ali nije duplikat dnevnog evidencijskog ledgera. |
+| **Odvojena statistika** | Statistika prikazuje odrađene sate, mjesečni fond, obračunske sate, saldo, prekovremeni višak, noćni/vikend/blagdanski rad i sažetak procjene plaće. |
 | **Noćni / vikend / blagdan sati** | Poseban pregled vremena odrađenog u relevantnim kategorijama. |
 | **Tjedna statistika** | Vizualna raspodjela rada po tjednima u mjesecu. |
 | **Tamna tema** | Primarni Takto izgled na novim instalacijama; svijetla tema ostaje izbor u Postavkama. |
 | **PWA app shell** | Web aplikacija registrira service worker za UI assete; podatkovni API ostaje network-only kako se osobni JSON ne bi spremao u cache. |
-| **Okvirna plaća** | Android i Web/PWA koriste provjerljive 2026 parametre gdje postoje; lokalno uređeni i privatni sektor imaju ručni način bez izmišljanja osnovice, koeficijenta ili dodataka. |
+| **Okvirna plaća** | Android i Web/PWA koriste provjerljive 2026 osnovice, koeficijente i dodatke gdje postoji jednoznačan izvor. GO/BO/PD na vikendu više ne povećavaju fond niti stvaraju lažne prekovremene sate. Lokalno uređeni i privatni sektor koriste ručni način bez izmišljanja parametara. |
 | **Korisnički račun** | Android Postavke više nemaju ime/prezime, registraciju ni prijavu; osnovni Android rad je lokalni. Web/PWA zadržava vlastiti opcionalni račun za svoje mrežne funkcije. Postojeća Android šifrirana sesija može se samo validirati radi kompatibilnosti sa starijim instalacijama. |
 | **Izvoz** | Android generira stvarni mjesečni PDF; Web/PWA podržava JSON sigurnosnu kopiju i pregled za ispis / spremanje kao PDF. |
 | **Responsive UI** | QA se provodi na 375, 390, tablet, 1440 i 1920 px viewportima. |
@@ -82,7 +82,7 @@ Aplikacija spaja pet glavnih tokova u jedno sučelje:
 1. **Slikaj raspored** kamerom ili odaberi fotografiju iz galerije.
 2. Android koristi **ML Kit OCR**, a Web/PWA browser OCR sloj.
 3. Parser traži cijelo zaglavlje 1–28/29/30/31, numerirane retke osoba i oznake **D / N / GO / BO / PD / SD**. U dokazanoj ćeliji kalendarske mreže čuva i kratke oznake specifične radnom mjestu (npr. **J, S, P1, 1, 2, 3**) bez izmišljanja njihova značenja. Kod gustih tablica koristi dodatne preklapajuće high-resolution prolaze i korekciju perspektive po retku.
-4. Za guste tablice postoji način **Samo jedna osoba**: detektor najprije pokušava pronaći stvarne horizontalne retke tablice. Korisnik može dodirnuti željenu osobu na fotografiji ili ići prethodni/sljedeći redak; plavi crop-pojas se poravnava na taj redak. Ako mreža nije dovoljno jasna, ostaje precizni ručni crop. Fokusirani OCR koristi samo stvarnu širinu tablice, stvarno zaglavlje s brojevima dana i označeni redak, pa alatne trake, margine i susjedni zaposlenici ne ulaze u OCR sliku.
+4. Za guste tablice postoji način **Samo jedna osoba**: detektor najprije pokušava pronaći stvarne horizontalne retke tablice. Korisnik može dodirnuti željenu osobu, odabrati prethodni/sljedeći redak, zakrenuti fotografiju, povući plavi pojas gore/dolje te ga fino suziti ili proširiti. Rezultat tog načina rada uvijek se svodi na **točno jednu najpotpunije prepoznatu osobu**, čak i ako prepoznavanje slučajno zahvati dio susjednog retka.
 5. U osobni kalendar uvozi se **točno jedna osoba**. Nakon skeniranja automatski se odabire najpotpunije prepoznati redak kako gumb za uvoz ne bi ostao zaključan; korisnik taj izbor može promijeniti. Ako cijeli roster izgleda nepotpuno, osobni uvoz odabranog retka ostaje moguć nakon provjere, dok se timski uvoz blokira dok roster nije dovoljno potpun.
 6. Android bez registracije može iz istog skeniranja spremiti više prepoznatih djelatnika kao **odvojene lokalne rasporede tima**. Registrirani korisnik može dodatno pokrenuti **AI provjeru**; u načinu cijele tablice šalje se cijela tablica, a u načinu **Samo jedna osoba** šalje se isti fokusirani header + redak koji je korišten za lokalni OCR. AI rezultat dopunjava nedostajuće podatke, a svaka nesuglasica lokalnog OCR-a i AI-ja ostaje zasebna konfliktna ćelija za ciljanu ručnu odluku. Rasporedi se nikada ne spajaju među osobama.
 7. Prije spremanja moguće je ručno ispraviti svaki dan i oznaku; bez pouzdane geometrije stupaca aplikacija traži ponovno skeniranje umjesto tihog pomicanja dana ulijevo ili udesno.
@@ -116,6 +116,8 @@ Takto izvodi evidenciju iz potvrđenog kalendara. Podržane semantičke oznake r
 Blagdan je svojstvo datuma, a ne posebna oznaka rasporeda. Prazna ćelija na blagdan ostaje prazna i prikazuje se kao blagdan/neradni dan; aplikacija ne dodaje +150 % dodatka ako na taj datum nema stvarno odrađenog rada. Za javne službe TKU predviđa pravo na naknadu plaće kada zaposlenik ne radi zbog državnog blagdana ili neradnog dana, pa taj slučaj ne pretvaramo u BO, SD ili izmišljenu smjenu.
 
 Takto ne izmišlja trajanje ni dodatke za ustanovne/custom oznake. Posebni obrasci rada i dodaci u kalkulatoru plaće primjenjuju se samo kada postoji odgovarajući korisnički odabir i provjerljivo pravilo; osnovni sati i kategorije rada dolaze iz kalendarskih D/N smjena.
+
+> Detaljni popis provjerenih propisa, stopa, osnovica i pravila fonda nalazi se u [docs/PAYROLL_SOURCES_2026.md](docs/PAYROLL_SOURCES_2026.md).
 
 ## Okvirna plaća — javni sektor i ručni način za ostale poslodavce
 
