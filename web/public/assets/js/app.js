@@ -675,10 +675,10 @@ function renderSummary(){
   if(el)el.innerHTML=items.map(function(x){return '<div class="summary-item '+x[3]+'"><span class="ico">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b></span></div>'}).join("");
   var strip=document.getElementById("monthStrip");
   if(strip)strip.innerHTML=[
-    ["Planirano",d.planned+"h"],
+    ["Fond",hoursText(d.plannedMinutes)],
     ["Odrađeno",hoursText(d.workedMinutes)],
-    ["Saldo",signedHoursText(d.balanceMinutes)],
-    ["Noćni sati",hoursText(d.nightMinutes)]
+    ["Prekovremeni",hoursText(d.overtimeMinutes)],
+    ["Saldo",signedHoursText(d.balanceMinutes)]
   ].map(function(x){return '<div class="month-strip-item"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>'}).join("");
 }
 function currentShiftFor(date){
@@ -862,16 +862,18 @@ function renderStats(){
   var donut=document.getElementById("donut"),total=Math.max(1,d.workedMinutes),dayPct=Math.round(d.dayMinutes/total*100),nightPct=Math.round(d.nightMinutes/total*100);
   if(donut)donut.style.background="conic-gradient(#147DF5 0 "+dayPct+"%,#6D28D9 "+dayPct+"% "+(dayPct+nightPct)+"%,#60738F "+(dayPct+nightPct)+"% 100%)";
   var cats=[
-    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
-    ["#6D28D9","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
+    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D smjene · "+d.counts.D],
+    ["#6D28D9","Noćni sati",hoursText(d.nightMinutes),"N smjene · "+d.counts.N],
+    ["#4CABFF","Mjesečni fond",hoursText(d.plannedMinutes),"Redovni fond"],
+    ["#8B5CF6","Prekovremeni",hoursText(d.overtimeMinutes),"Višak iznad fonda"],
+    ["#60738F","Saldo",signedHoursText(d.balanceMinutes),"Obračunski sati − fond"],
     ["#60738F","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
     ["#FF4655","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
     ["#FFB51F","Blagdani",hoursText(d.holidayMinutes),d.holidays+" smjena"],
     ["#12D6A0","GO",d.go+" dana","Godišnji odmor"],
     ["#FFB51F","BO",d.bo+" dana","Bolovanje"],
     ["#E53648","PD",d.pd+" dana","Plaćeni dopust"],
-    ["#60738F","SD",d.sd+" dana","Slobodan dan"],
-    ["#4CABFF","Ukupno sati",hoursText(d.workedMinutes),"Automatski iz kalendara"]
+    ["#60738F","SD",d.sd+" dana","Slobodan dan"]
   ],el=document.getElementById("statsCategories");
   if(el)el.innerHTML=cats.map(function(x){return '<div class="stat-cat"><span><i style="background:'+x[0]+'"></i><b>'+x[2]+'</b></span><small>'+x[1]+' · '+x[3]+'</small></div>'}).join("");
   var max=1;d.weeks.forEach(function(w){max=Math.max(max,w.d+w.n+w.o)});
@@ -891,8 +893,19 @@ function renderStats(){
     ["calendar","PD",d.pd+" dana","Plaćeni dopust"],
     ["calendar","SD",d.sd+" dana","Slobodan dan"],
     ["calendar","Nedjelje",d.sun+" smjene",hoursText(d.sunMinutes)],
-    ["scale","Ukupno sati","Automatski iz kalendara",hoursText(d.workedMinutes)]
+    ["scale","Mjesečni fond","Redovni fond za odabrani mjesec",hoursText(d.plannedMinutes)],
+    ["clock","Obračunski sati","Rad + priznate odsutnosti + neradni blagdan",hoursText(d.accountedMinutes)],
+    ["clock","Prekovremeni","Kalendarski višak iznad fonda",hoursText(d.overtimeMinutes)],
+    ["scale","Saldo","Obračunski sati minus fond",signedHoursText(d.balanceMinutes)]
   ].map(function(x){return '<div class="detail-item"><i>'+icon(x[0])+'</i><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span><b>'+x[3]+'</b></div>'}).join("");
+
+  var preview=window.RasporedPayroll&&window.RasporedPayroll.preview
+    ?window.RasporedPayroll.preview(yearMonthKey(state.cursor.getFullYear(),state.cursor.getMonth()))
+    :null;
+  var netEl=document.getElementById("statsPayrollNet"),grossEl=document.getElementById("statsPayrollGross"),otEl=document.getElementById("statsPayrollOvertime");
+  if(netEl)netEl.textContent=preview&&preview.available?"≈ "+preview.money(preview.net)+" neto":"Dopuni podatke za obračun";
+  if(grossEl)grossEl.textContent=preview&&preview.available?"Procijenjeni bruto "+preview.money(preview.gross):"Otvori obračun i odaberi odgovarajući režim.";
+  if(otEl)otEl.textContent="Prekovremeni "+hoursText(preview?preview.overtimeMinutes:d.overtimeMinutes);
 }
 function renderHours(){
   var root=document.getElementById("view-hours");if(!root)return;
