@@ -43,6 +43,31 @@ test("calendar and statistics remain interactive", async ({page}) => {
   await expect(page.locator("#statsPeriodMenu")).toBeVisible();
 });
 
+test("statistics show monthly fund and hours above fund", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const accepted=await page.evaluate(async () => {
+    const schedule:any={};
+    for(let day=1;day<=16;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
+    const store=(window as any).RasporedDataStore;
+    const ok=store.set("raspored.schedule",JSON.stringify(schedule));
+    await store.flush();
+    return ok;
+  });
+  expect(accepted).toBe(true);
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  await page.locator('[data-route="stats"]:visible').first().click();
+
+  await expect(page.locator("#workedTotal")).toHaveText("192 h");
+  await expect(page.locator("#detailStats")).toContainText("Fond sati");
+  await expect(page.locator("#detailStats")).toContainText("176h");
+  await expect(page.locator("#detailStats")).toContainText("Iznad fonda");
+  await expect(page.locator("#detailStats")).toContainText("16h");
+  await expect(page.locator("#detailStats")).toContainText("Saldo");
+  await expect(page.locator("#detailStats")).toContainText("+16h");
+});
+
 test("home is the start view and manual calendar editing persists", async ({page}) => {
   await page.goto("/");
   await expect(page.locator('[data-view="home"]')).toBeVisible();
