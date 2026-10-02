@@ -602,6 +602,7 @@ private fun largeMinutesLabel(minutes:Long):String {
 }
 @Composable private fun MetricCard(label:String,value:String,caption:String,icon:ImageVector,modifier:Modifier){Surface(modifier=modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,shadowElevation=1.dp){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Cyan,modifier=Modifier.size(34.dp));Spacer(Modifier.width(10.dp));Column{Text(label,fontSize=13.sp);Text(value,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(caption,fontSize=11.sp,color=Slate)}}}}
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun CalendarScreen(
     scheduleCodes: Map<String, String>,
     onShiftChange: (LocalDate, String?) -> Unit
