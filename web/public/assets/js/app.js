@@ -565,18 +565,20 @@ function signedHoursText(minutes){
   return sign+hoursText(Math.abs(mins));
 }
 function largeHoursText(minutes){
-  var mins=Math.max(0,Math.round(minutes||0));
-  return Math.floor(mins/60)+":"+String(mins%60).padStart(2,"0")+" h";
+  var mins=Math.max(0,Math.round(minutes||0)),h=Math.floor(mins/60),m=mins%60;
+  return m===0?h+" h":h+" h "+String(m).padStart(2,"0")+" min";
 }
 function monthData(y,m){
   var out={
     worked:0,workedMinutes:0,dayMinutes:0,night:0,nightMinutes:0,otherMinutes:0,
     sat:0,sun:0,holidays:0,satMinutes:0,sunMinutes:0,holidayMinutes:0,weekendHolidayMinutes:0,
-    go:0,bo:0,pd:0,sd:0,planned:0,balance:0,balanceMinutes:0,
+    go:0,bo:0,pd:0,sd:0,planned:0,plannedMinutes:0,accountedMinutes:0,
+    compensatedAbsenceMinutes:0,holidayCompensatedMinutes:0,overtimeMinutes:0,
+    balance:0,balanceMinutes:0,
     counts:{D:0,N:0,GO:0,BO:0,PD:0,SD:0},
     weeks:[{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0}]
   };
-  var hm=holidays(y),days=new Date(y,m+1,0).getDate();
+  var hm=holidays(y),days=new Date(y,m+1,0).getDate(),workedDateKeys={};
 
   function accountShift(startDate,code){
     var start=code==="D"
@@ -589,6 +591,7 @@ function monthData(y,m){
       var current=new Date(t);
       if(current.getFullYear()!==y||current.getMonth()!==m)continue;
       var key=iso(current),hour=current.getHours(),wi=Math.min(4,Math.floor((current.getDate()-1)/7));
+      workedDateKeys[key]=true;
       out.workedMinutes++;
       if(hour>=22||hour<6){out.nightMinutes++;out.weeks[wi].n+=1/60}
       else {out.dayMinutes++;out.weeks[wi].d+=1/60}
@@ -601,10 +604,8 @@ function monthData(y,m){
 
   for(var day=1;day<=days;day++){
     var date=new Date(y,m,day,12,0,0),key=iso(date),code=normalizeScheduleCode(state.schedule[key]||"");
-    if(!code)continue;
-    out.counts[code]=(out.counts[code]||0)+1;
+    if(code)out.counts[code]=(out.counts[code]||0)+1;
     if(code==="D"||code==="N"){
-      out.planned+=12;
       if(date.getDay()===6)out.sat++;
       if(date.getDay()===0)out.sun++;
       if(hm[key])out.holidays++;
@@ -618,11 +619,26 @@ function monthData(y,m){
   var previous=new Date(y,m,0,12,0,0);
   if(normalizeScheduleCode(state.schedule[iso(previous)]||"")==="N")accountShift(previous,"N");
 
+  for(var fundDay=1;fundDay<=days;fundDay++){
+    var fundDate=new Date(y,m,fundDay,12,0,0),fundKey=iso(fundDate),weekday=fundDate.getDay()!==0&&fundDate.getDay()!==6;
+    if(!weekday)continue;
+    out.plannedMinutes+=8*60;
+    var fundCode=normalizeScheduleCode(state.schedule[fundKey]||"");
+    if(fundCode==="GO"||fundCode==="BO"||fundCode==="PD"){
+      out.compensatedAbsenceMinutes+=8*60;
+    }else if(hm[fundKey]&&!workedDateKeys[fundKey]){
+      out.holidayCompensatedMinutes+=8*60;
+    }
+  }
+
   out.otherMinutes=0;
   out.worked=out.workedMinutes/60;
   out.night=out.nightMinutes/60;
-  out.balanceMinutes=0;
-  out.balance=0;
+  out.planned=out.plannedMinutes/60;
+  out.accountedMinutes=out.workedMinutes+out.compensatedAbsenceMinutes+out.holidayCompensatedMinutes;
+  out.overtimeMinutes=Math.max(0,out.accountedMinutes-out.plannedMinutes);
+  out.balanceMinutes=out.accountedMinutes-out.plannedMinutes;
+  out.balance=out.balanceMinutes/60;
   return out;
 }
 function statsForCursor(){return monthData(state.cursor.getFullYear(),state.cursor.getMonth())}
