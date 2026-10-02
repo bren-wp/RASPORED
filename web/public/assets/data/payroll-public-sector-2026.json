@@ -247,18 +247,18 @@
     {
       "id": "kbc-rijeka-2026",
       "sector": "Zdravstvo",
-      "label": "KBC Rijeka — provjereni obračunski preset 2026",
+      "label": "KBC Rijeka — javne službe 2026",
       "baseType": "publicService",
       "additions": {
-        "night": 0.5,
+        "night": 0.4,
         "overtime": 0.5,
         "saturday": 0.25,
         "sunday": 0.5,
         "holiday": 1.5,
         "secondShift": 0.1,
-        "turnus": 0.05
+        "turnus": null
       },
-      "note": "KBC Rijeka Pravilnik o radu potvrđuje 12-satni turnus (uz stanku 60 min) i navodi da radnik u pravilu ne smije raditi dulje od 16 sati neprekidno, osim više sile ili potrebe hitne intervencije. Zato se 24-satno trajanje ne tretira kao obična smjena nego kao poseban oblik rada koji treba provjeriti prema stvarnoj evidenciji/rješenju."
+      "note": "Dodaci za noć, prekovremeni rad, subotu, nedjelju i blagdan prate TKU javnih službi NN 29/2024. Zaseban postotni dodatak za turnus ne primjenjuje se bez važećeg granskog ili ustanovnog izvora; rad u drugoj smjeni obračunava se prema stvarno odrađenim satima."
     },
     {
       "id": "public-education",
@@ -281,7 +281,7 @@
       "label": "Državna služba / ministarstva",
       "baseType": "stateService",
       "additions": {
-        "night": 0.5,
+        "night": 0.4,
         "overtime": 0.5,
         "saturday": 0.25,
         "sunday": 0.5,
@@ -296,7 +296,7 @@
       "label": "MUP / policija",
       "baseType": "stateService",
       "additions": {
-        "night": 0.5,
+        "night": 0.4,
         "overtime": 0.5,
         "saturday": 0.25,
         "sunday": 0.5,
