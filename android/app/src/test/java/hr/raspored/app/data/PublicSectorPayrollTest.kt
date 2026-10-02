@@ -175,7 +175,7 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun paidAbsenceDaysContributeToOvertimeThresholdFromCalendar() {
+    fun paidAbsenceCountsOnlyRegularFundDays() {
         val schedule = buildMap {
             (2..9).forEach { day ->
                 put("2026-06-" + day.toString().padStart(2, '0'), "D")
@@ -200,9 +200,36 @@ class PublicSectorPayrollTest {
         )
 
         assertEquals(11, estimate.evidence.goDays)
-        assertEquals(88L * 60L, estimate.evidence.compensatedAbsenceMinutes)
-        assertEquals(8L * 60L, estimate.evidence.overtimeMinutes)
+        assertEquals(56L * 60L, estimate.evidence.compensatedAbsenceMinutes)
+        assertEquals(0L, estimate.evidence.overtimeMinutes)
+        assertEquals(0.0, estimate.overtimeBasePay, 0.001)
+    }
+
+    @Test
+    fun actualWorkAboveMonthlyFundCreatesPaidOvertime() {
+        val schedule = buildMap {
+            (1..16).forEach { day ->
+                put("2026-10-" + day.toString().padStart(2, '0'), "D")
+            }
+        }
+
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 10),
+            scheduleCodes = schedule,
+            regimeId = "public-health",
+            coefficient = 1.25,
+            yearsService = 0,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = false
+        )
+
+        assertEquals(16L * 60L, estimate.evidence.overtimeMinutes)
         assertTrue(estimate.overtimeBasePay > 0.0)
+        assertTrue(estimate.overtimeAddition > 0.0)
     }
 
     @Test
