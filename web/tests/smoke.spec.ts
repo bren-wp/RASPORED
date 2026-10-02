@@ -260,6 +260,18 @@ test("production scan cannot import before OCR and person selection", async ({pa
   await expect(page.locator("#saveSchedule")).toBeDisabled();
 });
 
+test("scan review keeps blank days neutral", async ({page}) => {
+  await seedApp(page,{withScan:true});
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+
+  const blankDay=page.locator('[data-scan-day="4"]');
+  await expect(blankDay).toHaveAttribute("aria-label","4. Listopad 2026. Nije označeno");
+  await expect(blankDay.locator(".shift")).toHaveAttribute("aria-label","Nije označeno");
+  await expect(blankDay.locator(".shift")).toHaveText("—");
+  await expect(blankDay).not.toHaveAttribute("aria-label",/slobodni dan/i);
+});
+
 test("recognized schedule can be corrected before import", async ({page}) => {
   await seedApp(page,{withScan:true});
   await page.goto("/");
@@ -938,7 +950,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
   await expect(page.locator(".about-takto")).toContainText("Takto");
-  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.24");
+  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.25");
   await expect(page.locator(".about-takto")).toContainText("Brendigo");
 });
 
