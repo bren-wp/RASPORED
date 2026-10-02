@@ -154,9 +154,9 @@ object PublicSectorPayroll {
             "Turnus i druga posebna prava mogu ovisiti o granskom ili ustanovnom pravilu."
         ),
         PayrollRegime(
-            "kbc-rijeka-2026", "Zdravstvo", "KBC Rijeka — provjereni obračunski preset 2026", "public",
-            PayrollRates(0.50, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
-            "KBC Rijeka Pravilnik o radu potvrđuje 12-satni turnus i navodi da radnik u pravilu ne smije raditi dulje od 16 sati neprekidno, osim više sile ili hitne intervencije. Zato se 24-satni zapis tretira kao poseban oblik rada, ne kao obična smjena."
+            "kbc-rijeka-2026", "Zdravstvo", "KBC Rijeka — javne službe / zdravstvo 2026", "public",
+            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, null),
+            "Izmjene Pravilnika o radu KBC-a Rijeka od 15.03.2024. vežu plaću i dodatke uz Zakon o plaćama i važeće kolektivne ugovore. TKU 2024 propisuje noć 40%, prekovremeni 50%, subotu 25%, nedjelju 50%, blagdan 150% i drugu smjenu 10%; dodatak za turnus ne pretpostavlja se bez primjenjivog granskog pravila."
         ),
         PayrollRegime(
             "public-education", "Školstvo i obrazovanje", "Škole i učenički domovi", "public",
@@ -164,12 +164,13 @@ object PublicSectorPayroll {
         ),
         PayrollRegime(
             "state-service", "Državna služba", "Državna služba / ministarstva", "state",
-            PayrollRates(0.50, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05)
+            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
+            "Kolektivni ugovor za državne službenike i namještenike, izmjene NN 29/2024: noć 40%, prekovremeni 50%, druga smjena 10%, turnus 5%, subota 25%, nedjelja 50% i blagdan/neradni dan 150%."
         ),
         PayrollRegime(
             "police", "Policija", "MUP / policija", "state",
-            PayrollRates(0.50, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
-            "Policija ima velik broj službenih naziva radnih mjesta; odaberi točan naziv ili koristi ručni unos."
+            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
+            "Za osnovne dodatke primjenjuje se KU državnih službenika (NN 29/2024). Policijska radna mjesta mogu imati dodatna prava i posebne dodatke koji se bez konkretnog radnog mjesta/rješenja ne pretpostavljaju."
         ),
         PayrollRegime(
             "firefighter", "Vatrogastvo", "Profesionalno vatrogastvo", "state",
