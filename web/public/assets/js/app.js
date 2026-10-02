@@ -760,8 +760,8 @@ function renderRecognition(){
     var code=selected?(selected[i]||""):"",x=document.createElement("button");
     x.type="button";x.className="recognition-day"+(state.editRecognition?" is-editing":"");
     x.dataset.scanDay=String(i);x.disabled=!selected||!state.editRecognition;
-    x.setAttribute("aria-label",String(i)+". "+months[m]+" "+y+". "+(code?shiftMeta(code).name:"Redovni slobodni dan"));
-    x.innerHTML="<b>"+String(i).padStart(2,"0")+"."+String(m+1).padStart(2,"0")+".</b><small>"+weekdays[new Date(y,m,i).getDay()].toLowerCase()+"</small>"+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift" aria-label="Redovni slobodni dan"></i>');
+    x.setAttribute("aria-label",String(i)+". "+months[m]+" "+y+". "+(code?shiftMeta(code).name:"Nije označeno"));
+    x.innerHTML="<b>"+String(i).padStart(2,"0")+"."+String(m+1).padStart(2,"0")+".</b><small>"+weekdays[new Date(y,m,i).getDay()].toLowerCase()+"</small>"+(code?'<i class="shift '+code.toLowerCase()+'">'+code+'</i>':'<i class="shift" aria-label="Nije označeno">—</i>');
     el.appendChild(x);
   }
   var edit=document.getElementById("editRecognitionBtn");
