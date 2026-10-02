@@ -34,7 +34,7 @@ GitHub Secrets nisu obavezni za release. Ako su sva četiri opcionalna signing s
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
-Takto je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**. Od v1.0.23 početni ekran prvo prikazuje današnju ili aktivnu noćnu smjenu i sljedeću radnu smjenu, a tek zatim tjedni pregled, brze akcije i mjesečne sažetke. Od v1.0.24 Android quick-edit jasno prikazuje **Nije označeno** za prazan dan, bez implicitnog tretiranja kao SD. Od v1.0.25 Web/PWA OCR pregled prazne dane prikazuje kao **Nije označeno**, uključujući pristupačni opis, pa skenirani prazni dan više nije implicitno slobodan dan.
+Takto je napravljen za korisnika koji želi brzo vidjeti **kada radi, koju smjenu ima i koliko sati proizlazi iz potvrđenog mjesečnog rasporeda**. Od v1.0.23 početni ekran prvo prikazuje današnju ili aktivnu noćnu smjenu i sljedeću radnu smjenu, a tek zatim tjedni pregled, brze akcije i mjesečne sažetke. Od v1.0.24 Android quick-edit jasno prikazuje **Nije označeno** za prazan dan, bez implicitnog tretiranja kao SD. Od v1.0.25 Web/PWA OCR pregled prazne dane prikazuje kao **Nije označeno**, uključujući pristupačni opis, pa skenirani prazni dan više nije implicitno slobodan dan. Od v1.0.26 statistika prikazuje kalendarski mjesečni fond, saldo i sate iznad fonda, a Android skeniranje jedne osobe podržava ručnu rotaciju fotografije, pomak odabira gore/dolje i zadržava samo jednu prepoznatu osobu.
 
 Aplikacija spaja pet glavnih tokova u jedno sučelje:
 
