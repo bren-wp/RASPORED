@@ -441,6 +441,7 @@ private fun largeMinutesLabel(minutes:Long):String {
     val currentEntry=currentShiftAt(now,scheduleCodes)
     val currentDate=currentEntry?.first ?: today
     val current=currentEntry?.second ?: NONE
+    val currentTitle=if(currentEntry?.first?.isBefore(today)==true) "Smjena u tijeku" else "Danas"
     val nextEntry=nextWorkShift(today,scheduleCodes)
     val next=nextEntry?.second ?: NONE
     val formatter=java.time.format.DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy.",Locale("hr","HR"))
@@ -470,7 +471,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             Text("Tvoj raspored. Na tvoj način.",fontSize=19.sp,fontWeight=FontWeight.Bold,color=Cyan)
             Text(dateTitle,fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item{ShiftCard("Danas",current,true,statusText=shiftStatusLabel(currentDate,current,now),onOpen={go(Screen.Calendar)},onHours={go(Screen.Hours)})}
+        item{ShiftCard(currentTitle,current,true,statusText=shiftStatusLabel(currentDate,current,now),onOpen={go(Screen.Calendar)},onHours={go(Screen.Hours)})}
         if(nextEntry!=null){
             item{ShiftCard("Sljedeća smjena",next,false,statusText=nextShiftStatus(today,nextEntry.first,nextEntry.second),onOpen={go(Screen.Calendar)},onHours=null)}
         }
