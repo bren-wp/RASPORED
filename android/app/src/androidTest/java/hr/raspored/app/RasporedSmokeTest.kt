@@ -1,5 +1,6 @@
 package hr.raspored.app
 
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -25,6 +26,9 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(2)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextEquals("Nije označeno")
+        composeRule.onNodeWithText("Zatvori").performClick()
 
         composeRule.onNodeWithTag("nav-home").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
