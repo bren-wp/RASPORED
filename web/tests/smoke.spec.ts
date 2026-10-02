@@ -825,7 +825,7 @@ async function openPayroll(page:any){
   await expect(page.locator('[data-view="payroll"]')).toBeVisible();
 }
 
-test("salary estimator uses verified KBC Rijeka settings and persists choices", async ({page}) => {
+test("salary estimator uses current KBC Rijeka public-service settings and persists choices", async ({page}) => {
   await page.goto("/");
   await openPayroll(page);
   await expect(page.locator("#payrollCounty")).toHaveValue("Primorsko-goranska");
@@ -838,7 +838,7 @@ test("salary estimator uses verified KBC Rijeka settings and persists choices", 
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await page.locator("#payrollYears").fill("10");
   await page.locator("#payrollYears").blur();
-  await page.locator("#payrollTurnus").check();
+  await expect(page.locator("#payrollTurnus")).toBeDisabled();
   await page.evaluate(async()=>{await (window as any).RasporedDataStore.flush()});
 
   await expect(page.locator("#payrollBase")).toContainText("1.025");
@@ -846,14 +846,14 @@ test("salary estimator uses verified KBC Rijeka settings and persists choices", 
   await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
   await expect(page.locator("#payrollNet")).not.toHaveText("—");
   await expect(page.locator("#payrollDailyGross")).not.toHaveText("—");
-  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
   await page.reload();
   await openPayroll(page);
   await expect(page.locator("#payrollRole")).toHaveValue("health-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await expect(page.locator("#payrollYears")).toHaveValue("10");
-  await expect(page.locator("#payrollTurnus")).toBeChecked();
+  await expect(page.locator("#payrollTurnus")).toBeDisabled();
 });
 
 test("salary estimator switches between police, fire and manual local regimes", async ({page}) => {
@@ -865,7 +865,7 @@ test("salary estimator switches between police, fire and manual local regimes", 
   await page.locator("#payrollInstitutionCustom").fill("Policijska postaja Primjer");
   await expect(page.locator("#payrollRole")).toHaveValue("police-station");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.70");
-  await expect(page.locator("#payrollLegalText")).toContainText("Noć 50");
+  await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
   await page.locator("#payrollSector").selectOption("Vatrogastvo");
   await expect(page.locator("#payrollInstitutionCustomWrap")).toBeVisible();
