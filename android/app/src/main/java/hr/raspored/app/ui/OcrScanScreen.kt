@@ -1318,6 +1318,17 @@ internal fun bestRecognizedRowIndex(rows: List<RecognizedScheduleRow>): Int =
             .thenByDescending { rows[it].rowNumber ?: Int.MAX_VALUE }
     ) ?: -1
 
+
+internal fun focusSinglePersonResult(schedule: RecognizedSchedule): RecognizedSchedule {
+    if (schedule.rows.size <= 1) return schedule.copy(expectedRowCount = schedule.rows.size.coerceAtMost(1))
+    val index = bestRecognizedRowIndex(schedule.rows)
+    val selected = schedule.rows.getOrNull(index)
+    return schedule.copy(
+        rows = listOfNotNull(selected),
+        expectedRowCount = if (selected == null) 0 else 1
+    )
+}
+
 internal data class AiMergeResult(
     val schedule: RecognizedSchedule,
     val cells: List<RecognitionCellReview>
