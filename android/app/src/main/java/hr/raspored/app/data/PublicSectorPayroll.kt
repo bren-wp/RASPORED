@@ -542,18 +542,19 @@ object PublicSectorPayroll {
             val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
                 ?: return@forEach
             if (YearMonth.from(date) != month) return@forEach
+            val regularFundDay = date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
             when (code) {
                 "GO" -> {
                     goDays++
-                    compensatedAbsenceDates += date
+                    if (regularFundDay) compensatedAbsenceDates += date
                 }
                 "BO" -> {
                     boDays++
-                    compensatedAbsenceDates += date
+                    if (regularFundDay) compensatedAbsenceDates += date
                 }
                 "PD" -> {
                     pdDays++
-                    compensatedAbsenceDates += date
+                    if (regularFundDay) compensatedAbsenceDates += date
                 }
                 "SD" -> sdDays++
             }
