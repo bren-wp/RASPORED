@@ -102,6 +102,26 @@ class OcrAiMergeTest {
     }
 
     @Test
+    fun singlePersonModeNeverExposesMultipleRecognizedPeople() {
+        val recognized = RecognizedSchedule(
+            month = month,
+            rows = listOf(
+                RecognizedScheduleRow(4, "Ana Horvat", mapOf(1 to "D", 2 to "N", 3 to "GO")),
+                RecognizedScheduleRow(9, "Luka Babić", mapOf(1 to "D")),
+                RecognizedScheduleRow(12, "Petra Novak", mapOf(1 to "N", 17 to "D"))
+            ),
+            rawText = "test",
+            expectedRowCount = 20
+        )
+
+        val constrained = constrainSinglePersonResult(recognized)
+
+        assertEquals(1, constrained.rows.size)
+        assertEquals("Ana Horvat", constrained.rows.single().name)
+        assertEquals(1, constrained.expectedRowCount)
+    }
+
+    @Test
     fun selectsMostCompleteRecognizedPersonForImmediatePersonalImport() {
         val rows = listOf(
             RecognizedScheduleRow(4, "Ana Horvat", mapOf(1 to "D", 2 to "N", 3 to "GO")),
