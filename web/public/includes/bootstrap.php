@@ -9,4 +9,4 @@ header("Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src
 $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 if ($base === '.') { $base = ''; }
 $version = trim((string) @file_get_contents(dirname(__DIR__) . '/version.txt'));
-if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.23'; }
+if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) { $version = '1.0.24'; }

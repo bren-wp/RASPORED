@@ -732,20 +732,29 @@ private fun largeMinutesLabel(minutes:Long):String {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    if (currentCode.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = shiftFromCode(currentCode)?.let(::shiftBg)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (currentCode.isBlank()) {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        } else {
+                            shiftFromCode(currentCode)?.let(::shiftBg)
                                 ?: MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Text(
-                                currentCode,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                color = shiftFromCode(currentCode)?.let(::shiftFg)
-                                    ?: MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.ExtraBold
-                            )
                         }
+                    ) {
+                        Text(
+                            currentCode.ifBlank { "Nije označeno" },
+                            modifier = Modifier
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .testTag("calendar-dialog-current-state"),
+                            color = if (currentCode.isBlank()) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                shiftFromCode(currentCode)?.let(::shiftFg)
+                                    ?: MaterialTheme.colorScheme.onSurface
+                            },
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = if (currentCode.isBlank()) 12.sp else 14.sp
+                        )
                     }
                 }
 
