@@ -85,7 +85,7 @@
               <label><span>Gornji rub odabira</span><input type="range" id="scanCropTop" min="0" max="98" step="0.1" value="34"></label>
               <label><span>Donji rub odabira</span><input type="range" id="scanCropBottom" min="2" max="100" step="0.1" value="38"></label>
             </details>
-            <small id="scanCropHint">Dodirni osobu ili povuci plavi pojas gore/dolje.</small>
+            <small id="scanCropHint">Dodirni osobu ili koristi gumbe Pomakni gore / Pomakni dolje.</small>
             <button type="button" class="primary-btn scan-person-confirm" id="scanSinglePersonBtn">Prepoznaj označenu osobu</button>
           </div>
         </div>
