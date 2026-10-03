@@ -50,7 +50,7 @@ test("scan UI uses user-facing copy instead of implementation terminology", asyn
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
   const scan=page.locator("#view-scan");
-  await expect(scan).toContainText("Samo jedna osoba");
+  await expect(scan).toContainText("Jedna osoba · preporučeno");
   await expect(scan).toContainText("Gornji rub odabira");
   await expect(scan).toContainText("Donji rub odabira");
   await expect(scan).not.toContainText("crop");
@@ -143,6 +143,36 @@ test("home is the start view and manual calendar editing persists", async ({page
 });
 
 
+test("D and N are primary 12-hour shifts and J is a distinct built-in shift", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-route="calendar"]:visible').first().click();
+
+  const d=page.locator('[data-manual-shift="D"]');
+  const n=page.locator('[data-manual-shift="N"]');
+  const j=page.locator('[data-manual-shift="J"]');
+  await expect(d).toBeVisible();
+  await expect(n).toBeVisible();
+  await expect(j).toBeVisible();
+
+  await d.click();
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("12h");
+  await n.click();
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("12h");
+  await j.click();
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("8h");
+
+  const colors=await page.evaluate(() => {
+    const codes=["d","n","j","go","bo","pd","sd"];
+    const host=document.createElement("div");
+    host.innerHTML=codes.map(code=>'<i class="shift '+code+'">'+code+'</i>').join("");
+    document.body.appendChild(host);
+    const values=codes.map(code=>getComputedStyle(host.querySelector(".shift."+code) as Element).backgroundColor);
+    host.remove();
+    return values;
+  });
+  expect(new Set(colors).size).toBe(7);
+});
+
 test("blank calendar cell remains unassigned and is not SD", async ({page}) => {
   await page.goto("/");
   await page.locator('[data-route="calendar"]:visible').first().click();
@@ -159,6 +189,7 @@ test("scan performs OCR and exposes multiple invented employees", async ({page})
   await mockOcr(page);
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   const input=page.locator("#galleryInput");
   await input.setInputFiles({
     name:"smjene.png",
@@ -175,7 +206,7 @@ test("single-person crop waits for confirmation and imports only that focused ro
   await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
-  await page.locator("#scanSinglePersonToggle").check();
+  await expect(page.locator("#scanSinglePersonToggle")).toBeChecked();
 
   const tinyPng=Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAD0lEQVR42mP8z8AARMAgYKSgAAMAJQABf2m7WQAAAABJRU5ErkJggg==",
@@ -201,7 +232,7 @@ test("smart single-person crop snaps to detected employee rows and supports tap 
   await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
-  await page.locator("#scanSinglePersonToggle").check();
+  await expect(page.locator("#scanSinglePersonToggle")).toBeChecked();
 
   const left=135,top=180,right=1510,bottom=820,nameWidth=245;
   const horizontal=Array.from({length:29},(_,line)=>{
@@ -245,7 +276,7 @@ test("single-person scan supports rotation, manual movement and direct drag", as
   await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
-  await page.locator("#scanSinglePersonToggle").check();
+  await expect(page.locator("#scanSinglePersonToggle")).toBeChecked();
 
   const svg='<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="800" height="400" fill="#fff"/><text x="40" y="80" font-size="28">ANA HORVAT 1 D 2 N 3 GO</text></svg>';
   await page.locator("#galleryInput").setInputFiles({
@@ -290,6 +321,7 @@ test("scan imports only the explicitly selected employee schedule", async ({page
   await mockOcr(page);
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"smjene.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
@@ -339,6 +371,7 @@ test("AI scan review requires consent and resolves conflicts before import", asy
   await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
 
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"ai-review.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
@@ -578,6 +611,7 @@ test("Web account registration stays optional and manager import keeps employees
   await expect(page.locator("#accountDetails")).toContainText("Voditelj tima");
 
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"tim.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
@@ -700,6 +734,7 @@ test("individual Web account can import only its own recognized row", async ({pa
   await page.locator("#galleryInput").setInputFiles({
     name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
+  await page.locator("#scanSinglePersonBtn").click();
   await expect(page.locator("#scanPersonLabel")).toContainText("ANA HORVAT");
   await expect(page.locator('#scanPersonMenu [data-scan-person="1"]')).toBeDisabled();
   await expect(page.locator("#saveSchedule")).toBeEnabled();
@@ -741,6 +776,7 @@ test("full-roster scan blocks severely incomplete imports", async ({page}) => {
   await mockOcr(page,{people:scanPeople.slice(0,3),expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"raspored-test.svg",
     mimeType:"image/svg+xml",
