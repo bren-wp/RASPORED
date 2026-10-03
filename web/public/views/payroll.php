@@ -1,7 +1,7 @@
     <section class="view" id="view-payroll" data-view="payroll">
       <div class="payroll-title-row">
         <div>
-          <h1>Okvirna plaća</h1>
+          <h1>Procjena plaće</h1>
           <p>Procjena za javni sektor u Hrvatskoj iz službene osnovice/koeficijenta, mjesta prebivališta i stvarne Evidencije sati. Kalendar i raspored ostaju glavni dio aplikacije.</p>
         </div>
         <label class="payroll-month"><span>Mjesec</span><input type="month" id="payrollMonth" min="2026-01" max="2026-12"></label>
