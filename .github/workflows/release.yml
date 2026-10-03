@@ -88,12 +88,12 @@ jobs:
             adb install dist/raspored_demo.apk
 
             adb shell am force-stop hr.raspored.app
-            adb shell am start -W -n hr.raspored.app/.MainActivity
+            adb shell monkey -p hr.raspored.app -c android.intent.category.LAUNCHER 1 >/dev/null
             adb shell pidof hr.raspored.app
             adb shell dumpsys package hr.raspored.app | grep -F "versionName=${{ steps.version.outputs.version }}"
 
             adb shell am force-stop hr.raspored.demo
-            adb shell am start -W -n hr.raspored.demo/hr.raspored.app.MainActivity
+            adb shell monkey -p hr.raspored.demo -c android.intent.category.LAUNCHER 1 >/dev/null
             adb shell pidof hr.raspored.demo
             adb shell dumpsys package hr.raspored.demo | grep -F "versionName=${{ steps.version.outputs.version }}"
 
