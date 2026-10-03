@@ -5,7 +5,7 @@ var MONTHS={
   "SIJECANJ":1,"VELJACA":2,"OZUJAK":3,"TRAVANJ":4,"SVIBANJ":5,"LIPANJ":6,
   "SRPANJ":7,"KOLOVOZ":8,"RUJAN":9,"LISTOPAD":10,"STUDENI":11,"PROSINAC":12
 };
-var VALID=new Set(["D","N","GO","BO","PD","SD"]);
+var VALID=new Set(["D","N","J","GO","BO","PD","SD"]);
 var workerPromise=null;
 var recognitionChain=Promise.resolve();
 var activeProgressCallback=null;
@@ -76,9 +76,9 @@ function daysInMonth(month){
 function cleanName(text){
   return normalize(text)
     .replace(/^\d{1,3}[.)]?\s*/,"")
-    .replace(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)-]?\s*(?:GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu," ")
+    .replace(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)-]?\s*(?:GO|G0|BO|B0|PD|SD|D|N|J)(?!\p{L})/giu," ")
     .replace(/\b\d{1,2}([./-]\d{1,2})?\b/g," ")
-    .replace(/\b(?:GO|G0|BO|B0|PD|SD|D|N)\b/gi," ")
+    .replace(/\b(?:GO|G0|BO|B0|PD|SD|D|N|J)\b/gi," ")
     .replace(/\s+/g," ")
     .replace(/^[\s|:;.,-]+|[\s|:;.,-]+$/g,"");
 }
@@ -253,12 +253,12 @@ function finalizeRows(rows){
 function parseText(text){
   var rows=String(text||"").split(/\r?\n/).map(normalize).filter(Boolean).map(function(line){
     var explicit={};
-    Array.from(line.matchAll(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)|\-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?!\p{L})/giu))
+    Array.from(line.matchAll(/(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)|\-]?\s*(GO|G0|BO|B0|PD|SD|D|N|J)(?!\p{L})/giu))
       .forEach(function(match){
         var code=canonicalShift(match[2]);
         if(code)explicit[Number(match[1])]=code;
       });
-    var hasCode=Array.from(line.matchAll(/(?<!\p{L})(GO|G0|BO|B0|PD|SD|D|N)[.,;:|]?(?!\p{L})/giu))
+    var hasCode=Array.from(line.matchAll(/(?<!\p{L})(GO|G0|BO|B0|PD|SD|D|N|J)[.,;:|]?(?!\p{L})/giu))
       .some(function(match){return !!canonicalShift(match[0])});
     if(!hasCode)return null;
     var rowMatch=line.match(/^\s*(\d{1,3})[.)]?\s*/);
