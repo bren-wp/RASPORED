@@ -22,15 +22,15 @@
 
 Svako produkcijsko izdanje objavljuje gotove artefakte:
 
-- **RASPORED.apk** — produkcijski Android APK s trajnim release potpisom. Release se prekida ako signing keystore nije potpuno konfiguriran; debug-signed fallback više nije dopušten.
-- **RASPORED.aab** — produkcijski Android App Bundle potpisan istim trajnim release ključem kao APK.
+- **RASPORED.apk** — instalabilni Android APK. Ne koristi korisnički keystore ni GitHub signing secret; CI i release provjeravaju stvarni clean-install i pokretanje na emulatoru.
+- **RASPORED.aab** — Android App Bundle za daljnju distribucijsku obradu; nije namijenjen izravnoj instalaciji na uređaj.
 - **raspored_demo.apk** — isti produkcijski Android UI i funkcionalni source kao glavna aplikacija, ali s application ID-em `hr.raspored.demo`, jasnom DEMO oznakom i izmišljenim demo rasporedom pri prvom pokretanju.
 - **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
 - **SHA256SUMS** — SHA-256 kontrolne vrijednosti za glavni APK, AAB, `raspored_demo.apk` i Web/PWA paket; release ih provjerava prije objave.
 
 Verzija Android aplikacije i Web/PWA paketa uvijek se čita iz zajedničke datoteke <code>VERSION</code>. CI ne dopušta novo izdanje s već korištenom verzijom.
 
-Android release zahtijeva sva četiri signing secreta: `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_UPLOAD_STORE_PASSWORD`, `ANDROID_UPLOAD_KEY_ALIAS` i `ANDROID_UPLOAD_KEY_PASSWORD`. Privatni ključ se ne sprema u repozitorij. v1.0.29 uspostavlja novi trajni signing baseline jer su starija GitHub izdanja do v1.0.28 bila objavljena fallback debug potpisom; zbog toga je pri prelasku sa ≤1.0.28 na v1.0.29 potreban jednokratni uninstall stare aplikacije. Od sljedećeg izdanja workflow prije objave stvarno instalira prethodni release APK i novu verziju preko njega.
+Android APK mora imati tehnički potpis da bi ga Android uopće prihvatio, ali Takto ne traži korisnički keystore, GitHub signing secret ni ručno upravljanje ključevima. GitHub build koristi standardni automatski debug potpis Android alata. Zato workflow prije objave provjerava točan APK kroz clean-install i launch smoke test. Ako uređaj već ima stariji GitHub APK s drugim automatskim debug certifikatom, staru aplikaciju treba prvo ukloniti prije instalacije nove verzije.
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
@@ -190,7 +190,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 - mobilna primarna navigacija: Početna, Kalendar, istaknuti Skeniraj, Statistika i Više; Evidencija ostaje brza akcija s Početne
 - Keystore-backed kompatibilnost za ranije povezane Android sesije uz provjeru isteka/opoziva; novi login/registracija UI je uklonjen
 - stvarni mjesečni PDF izvoz rasporeda/evidencije bez profila ime/prezime u Postavkama
-- CI debug APK je jasno označen kao `RASPORED-ci-debug.apk`; produkcijski `RASPORED.apk` nastaje samo u release workflowu s trajnim potpisom
+- CI proizvodi `RASPORED.apk` kao instalabilni automatski debug artefakt; release workflow ponovno koristi isti provjereni APK umjesto zasebnog rebuilda
 - Compose unit/lint provjere i stvarni API 36 emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
@@ -253,7 +253,7 @@ Svaki ozbiljniji razvojni pass provjerava:
 - repo-wide `scripts/dead_code_audit.py --strict` dead-code audit,
 - API 36 emulator launch/navigation smoke test,
 - zasebnu provjeru postojanja i ZIP integriteta APK/AAB/Web artefakata prije releasea.
-- release workflow uvijek provjerava APK/AAB potpis, stvarni install/upgrade put, ZIP integritet i SHA-256; bez trajnog signing keystorea release se ne objavljuje.
+- release workflow ponovno koristi potpuno provjerene CI artefakte te provjerava stvarni clean-install APK-a, pokretanje aplikacije, ZIP integritet i SHA-256.
 
 ### Viewporti
 
