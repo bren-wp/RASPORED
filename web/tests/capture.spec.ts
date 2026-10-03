@@ -50,7 +50,7 @@ for (const route of ["home","calendar","scan","stats","payroll","hours","setting
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820){
         await page.locator('[data-route="stats"]:visible').first().click();
-        await page.locator('.stats-payroll-link').click();
+        await page.locator("#statsPayrollPreview").click();
       }else{
         await page.locator('[data-route="payroll"]:visible').first().click();
       }
