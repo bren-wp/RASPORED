@@ -801,10 +801,10 @@ function openNextScanConflict(){
   dialog.dataset.reviewName=conflict.employeeName;
   var title=document.getElementById("scanConflictTitle"),values=document.getElementById("scanConflictValues");
   if(title)title.textContent=(conflict.employeeRow?conflict.employeeRow+". ":"")+conflict.employeeName+" · dan "+conflict.day;
-  if(values)values.textContent="Lokalni OCR: "+(conflict.localCode||"prazno")+" · AI: "+(conflict.aiCode||"prazno");
+  if(values)values.textContent="Prvo prepoznavanje: "+(conflict.localCode||"prazno")+" · Dodatna provjera: "+(conflict.aiCode||"prazno");
   var localBtn=document.getElementById("scanConflictLocal"),aiBtn=document.getElementById("scanConflictAi"),custom=document.getElementById("scanConflictCustom");
-  if(localBtn){localBtn.hidden=!conflict.localCode;localBtn.textContent=conflict.localCode?"Zadrži lokalno: "+conflict.localCode:""}
-  if(aiBtn){aiBtn.hidden=!conflict.aiCode;aiBtn.textContent=conflict.aiCode?"Odaberi AI: "+conflict.aiCode:""}
+  if(localBtn){localBtn.hidden=!conflict.localCode;localBtn.textContent=conflict.localCode?"Zadrži prvo: "+conflict.localCode:""}
+  if(aiBtn){aiBtn.hidden=!conflict.aiCode;aiBtn.textContent=conflict.aiCode?"Odaberi dodatnu provjeru: "+conflict.aiCode:""}
   if(custom)custom.value="";
   dialog.showModal();
 }
