@@ -476,7 +476,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .scan-conflict-actions{display:grid;gap:8px;margin-top:14px}
 .scan-conflict-actions>*{width:100%;min-height:44px}
 
-.scan-image-stage{position:relative;width:100%;cursor:crosshair;touch-action:none}.scan-row-crop{position:absolute;left:0;right:0;top:34%;height:4%;border:3px solid var(--cyan);background:rgba(0,194,255,.12);box-shadow:0 0 0 9999px rgba(0,0,0,.48);z-index:4;pointer-events:auto;cursor:ns-resize;touch-action:none;border-radius:8px}
+.scan-image-stage{position:relative;width:100%;cursor:crosshair;touch-action:manipulation}.scan-row-crop{position:absolute;left:0;right:0;top:34%;height:4%;border:3px solid var(--cyan);background:rgba(0,194,255,.12);box-shadow:0 0 0 9999px rgba(0,0,0,.48);z-index:4;pointer-events:none;border-radius:8px}
 .scan-row-crop i{position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.85);transform:translateY(-50%)}
 
 
