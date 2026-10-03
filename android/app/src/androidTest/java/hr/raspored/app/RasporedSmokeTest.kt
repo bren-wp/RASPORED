@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
@@ -21,6 +22,9 @@ class RasporedSmokeTest {
 
     @Test
     fun glavneNavigacijeOtvarajuProdukcijskeEkrane() {
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodes(hasTestTag("screen-home")).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-calendar").performClick()
