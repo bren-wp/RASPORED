@@ -376,10 +376,14 @@ object PublicSectorPayroll {
         }
     }
 
-    fun monthlyFundHours(month: YearMonth): Int =
-        (1..month.lengthOfMonth()).count { day ->
-            month.atDay(day).dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+    fun monthlyFundHours(month: YearMonth): Int {
+        val holidays = CroatianHolidays.forYear(month.year)
+        return (1..month.lengthOfMonth()).count { day ->
+            val date = month.atDay(day)
+            date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
+                !holidays.containsKey(date)
         } * 8
+    }
 
     fun estimate(
         month: YearMonth,
@@ -543,18 +547,21 @@ object PublicSectorPayroll {
             val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
                 ?: return@forEach
             if (YearMonth.from(date) != month) return@forEach
+            val ordinaryWeekday =
+                date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
+                    !holidays.containsKey(date)
             when (code) {
                 "GO" -> {
                     goDays++
-                    compensatedAbsenceDates += date
+                    if (ordinaryWeekday) compensatedAbsenceDates += date
                 }
                 "BO" -> {
                     boDays++
-                    compensatedAbsenceDates += date
+                    if (ordinaryWeekday) compensatedAbsenceDates += date
                 }
                 "PD" -> {
                     pdDays++
-                    compensatedAbsenceDates += date
+                    if (ordinaryWeekday) compensatedAbsenceDates += date
                 }
                 "SD" -> sdDays++
             }
