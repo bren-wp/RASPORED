@@ -448,9 +448,10 @@ function render(){
   qs("payrollCoefResult").textContent=number(coefficient,2);
   qs("payrollSeniority").textContent=years+" god. · +"+number(years*0.5,1)+"%";
   qs("payrollFund").textContent=fund+" h";
+  var overtimeAddition=rates.overtime==null?0:hourly*(overtime/60)*Number(rates.overtime);
   qs("payrollWorkedHours").textContent=hours(evidence.total);
   qs("payrollOvertimeHours").textContent=hours(overtime);
-  qs("payrollOvertimeValue").textContent=base>0?money(overtimeBase+addition(overtime,rates.overtime)):"—";
+  qs("payrollOvertimeValue").textContent=base>0?money(overtimeBase+overtimeAddition):"—";
   qs("payrollHourlyGross").textContent=base>0?money(hourly):"—";
   qs("payrollWorkedDays").textContent=evidence.workedDays?String(evidence.workedDays):(standardDays+" plan.");
   qs("payrollDailyGross").textContent=base>0?money(dailyGross):"—";
