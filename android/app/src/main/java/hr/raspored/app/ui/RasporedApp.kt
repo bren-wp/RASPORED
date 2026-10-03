@@ -282,7 +282,7 @@ private val NONE=Shift("","Nije označeno","—",0)
             }
             if(screen==Screen.Calendar){
                 IconButton(onClick=onScan){
-                    Icon(Icons.Outlined.DocumentScanner,"Skeniraj raspored",tint=Color.White)
+                    Icon(Icons.Outlined.DocumentScanner,"Uvezi raspored",tint=Color.White)
                 }
             }
             if(screen==Screen.Stats){
@@ -335,7 +335,7 @@ private val NONE=Shift("","Nije označeno","—",0)
     NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=8.dp){
         NavItem(selected,Screen.Home,"Početna",Icons.Outlined.Home,onSelect)
         NavItem(selected,Screen.Calendar,"Kalendar",Icons.Outlined.CalendarMonth,onSelect)
-        NavItem(selected,Screen.Scan,"Skeniraj",Icons.Outlined.PhotoCamera,onSelect,true)
+        NavItem(selected,Screen.Scan,"Uvezi",Icons.Outlined.PhotoCamera,onSelect,true)
         NavItem(selected,Screen.Stats,"Statistika",Icons.Outlined.BarChart,onSelect)
         NavItem(selected,Screen.Settings,"Više",Icons.Outlined.MoreHoriz,onSelect)
     }
@@ -531,7 +531,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
                 MetricCard("Ovaj mjesec",minutesLabel(analytics.workedMinutes),"Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f))
-                MetricCard("Radne smjene",data.values.count{it.code=="D"||it.code=="N"}.toString(),"Ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
+                MetricCard("Radne smjene",data.values.count{it.code in setOf("D","N","J")}.toString(),"Ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
             }
         }
         item{
@@ -542,7 +542,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             ){
                 Icon(Icons.Outlined.PhotoCamera,null)
                 Spacer(Modifier.width(10.dp))
-                Text("Skeniraj raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)
+                Text("Uvezi raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)
             }
         }
         item{ShiftLegendGrid()}
@@ -1296,7 +1296,8 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     DetailLine(Icons.Outlined.Balance,"Mjesečni fond","Kalendarski fond rada",minutesLabel(analytics.plannedMinutes))
                     DetailLine(Icons.Outlined.Addchart,"Iznad fonda","Kreditirani sati iznad fonda",minutesLabel(analytics.overtimeMinutes))
-                    DetailLine(Icons.Outlined.WbSunny,"Dnevni sati","D · "+data.values.count{it.code=="D"}+" smjena",minutesLabel(analytics.dayMinutes))
+                    DetailLine(Icons.Outlined.WbSunny,"Dnevni sati","D + J · "+data.values.count{it.code=="D"||it.code=="J"}+" smjena",minutesLabel(analytics.dayMinutes))
+                    DetailLine(Icons.Outlined.Schedule,"Jutarnje smjene","J · "+data.values.count{it.code=="J"}+" smjena",minutesLabel(data.values.count{it.code=="J"}.toLong()*EvidenceAnalytics.MORNING_SHIFT_MINUTES))
                     DetailLine(Icons.Outlined.DarkMode,"Noćni sati","N · "+data.values.count{it.code=="N"}+" smjena",minutesLabel(analytics.nightMinutes))
                     DetailLine(Icons.Outlined.CalendarMonth,"Subote",saturdayCount.toString()+" smjena",minutesLabel(analytics.saturdayMinutes))
                     DetailLine(Icons.Outlined.Event,"Nedjelje",sundayCount.toString()+" smjena",minutesLabel(analytics.sundayMinutes))
