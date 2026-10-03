@@ -30,7 +30,7 @@ function normalizeScheduleCode(raw){
   return /^[\p{L}\p{N}]{1,8}$/u.test(value)?value:"";
 }
 function scheduleCodeClass(code){
-  return ["D","N","GO","BO","PD","SD"].indexOf(code)>=0?String(code).toLowerCase():"custom";
+  return ["D","N","J","GO","BO","PD","SD"].indexOf(code)>=0?String(code).toLowerCase():"custom";
 }
 function sanitizeSchedule(raw){
   var clean={};
@@ -313,7 +313,7 @@ function scanTargetMonth(){
   return new Date(state.cursor.getFullYear(),state.cursor.getMonth(),1);
 }
 function cycleScanCode(code){
-  var order=["","D","N","GO","BO","PD","SD"],index=order.indexOf(code);
+  var order=["","D","N","J","GO","BO","PD","SD"],index=order.indexOf(code);
   return order[(index<0?0:index+1)%order.length];
 }
 function scanPerson(){
@@ -554,7 +554,7 @@ function punctuatedDate(date,options){
 function shiftMeta(code){
   var normalized=normalizeScheduleCode(code);
   if(!normalized)return {name:"Nije označeno",time:"—",hours:0};
-  return {D:{name:"Dnevna smjena",time:"07:00 – 19:00 (12h)",hours:12},N:{name:"Noćna smjena",time:"19:00 – 07:00 (12h)",hours:12},GO:{name:"Godišnji odmor",time:"—",hours:0},BO:{name:"Bolovanje",time:"—",hours:0},PD:{name:"Plaćeni dopust",time:"—",hours:0},SD:{name:"Slobodan dan (odobreno)",time:"—",hours:0}}[normalized]||{name:"Vlastita oznaka "+normalized,time:"—",hours:0};
+  return {D:{name:"Dnevna smjena",time:"07:00 – 19:00 (12h)",hours:12},N:{name:"Noćna smjena",time:"19:00 – 07:00 (12h)",hours:12},J:{name:"Jutarnja smjena",time:"07:00 – 15:00 (8h)",hours:8},GO:{name:"Godišnji odmor",time:"—",hours:0},BO:{name:"Bolovanje",time:"—",hours:0},PD:{name:"Plaćeni dopust",time:"—",hours:0},SD:{name:"Slobodan dan (odobreno)",time:"—",hours:0}}[normalized]||{name:"Vlastita oznaka "+normalized,time:"—",hours:0};
 }
 function hoursText(minutes){
   var mins=Math.max(0,Math.round(minutes||0)),h=Math.floor(mins/60),m=mins%60;
@@ -574,18 +574,20 @@ function monthData(y,m){
     sat:0,sun:0,holidays:0,satMinutes:0,sunMinutes:0,holidayMinutes:0,weekendHolidayMinutes:0,
     go:0,bo:0,pd:0,sd:0,planned:0,plannedMinutes:0,creditedMinutes:0,overtimeMinutes:0,
     compensatedAbsenceMinutes:0,holidayCreditMinutes:0,balance:0,balanceMinutes:0,
-    counts:{D:0,N:0,GO:0,BO:0,PD:0,SD:0},
+    counts:{D:0,N:0,J:0,GO:0,BO:0,PD:0,SD:0},
     weeks:[{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0}]
   };
   var hm=holidays(y),days=new Date(y,m+1,0).getDate();
 
   function accountShift(startDate,code){
-    var start=code==="D"
-      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),7,0,0)
-      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0);
+    var start=code==="N"
+      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0)
+      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),7,0,0);
     var end=code==="D"
       ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0)
-      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+1,7,0,0);
+      :code==="J"
+        ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),15,0,0)
+        :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+1,7,0,0);
     for(var t=start.getTime();t<end.getTime();t+=60000){
       var current=new Date(t);
       if(current.getFullYear()!==y||current.getMonth()!==m)continue;
@@ -608,7 +610,7 @@ function monthData(y,m){
 
     if(code){
       out.counts[code]=(out.counts[code]||0)+1;
-      if(code==="D"||code==="N"){
+      if(code==="D"||code==="N"||code==="J"){
         if(date.getDay()===6)out.sat++;
         if(date.getDay()===0)out.sun++;
         if(hm[key])out.holidays++;
@@ -620,7 +622,7 @@ function monthData(y,m){
     }
 
     if(ordinaryWeekday&&["GO","BO","PD"].includes(code))out.compensatedAbsenceMinutes+=8*60;
-    if(weekdayHoliday&&code!=="D"&&code!=="N")out.holidayCreditMinutes+=8*60;
+    if(weekdayHoliday&&code!=="D"&&code!=="N"&&code!=="J")out.holidayCreditMinutes+=8*60;
   }
 
   var previous=new Date(y,m,0,12,0,0);
@@ -686,9 +688,10 @@ function currentShiftFor(date){
   return code?{date:today,code:code}:null;
 }
 function shiftStatus(date,code){
-  if(code!=="D"&&code!=="N")return code?"Danas":"Nema smjene";
+  if(code!=="D"&&code!=="N"&&code!=="J")return code?"Danas":"Nema smjene";
   var now=appNow(),start=new Date(date),end=new Date(date);
   if(code==="D"){start.setHours(7,0,0,0);end.setHours(19,0,0,0)}
+  else if(code==="J"){start.setHours(7,0,0,0);end.setHours(15,0,0,0)}
   else{start.setHours(19,0,0,0);end=addDays(start,1);end.setHours(7,0,0,0)}
   if(now<start){
     var mins=Math.max(0,Math.round((start-now)/60000));
@@ -701,7 +704,7 @@ function upcomingShiftNotification(){
   var start=appNow();
   for(var i=0;i<31;i++){
     var date=addDays(start,i),code=state.schedule[iso(date)];
-    if(code==="D"||code==="N")return {date:date,code:code,key:iso(date)+"-"+code};
+    if(code==="D"||code==="N"||code==="J")return {date:date,code:code,key:iso(date)+"-"+code};
   }
   return null;
 }
@@ -744,23 +747,23 @@ function renderMobileHome(){
   var currentEl=document.getElementById("mobileCurrentShift");
   if(currentEl){currentEl.innerHTML='<button type="button" class="mobile-shift-card-head mobile-shift-card-head--button" data-route-dynamic="calendar"><h2>'+currentTitle+'</h2>'+icon("chevron-right")+'</button><div class="mobile-shift-card-body">'+(code?'<i class="shift '+scheduleCodeClass(code)+'">'+code+'</i>':'<i class="shift">—</i>')+'<span class="mobile-shift-copy"><b>'+current.name+'</b><small>'+current.time+'</small></span>'+(code?'<span class="shift-countdown">'+shiftStatus(entry?entry.date:date,code)+'</span>':'')+'</div><div class="mobile-shift-info"><div>'+icon("clock")+'<span>Radno vrijeme</span><b>'+(current.hours?current.hours+"h":"—")+'</b></div><button type="button" class="mobile-shift-info-action" data-route-dynamic="hours">'+icon("clock")+'<span>Otvori evidenciju</span>'+icon("chevron-right")+'</button></div>'}
   var next=null;
-  for(var i=1;i<=62&&!next;i++){var nd=addDays(date,i),nc=state.schedule[iso(nd)];if(nc==="D"||nc==="N")next={date:nd,code:nc}}
+  for(var i=1;i<=62&&!next;i++){var nd=addDays(date,i),nc=state.schedule[iso(nd)];if(nc==="D"||nc==="N"||nc==="J")next={date:nd,code:nc}}
   var nextEl=document.getElementById("mobileNextShift");
   if(nextEl){if(next){var nm=shiftMeta(next.code);nextEl.innerHTML='<button type="button" class="mobile-shift-card-head mobile-shift-card-head--button" data-open-date="'+iso(next.date)+'"><h2>Sljedeća smjena</h2>'+icon("chevron-right")+'</button><div class="mobile-shift-card-body"><i class="shift '+next.code.toLowerCase()+'">'+next.code+'</i><span class="mobile-shift-copy"><b>'+nm.name+'</b><small>'+nm.time+'</small></span><span class="shift-countdown">'+next.date.toLocaleDateString("hr-HR",{weekday:"short"})+'</span></div>'}else{nextEl.innerHTML='<div class="mobile-shift-card-head"><h2>Sljedeća smjena</h2></div><p class="empty">Nema nadolazeće smjene.</p>'}}
   var metrics=document.getElementById("mobileMetricGrid");
-  if(metrics){var weekendMinutes=data.weekendHolidayMinutes,prefix=date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+"-",monthCodes=Object.keys(state.schedule).filter(function(key){return key.indexOf(prefix)===0}).map(function(key){return state.schedule[key]});var shiftCount=monthCodes.filter(function(value){return value==="D"||value==="N"}).length,absenceCount=monthCodes.filter(function(value){return ["GO","BO","PD","SD"].indexOf(value)>=0}).length,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Radne smjene",String(shiftCount),"Ovaj mjesec",""],["holiday","Odsustva",String(absenceCount),"Ovaj mjesec","weekend"],["clock","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
+  if(metrics){var weekendMinutes=data.weekendHolidayMinutes,prefix=date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+"-",monthCodes=Object.keys(state.schedule).filter(function(key){return key.indexOf(prefix)===0}).map(function(key){return state.schedule[key]});var shiftCount=monthCodes.filter(function(value){return value==="D"||value==="N"||value==="J"}).length,absenceCount=monthCodes.filter(function(value){return ["GO","BO","PD","SD"].indexOf(value)>=0}).length,rows=[["calendar","Ovaj mjesec",hoursText(data.workedMinutes),"Odrađeno sati",""],["chart","Radne smjene",String(shiftCount),"Ovaj mjesec",""],["holiday","Odsustva",String(absenceCount),"Ovaj mjesec","weekend"],["clock","Saldo",signedHoursText(data.balanceMinutes),"Ukupni saldo",""]];metrics.innerHTML=rows.map(function(x){return '<div class="mobile-metric-card '+x[4]+'"><span class="metric-icon">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b><small>'+x[3]+'</small></span></div>'}).join("")}
 }
-function nextShifts(){var list=[],start=appNow();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c==="D"||c==="N")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<button type="button" class="next-shift next-shift--button" data-open-date="'+iso(x[0])+'"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></button>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
+function nextShifts(){var list=[],start=appNow();for(var i=0;i<90&&list.length<3;i++){var d=addDays(start,i),c=state.schedule[iso(d)];if(c==="D"||c==="N"||c==="J")list.push([d,c])}var el=document.getElementById("nextShiftList");if(el)el.innerHTML=list.length?list.map(function(x){var m=shiftMeta(x[1]);return '<button type="button" class="next-shift next-shift--button" data-open-date="'+iso(x[0])+'"><span class="date-block">'+weekdays[x[0].getDay()].toUpperCase()+'<b>'+x[0].getDate()+'</b></span><i class="shift '+x[1].toLowerCase()+'">'+x[1]+'</i><span class="shift-copy"><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></button>'}).join(""):'<p class="empty">Nema nadolazećih smjena.</p>'}
 function renderSelected(){
   var el=document.getElementById("selectedDayCard");if(!el)return;
   var d=state.selected,key=iso(d),hm=holidays(d.getFullYear()),code=state.schedule[key],m=shiftMeta(code);
-  var codes=["D","N","GO","BO","PD","SD"];
+  var codes=["D","N","J","GO","BO","PD","SD"];
   var customValue=code&&codes.indexOf(code)<0?escapeHtml(code):"";
   var editor='<div class="manual-shift-editor"><div><b>Ručno postavi oznaku</b><small>Promjena se odmah sprema i ostaje dostupna u povijesti mjeseci.</small></div><div class="manual-shift-grid">'+
     codes.map(function(item){
       return '<button type="button" class="manual-shift-btn '+(code===item?'is-selected ':'')+item.toLowerCase()+'" data-manual-shift="'+item+'" aria-pressed="'+(code===item?'true':'false')+'"><i class="shift '+item.toLowerCase()+'">'+item+'</i></button>';
     }).join('')+
-    '</div><div class="manual-custom-code"><label><span>Vlastita oznaka</span><input id="calendarCustomCode" type="text" maxlength="8" autocomplete="off" inputmode="text" value="'+customValue+'" placeholder="npr. J, P1, EDU" aria-label="Vlastita oznaka rasporeda"></label><button type="button" class="secondary-btn" data-save-custom-shift>Spremi</button></div><small class="manual-custom-help">Do 8 slova ili brojeva. D/N/GO/BO/PD/SD zadržavaju posebno značenje u statistici.</small><button type="button" class="link-btn manual-shift-clear" data-manual-shift="clear" '+(!code?'disabled':'')+'>Očisti oznaku</button></div>';
+    '</div><div class="manual-custom-code"><label><span>Vlastita oznaka</span><input id="calendarCustomCode" type="text" maxlength="8" autocomplete="off" inputmode="text" value="'+customValue+'" placeholder="npr. P1, EDU, S2" aria-label="Vlastita oznaka rasporeda"></label><button type="button" class="secondary-btn" data-save-custom-shift>Spremi</button></div><small class="manual-custom-help">Do 8 slova ili brojeva. D/N/J/GO/BO/PD/SD zadržavaju posebno značenje u statistici.</small><button type="button" class="link-btn manual-shift-clear" data-manual-shift="clear" '+(!code?'disabled':'')+'>Očisti oznaku</button></div>';
   el.innerHTML='<div class="selected-day-top"><div><h2>'+((key===iso(appNow()))?"Danas":d.toLocaleDateString("hr-HR",{weekday:"long"}))+'</h2><p>'+punctuatedDate(d,{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})+'</p></div>'+(hm[key]?'<div class="holiday-inline">▦ Blagdan<br><small>'+hm[key]+'</small></div>':'')+'</div><div class="selected-shift">'+(code?'<i class="shift '+scheduleCodeClass(code)+'">'+code+'</i>':'<i class="shift">—</i>')+'<span><b>'+m.name+'</b><small>'+m.time+'</small></span><span>›</span></div>'+editor;
 }
 function renderRecognition(){
@@ -932,11 +935,11 @@ function renderHours(){
     var date=new Date(y,m,day,12,0,0),key=iso(date),code=normalizeScheduleCode(state.schedule[key]||"");
     if(!code)continue;
     var meta=shiftMeta(code);
-    var hours=code==="D"||code==="N"?"12 h":code==="GO"||code==="BO"||code==="PD"||code==="SD"?"—":"Nije definirano";
+    var hours=code==="D"||code==="N"?"12 h":code==="J"?"8 h":code==="GO"||code==="BO"||code==="PD"||code==="SD"?"—":"Nije definirano";
     var flags=[];
     if(date.getDay()===0||date.getDay()===6)flags.push("vikend");
     if(hm[key])flags.push("blagdan");
-    if(["D","N","GO","BO","PD","SD"].indexOf(code)<0)flags.push("vlastita oznaka");
+    if(["D","N","J","GO","BO","PD","SD"].indexOf(code)<0)flags.push("vlastita oznaka");
     rows.push(
       '<article class="hours-history-row">'+
       '<span class="hours-history-date"><b>'+String(day).padStart(2,"0")+'.'+String(m+1).padStart(2,"0")+'.</b><small>'+date.toLocaleDateString("hr-HR",{weekday:"short"})+'</small></span>'+
@@ -1336,7 +1339,7 @@ function bind(){
     if(manual){
       var value=manual.dataset.manualShift||"",key=iso(state.selected);
       if(value==="clear")delete state.schedule[key];
-      else if(["D","N","GO","BO","PD","SD"].indexOf(value)>=0)state.schedule[key]=value;
+      else if(["D","N","J","GO","BO","PD","SD"].indexOf(value)>=0)state.schedule[key]=value;
       else return;
       if(!save()){loadSchedule();toast("Promjenu nije moguće spremiti u storage/data.");}
       renderAll();
