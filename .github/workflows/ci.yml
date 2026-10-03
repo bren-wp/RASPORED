@@ -174,8 +174,9 @@ jobs:
           test -n "$APKSIGNER"
 
           signer_digest() {
-            "$APKSIGNER" verify --print-certs "$1" |
-              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+            "$APKSIGNER" verify --print-certs "$1" 2>&1 |
+              tr -d '\r' |
+              grep -Eo '[[:xdigit:]]{64}' |
               head -n1 |
               tr '[:lower:]' '[:upper:]'
           }
