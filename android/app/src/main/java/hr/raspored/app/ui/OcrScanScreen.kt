@@ -470,7 +470,7 @@ internal fun OcrScanScreen(
             source
         }
         aiBusy = true
-        message = if (singlePersonMode) "AI provjera označene osobe..." else "AI provjera cijele tablice..."
+        message = if (singlePersonMode) "Dodatna provjera označene osobe..." else "Dodatna provjera cijele tablice..."
         phase = OcrPhase.Processing
         scope.launch {
             val outcome = runCatching {
@@ -983,7 +983,7 @@ internal fun OcrScanScreen(
 
                     if (editedShifts.isEmpty()) {
                         Text(
-                            "Nakon OCR prepoznavanja ovdje će se prikazati raspored odabrane osobe.",
+                            "Nakon prepoznavanja ovdje će se prikazati raspored odabrane osobe.",
                             color = RasporedTokens.Slate,
                             modifier = Modifier.padding(vertical = 20.dp)
                         )
@@ -1057,10 +1057,10 @@ internal fun OcrScanScreen(
                         ) {
                             Icon(Icons.Outlined.AutoAwesome, null)
                             Spacer(Modifier.width(8.dp))
-                            Text(if (aiBusy) "AI provjera..." else "AI provjera cijelog rasporeda")
+                            Text(if (aiBusy) "Dodatna provjera..." else "Dodatna provjera cijelog rasporeda")
                         }
                         Text(
-                            "Opcionalno: slika se šalje Takto poslužitelju i OpenAI API-ju samo kad ovo pokreneš. API ključ nije spremljen u Android aplikaciji.",
+                            "Opcionalno: fotografija napušta uređaj samo kada pokreneš dodatnu provjeru i šalje se vanjskom servisu za analizu.",
                             modifier = Modifier.padding(top = 5.dp),
                             color = RasporedTokens.Slate,
                             fontSize = 10.sp
@@ -1137,10 +1137,10 @@ internal fun OcrScanScreen(
         AlertDialog(
             onDismissRequest = { aiConsentOpen = false },
             icon = { Icon(Icons.Outlined.PrivacyTip, null, tint = RasporedTokens.Cyan) },
-            title = { Text("AI analiza fotografije") },
+            title = { Text("Dodatna provjera fotografije") },
             text = {
                 Text(
-                    "Za ovu opcionalnu provjeru fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere."
+                    "Za ovu opcionalnu provjeru fotografija napušta uređaj i šalje se Takto poslužitelju te vanjskom servisu za analizu. Prepoznavanje na uređaju radi i bez ove provjere."
                 )
             },
             confirmButton = {
@@ -1150,10 +1150,10 @@ internal fun OcrScanScreen(
                         aiConsentGranted = true
                         runAiVerification()
                     }
-                ) { Text("Pošalji na AI provjeru") }
+                ) { Text("Pokreni dodatnu provjeru") }
             },
             dismissButton = {
-                TextButton(onClick = { aiConsentOpen = false }) { Text("Ostani na lokalnom OCR-u") }
+                TextButton(onClick = { aiConsentOpen = false }) { Text("Ostani na prvom prepoznavanju") }
             }
         )
     }
@@ -1164,7 +1164,7 @@ internal fun OcrScanScreen(
             AlertDialog(
                 onDismissRequest = { reviewConflictIndex = -1 },
                 icon = { Icon(Icons.Outlined.WarningAmber, null, tint = RasporedTokens.Amber) },
-                title = { Text("Nejasna OCR stavka") },
+                title = { Text("Nejasna stavka") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
@@ -1173,21 +1173,21 @@ internal fun OcrScanScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Lokalni OCR: " + (conflict.localCode ?: "prazno") +
-                                " · AI: " + (conflict.aiCode ?: "prazno"),
+                            "Prvo prepoznavanje: " + (conflict.localCode ?: "prazno") +
+                                " · Dodatna provjera: " + (conflict.aiCode ?: "prazno"),
                             color = RasporedTokens.Slate
                         )
                         conflict.localCode?.let { code ->
                             Button(
                                 onClick = { resolveConflict(code) },
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("Zadrži lokalno: " + code) }
+                            ) { Text("Zadrži prvo: " + code) }
                         }
                         conflict.aiCode?.let { code ->
                             OutlinedButton(
                                 onClick = { resolveConflict(code) },
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("Odaberi AI: " + code) }
+                            ) { Text("Odaberi dodatnu provjeru: " + code) }
                         }
                         OutlinedButton(
                             onClick = { resolveConflict(null) },
@@ -1226,8 +1226,8 @@ internal fun OcrScanScreen(
                     Text("• Fotografija se u pregledu prikazuje cijela; okvir više ne reže rubove rasporeda.")
                     Text("• Za široke mjesečne tablice fotografiraj vodoravno kako bi stupci dana imali više piksela.")
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
-                    Text("• Kalendar i lokalni OCR rade bez računa. Android Postavke nemaju prijavu ni registraciju; lokalni rad ne ovisi o mreži.")
-                    Text("• Prazna kućica ostaje prazna kao redovni slobodni dan. SD odaberi samo ako je SD izričito upisan/odobren u izvornom rasporedu.")
+                    Text("• Kalendar i prepoznavanje na uređaju rade bez računa. Android Postavke nemaju prijavu ni registraciju; osnovni rad ne ovisi o mreži.")
+                    Text("• Prazna kućica ostaje „Nije označeno” i ne tretira se automatski kao SD. SD odaberi samo ako je izričito upisan ili odobren u izvornom rasporedu.")
                     Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
                 }
             },
