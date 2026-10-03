@@ -55,7 +55,7 @@ jobs:
           grep -Fq 'gh run download "$RUN_ID"' "$RELEASE" || { echo "release.yml must reuse verified CI artifacts"; exit 1; }
           grep -Fq 'adb install dist/RASPORED.apk' "$RELEASE" || { echo "release.yml must clean-install the exact release APK"; exit 1; }
           grep -Fq 'takto-github-apk-signing-v1' ".github/workflows/ci.yml" || { echo "ci.yml must preserve the stable main APK signing identity"; exit 1; }
-          [[ "$(grep -Ec '^      - name: Verify APK signing continuity' ".github/workflows/ci.yml")" -eq 1 ]] || { echo "ci.yml must contain exactly one APK signing continuity gate"; exit 1; }
+          awk '$0 == "      - name: Verify APK signing continuity" { count++ } END { exit(count == 1 ? 0 : 1) }' ".github/workflows/ci.yml" || { echo "ci.yml must contain exactly one APK signing continuity gate"; exit 1; }
 
   web:
     needs: version
@@ -136,7 +136,15 @@ jobs:
           set -euo pipefail
           mkdir -p "$HOME/.android"
           if [[ ! -s "$HOME/.android/debug.keystore" ]]; then
-            keytool -genkeypair -noprompt               -keystore "$HOME/.android/debug.keystore"               -storepass android               -alias androiddebugkey               -keypass android               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=Takto GitHub Distribution, OU=Takto, O=Brendigo, L=Rijeka, ST=Primorsko-goranska, C=HR"
+            keytool -genkeypair -noprompt \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Takto GitHub Distribution, OU=Takto, O=Brendigo, L=Rijeka, ST=Primorsko-goranska, C=HR"
           fi
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
       - name: Android debug build
@@ -155,7 +163,6 @@ jobs:
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose dist/RASPORED.apk
           "$APKSIGNER" verify --verbose dist/raspored_demo.apk
-
       - name: Verify APK signing continuity
         if: success() && github.ref == 'refs/heads/main'
         env:
@@ -187,7 +194,10 @@ jobs:
           test -n "$PREVIOUS_TAG"
           rm -rf "${RUNNER_TEMP}/previous-takto-release"
           mkdir -p "${RUNNER_TEMP}/previous-takto-release"
-          gh release download "$PREVIOUS_TAG"             --repo "$GITHUB_REPOSITORY"             --pattern RASPORED.apk             --dir "${RUNNER_TEMP}/previous-takto-release"
+          gh release download "$PREVIOUS_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern RASPORED.apk \
+            --dir "${RUNNER_TEMP}/previous-takto-release"
 
           PREVIOUS="$(signer_digest "${RUNNER_TEMP}/previous-takto-release/RASPORED.apk")"
           test -n "$PREVIOUS"
@@ -197,6 +207,7 @@ jobs:
             echo "::error::APK signing certificate changed. Refusing to publish an uninstall-required update."
             exit 1
           fi
+
       - uses: actions/upload-artifact@v4
         if: success()
         with:
