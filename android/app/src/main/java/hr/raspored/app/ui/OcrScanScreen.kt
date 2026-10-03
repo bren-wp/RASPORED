@@ -522,13 +522,9 @@ internal fun OcrScanScreen(
         item {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Uvezi raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        if (singlePersonMode) {
-                            "Učitaj cijelu fotografiju, zatim označi samo vodoravni redak jedne osobe — od imena i prezimena kroz sve dane."
-                        } else {
-                            "Slikaj cijelu tablicu ili učitaj fotografiju. Važno je da su vidljivi svi redci osoba i zaglavlje sa svim danima."
-                        },
+                        "Dodaj fotografiju, poravnaj tablicu, odaberi osobu i provjeri oznake prije spremanja.",
                         color = RasporedTokens.Slate
                     )
                 }
@@ -540,11 +536,58 @@ internal fun OcrScanScreen(
 
         item {
             Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 1.dp,
+                modifier = Modifier.fillMaxWidth().testTag("scan-source-step")
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ScanStepHeader(
+                        number = "1",
+                        title = "Dodaj fotografiju",
+                        subtitle = "Fotografiraj cijelu tablicu ili odaberi postojeću fotografiju. Najbolji rezultat daje ravna i oštra slika bez odsjaja."
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { launchCamera() },
+                            modifier = Modifier.weight(1f).heightIn(min = 66.dp).testTag("scan-source-camera"),
+                            shape = RoundedCornerShape(15.dp)
+                        ) {
+                            Icon(Icons.Outlined.PhotoCamera, null)
+                            Spacer(Modifier.width(7.dp))
+                            Text("Fotografiraj", fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(
+                            onClick = { galleryLauncher.launch("image/*") },
+                            modifier = Modifier.weight(1f).heightIn(min = 66.dp).testTag("scan-source-gallery"),
+                            shape = RoundedCornerShape(15.dp)
+                        ) {
+                            Icon(Icons.Outlined.Image, null)
+                            Spacer(Modifier.width(7.dp))
+                            Text("Odaberi sliku", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Surface(
                 shape = RoundedCornerShape(RasporedTokens.RadiusLarge),
                 color = RasporedTokens.Navy,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp)) {
+                    ScanStepHeader(
+                        number = "2",
+                        title = "Poravnaj i odaberi",
+                        subtitle = "Provjeri orijentaciju. Ako uvoziš samo jednu osobu, označi njezin vodoravni redak.",
+                        dark = true
+                    )
+                    Spacer(Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -675,28 +718,6 @@ internal fun OcrScanScreen(
                             color = Color.White,
                             fontSize = 11.sp
                         )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        TextButton(
-                            onClick = { launchCamera() },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Outlined.PhotoCamera, null, tint = Color.White)
-                            Spacer(Modifier.width(7.dp))
-                            Text("Ponovno skeniraj", color = Color.White, fontSize = 12.sp)
-                        }
-                        TextButton(
-                            onClick = { galleryLauncher.launch("image/*") },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Outlined.Image, null, tint = Color.White)
-                            Spacer(Modifier.width(7.dp))
-                            Text("Odaberi iz galerije", color = Color.White, fontSize = 12.sp)
-                        }
                     }
 
                     if (bitmap != null) {
@@ -890,7 +911,12 @@ internal fun OcrScanScreen(
                 shadowElevation = 1.dp
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Odaberi osobu", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    ScanStepHeader(
+                        number = "3",
+                        title = "Odaberi osobu i mjesec",
+                        subtitle = "Provjeri ime osobe prije uvoza. Rasporedi različitih osoba nikada se ne spajaju."
+                    )
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         if (allowTeamImport) {
                             "Odaberi jednu osobu za osobni kalendar. Ako radiš rasporede za tim, možeš spremiti sve pouzdano prepoznate djelatnike kao odvojene lokalne rasporede bez registracije."
@@ -978,9 +1004,13 @@ internal fun OcrScanScreen(
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f)) {
-                            Text("Provjera rasporeda", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            ScanStepHeader(
+                                number = "4",
+                                title = "Provjeri i spremi",
+                                subtitle = "Pregledaj prepoznate oznake i dodirni oznaku za ispravak. Prazan dan ostaje „Nije označeno”."
+                            )
                             Text(
-                                "Pregledaj prepoznate smjene i dodirni oznaku za ispravak.",
+                                "D i N su primarne 12-satne smjene; J je dodatna jutarnja smjena.",
                                 color = RasporedTokens.Slate,
                                 fontSize = 12.sp
                             )
