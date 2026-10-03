@@ -1461,30 +1461,61 @@ function bind(){
   }
   if(scanRowCrop){
     var dragPointer=null,dragStartPercent=0,dragStartTop=0,dragStartBottom=0;
-    scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
-    scanRowCrop.addEventListener("pointerdown",function(event){
-      if(!state.scanSingleMode||!state.scanOriginalFile)return;
-      var percent=scanPercentFromClientY(event.clientY);
-      if(percent==null)return;
-      dragPointer=event.pointerId;dragStartPercent=percent;dragStartTop=state.scanCropTop;dragStartBottom=state.scanCropBottom;
+    function beginCropDrag(key,clientY){
+      if(dragPointer!==null||!state.scanSingleMode||!state.scanOriginalFile)return false;
+      var percent=scanPercentFromClientY(clientY);
+      if(percent==null)return false;
+      dragPointer=key;dragStartPercent=percent;dragStartTop=state.scanCropTop;dragStartBottom=state.scanCropBottom;
       state.scanDetectedRowIndex=-1;
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    window.addEventListener("pointermove",function(event){
-      if(dragPointer!==event.pointerId)return;
-      var percent=scanPercentFromClientY(event.clientY);
-      if(percent==null)return;
+      return true;
+    }
+    function moveCropDrag(key,clientY){
+      if(dragPointer!==key)return false;
+      var percent=scanPercentFromClientY(clientY);
+      if(percent==null)return false;
       var height=dragStartBottom-dragStartTop,top=Math.max(0,Math.min(100-height,dragStartTop+(percent-dragStartPercent)));
       setScanCrop(top,top+height,-1);
-      event.preventDefault();
-    },{passive:false});
-    function stopCropDrag(event){
-      if(dragPointer!==event.pointerId)return;
+      return true;
+    }
+    function stopCropDrag(key){
+      if(dragPointer!==key)return;
       dragPointer=null;
     }
-    window.addEventListener("pointerup",stopCropDrag);
-    window.addEventListener("pointercancel",stopCropDrag);
+    scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
+    scanRowCrop.addEventListener("pointerdown",function(event){
+      if(beginCropDrag("pointer:"+event.pointerId,event.clientY)){
+        event.preventDefault();event.stopPropagation();
+      }
+    });
+    window.addEventListener("pointermove",function(event){
+      if(moveCropDrag("pointer:"+event.pointerId,event.clientY))event.preventDefault();
+    },{passive:false});
+    window.addEventListener("pointerup",function(event){stopCropDrag("pointer:"+event.pointerId)});
+    window.addEventListener("pointercancel",function(event){stopCropDrag("pointer:"+event.pointerId)});
+
+    scanRowCrop.addEventListener("mousedown",function(event){
+      if(beginCropDrag("mouse",event.clientY)){event.preventDefault();event.stopPropagation()}
+    });
+    window.addEventListener("mousemove",function(event){
+      if(moveCropDrag("mouse",event.clientY))event.preventDefault();
+    });
+    window.addEventListener("mouseup",function(){stopCropDrag("mouse")});
+
+    scanRowCrop.addEventListener("touchstart",function(event){
+      var touch=event.changedTouches&&event.changedTouches[0];
+      if(touch&&beginCropDrag("touch:"+touch.identifier,touch.clientY)){event.preventDefault();event.stopPropagation()}
+    },{passive:false});
+    window.addEventListener("touchmove",function(event){
+      if(typeof dragPointer!=="string"||dragPointer.indexOf("touch:")!==0)return;
+      var id=Number(dragPointer.slice(6)),touch=Array.from(event.changedTouches||[]).find(function(item){return item.identifier===id});
+      if(touch&&moveCropDrag(dragPointer,touch.clientY))event.preventDefault();
+    },{passive:false});
+    window.addEventListener("touchend",function(event){
+      Array.from(event.changedTouches||[]).forEach(function(touch){stopCropDrag("touch:"+touch.identifier)});
+    });
+    window.addEventListener("touchcancel",function(event){
+      Array.from(event.changedTouches||[]).forEach(function(touch){stopCropDrag("touch:"+touch.identifier)});
+    });
   }
   document.getElementById("scanSinglePersonBtn").addEventListener("click",async function(){
     if(!state.scanOriginalFile){toast("Najprije učitaj fotografiju rasporeda.");return}
