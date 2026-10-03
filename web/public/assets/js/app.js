@@ -176,9 +176,9 @@ function renderTeamMembers(){
 }
 function importScannedTeamSchedules(){
   var policy=individualScanPolicy();
-  if(unresolvedScanReviewCells().length){toast("Prije timskog uvoza riješi sve nejasne AI/OCR stavke.");renderScanReview();return}
+  if(unresolvedScanReviewCells().length){toast("Prije timskog uvoza riješi sve nejasne stavke.");renderScanReview();return}
   if(policy.restricted){toast("Osobni korisnički račun može uvesti samo vlastiti raspored.");return}
-  if(!state.scanPeople.length){toast("Najprije skeniraj raspored.");return}
+  if(!state.scanPeople.length){toast("Najprije uvezi fotografiju rasporeda.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
   var members=loadTeamMembers(),byName={};
   members.forEach(function(item,index){byName[normalizePersonName(item.name)]=index});
@@ -200,7 +200,7 @@ function importScannedTeamSchedules(){
     imported++;
   });
   if(!imported){toast("Nijedan raspored nema dovoljno pouzdanih oznaka dana za uvoz.");return}
-  if(!saveTeamMembers(members)){toast("Rasporede tima nije moguće spremiti u storage/data.");return}
+  if(!saveTeamMembers(members)){toast("Rasporede tima trenutačno nije moguće spremiti.");return}
   renderTeamMembers();
   toast("Uvezeni su rasporedi za "+imported+" djelatnika"+(skipped?" · preskočeno bez oznaka: "+skipped:"")+".");
   route("colleagues");
@@ -415,13 +415,13 @@ async function runAiScanVerification(){
   var status=document.getElementById("scanStatus");
   if(!state.scanSourceFile){toast("Najprije skeniraj ili učitaj fotografiju rasporeda.");return}
   if(!window.RasporedAuth||!window.RasporedAuth.isAuthenticated||!window.RasporedAuth.isAuthenticated()){
-    toast("AI provjera dostupna je prijavljenim korisnicima.");return
+    toast("Dodatna provjera dostupna je prijavljenim korisnicima.");return
   }
   if(button)button.disabled=true;
   if(status){
     status.classList.remove("is-success","is-error");
     status.classList.add("is-scanning");
-    status.querySelector("span").textContent=state.scanSingleMode?"AI provjera označene osobe...":"AI provjera cijele tablice...";
+    status.querySelector("span").textContent=state.scanSingleMode?"Dodatna provjera označene osobe...":"Dodatna provjera cijele tablice...";
   }
   try{
     var aiFile=state.scanSingleMode&&state.scanOriginalFile
@@ -440,7 +440,7 @@ async function runAiScanVerification(){
     });
     var payload={};
     try{payload=await response.json()}catch(error){}
-    if(!response.ok||payload.ok!==true||!payload.result)throw new Error(payload.error||"AI provjera nije uspjela.");
+    if(!response.ok||payload.ok!==true||!payload.result)throw new Error(payload.error||"Dodatna provjera nije uspjela.");
     var merged=mergeScanPeople(state.scanPeople,payload.result.people||[]);
     state.scanPeople=merged.people;
     state.scanReviewCells=sanitizeScanReviewCells(merged.cells);
@@ -457,9 +457,9 @@ async function runAiScanVerification(){
       status.classList.remove("is-scanning");
       status.classList.add(state.scanIncomplete?"is-error":"is-success");
       status.querySelector("span").textContent=
-        (state.scanSingleMode?"AI provjera označene osobe završena: ":"AI provjera završena: ")+state.scanPeople.length+" osoba. "+
+        (state.scanSingleMode?"Dodatna provjera označene osobe završena: ":"Dodatna provjera završena: ")+state.scanPeople.length+" osoba. "+
         (unresolvedScanReviewCells().length
-          ?unresolvedScanReviewCells().length+" ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru. "
+          ?unresolvedScanReviewCells().length+" ćelija razlikuje se od prvog prepoznavanja i ostavljena je za ručnu provjeru. "
           :"Nisu pronađeni sukobi s lokalnim OCR-om. ")+
         (payload.result.notes||"");
     }
@@ -467,7 +467,7 @@ async function runAiScanVerification(){
     if(status){
       status.classList.remove("is-scanning");
       status.classList.add("is-error");
-      status.querySelector("span").textContent=error&&error.message?error.message:"AI provjera nije uspjela.";
+      status.querySelector("span").textContent=error&&error.message?error.message:"Dodatna provjera nije uspjela.";
     }
   }finally{
     if(button)button.disabled=false;
@@ -1270,7 +1270,7 @@ async function handleScanFile(file,forceOcr,keepPreview){
       }
     }else{
       status.classList.add("is-error");
-      status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Pokušaj s ravnijom i oštrijom fotografijom.";
+      status.querySelector("span").textContent="Nije pronađena osoba s oznakama D, N, J, GO, BO, PD ili SD. Pokušaj s ravnijom i oštrijom fotografijom.";
     }
   }catch(error){
     if(generation!==state.scanGeneration)return;
@@ -1278,7 +1278,7 @@ async function handleScanFile(file,forceOcr,keepPreview){
     if(progress)progress.style.width="0";
     status.querySelector("span").textContent=navigator.onLine
       ?"Prepoznavanje nije uspjelo. Pokušaj ponovno s jasnijom fotografijom."
-      :"Za prvo OCR prepoznavanje potrebna je internetska veza.";
+      :"Za prvo prepoznavanje potrebna je internetska veza.";
   }
   renderScanPersonPicker();renderRecognition();
 }
@@ -1288,7 +1288,7 @@ function route(name){
     var scanStatus=document.getElementById("scanStatus"),scanProgress=scanStatus&&scanStatus.querySelector(".scan-progress i");
     if(scanStatus&&scanStatus.classList.contains("is-scanning")){
       scanStatus.classList.remove("is-scanning");
-      scanStatus.querySelector("span").textContent="Skeniranje je prekinuto. Pokreni ga ponovno kad se vratiš.";
+      scanStatus.querySelector("span").textContent="Uvoz je prekinut. Pokreni ga ponovno kad se vratiš.";
       if(scanProgress)scanProgress.style.width="0";
     }
   }
@@ -1409,7 +1409,7 @@ function bind(){
     renderScanPersonPicker();renderRecognition();updateScanCropOverlay();
     var status=document.getElementById("scanStatus");
     var aiLabel=document.getElementById("scanAiVerifyLabel");
-    if(aiLabel)aiLabel.textContent=state.scanSingleMode?"AI provjera označene osobe":"AI provjera cijelog rasporeda";
+    if(aiLabel)aiLabel.textContent=state.scanSingleMode?"Dodatna provjera označene osobe":"Dodatna provjera cijelog rasporeda";
     if(status&&state.scanOriginalFile){
       status.classList.remove("is-success","is-error","is-scanning");
       if(state.scanSingleMode){
@@ -1443,27 +1443,29 @@ function bind(){
   if(cropReset)cropReset.addEventListener("click",resetScanCrop);
   var scanImageStage=document.getElementById("scanImageStage"),scanRowCrop=document.getElementById("scanRowCrop"),scanPreviewImage=document.getElementById("scanPreviewImage");
   if(scanPreviewImage)scanPreviewImage.addEventListener("load",updateScanCropOverlay);
-  var cropDragActive=false,cropDragStartPercent=0,cropDragStartTop=0,cropDragStartBottom=0,cropDragMoved=false,cropSuppressClick=false;
-  function beginStageCropDrag(clientY){
+  var cropDragActive=false,cropDragStartClientY=0,cropDragStartTop=0,cropDragStartBottom=0,cropDragMoved=false,cropSuppressClick=false;
+  function beginCropDrag(clientY,force){
     if(cropDragActive||!state.scanSingleMode||!state.scanOriginalFile)return false;
-    var percent=scanPercentFromClientY(clientY);
-    if(percent==null||percent<state.scanCropTop-.75||percent>state.scanCropBottom+.75)return false;
-    cropDragActive=true;cropDragStartPercent=percent;cropDragStartTop=state.scanCropTop;cropDragStartBottom=state.scanCropBottom;cropDragMoved=false;
+    if(!force){
+      var percent=scanPercentFromClientY(clientY);
+      if(percent==null||percent<state.scanCropTop-.75||percent>state.scanCropBottom+.75)return false;
+    }
+    cropDragActive=true;cropDragStartClientY=clientY;cropDragStartTop=state.scanCropTop;cropDragStartBottom=state.scanCropBottom;cropDragMoved=false;
     state.scanDetectedRowIndex=-1;
     return true;
   }
-  function moveStageCropDrag(clientY){
+  function moveCropDrag(clientY){
     if(!cropDragActive)return false;
-    var percent=scanPercentFromClientY(clientY);
-    if(percent==null)return false;
-    var delta=percent-cropDragStartPercent;
+    var geometry=scanPreviewContentGeometry();
+    if(!geometry||geometry.height<=0)return false;
+    var delta=(clientY-cropDragStartClientY)/geometry.height*100;
     if(Math.abs(delta)>.2)cropDragMoved=true;
     var height=cropDragStartBottom-cropDragStartTop;
     var top=Math.max(0,Math.min(100-height,cropDragStartTop+delta));
     setScanCrop(top,top+height,-1);
     return true;
   }
-  function stopStageCropDrag(){
+  function stopCropDrag(){
     if(!cropDragActive)return;
     cropSuppressClick=cropDragMoved;
     cropDragActive=false;
@@ -1490,33 +1492,44 @@ function bind(){
       }
     });
     scanImageStage.addEventListener("pointerdown",function(event){
-      if(beginStageCropDrag(event.clientY)){event.preventDefault();event.stopPropagation()}
+      var force=!!(event.target&&event.target.closest&&event.target.closest("#scanRowCrop"));
+      if(beginCropDrag(event.clientY,force)){event.preventDefault();event.stopPropagation()}
     },true);
     scanImageStage.addEventListener("mousedown",function(event){
-      if(beginStageCropDrag(event.clientY)){event.preventDefault();event.stopPropagation()}
+      var force=!!(event.target&&event.target.closest&&event.target.closest("#scanRowCrop"));
+      if(beginCropDrag(event.clientY,force)){event.preventDefault();event.stopPropagation()}
     },true);
     scanImageStage.addEventListener("touchstart",function(event){
       var touch=event.changedTouches&&event.changedTouches[0];
-      if(touch&&beginStageCropDrag(touch.clientY)){event.preventDefault();event.stopPropagation()}
+      var force=!!(event.target&&event.target.closest&&event.target.closest("#scanRowCrop"));
+      if(touch&&beginCropDrag(touch.clientY,force)){event.preventDefault();event.stopPropagation()}
     },{capture:true,passive:false});
   }
-  if(scanRowCrop)scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
-  window.addEventListener("pointermove",function(event){
-    if(moveStageCropDrag(event.clientY))event.preventDefault();
-  },{passive:false});
-  window.addEventListener("mousemove",function(event){
-    if(moveStageCropDrag(event.clientY))event.preventDefault();
-  });
+  if(scanRowCrop){
+    scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
+    scanRowCrop.addEventListener("pointerdown",function(event){
+      if(beginCropDrag(event.clientY,true)){event.preventDefault();event.stopPropagation()}
+    });
+    scanRowCrop.addEventListener("mousedown",function(event){
+      if(beginCropDrag(event.clientY,true)){event.preventDefault();event.stopPropagation()}
+    });
+    scanRowCrop.addEventListener("touchstart",function(event){
+      var touch=event.changedTouches&&event.changedTouches[0];
+      if(touch&&beginCropDrag(touch.clientY,true)){event.preventDefault();event.stopPropagation()}
+    },{passive:false});
+  }
+  window.addEventListener("pointermove",function(event){if(moveCropDrag(event.clientY))event.preventDefault()},{passive:false});
+  window.addEventListener("mousemove",function(event){if(moveCropDrag(event.clientY))event.preventDefault()});
   window.addEventListener("touchmove",function(event){
     if(!cropDragActive)return;
     var touch=event.changedTouches&&event.changedTouches[0];
-    if(touch&&moveStageCropDrag(touch.clientY))event.preventDefault();
+    if(touch&&moveCropDrag(touch.clientY))event.preventDefault();
   },{passive:false});
-  window.addEventListener("pointerup",stopStageCropDrag);
-  window.addEventListener("pointercancel",stopStageCropDrag);
-  window.addEventListener("mouseup",stopStageCropDrag);
-  window.addEventListener("touchend",stopStageCropDrag);
-  window.addEventListener("touchcancel",stopStageCropDrag);
+  window.addEventListener("pointerup",stopCropDrag);
+  window.addEventListener("pointercancel",stopCropDrag);
+  window.addEventListener("mouseup",stopCropDrag);
+  window.addEventListener("touchend",stopCropDrag);
+  window.addEventListener("touchcancel",stopCropDrag);
   document.getElementById("scanSinglePersonBtn").addEventListener("click",async function(){
     if(!state.scanOriginalFile){toast("Najprije učitaj fotografiju rasporeda.");return}
     this.disabled=true;
