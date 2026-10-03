@@ -103,6 +103,14 @@ test("statistics show monthly fund and hours above fund", async ({page}) => {
   await expect(page.locator('[data-view="payroll"]')).toBeVisible();
 });
 
+test("payroll fund excludes weekday public holidays", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const preview=await page.evaluate(() => (window as any).RasporedPayroll.preview("2026-06"));
+  expect(preview).not.toBeNull();
+  expect(preview.fundMinutes).toBe(160*60);
+});
+
 test("payroll preview does not credit weekend absence as fund hours", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
@@ -974,6 +982,9 @@ test("salary estimator uses current KBC Rijeka public-service settings and persi
   await expect(page.locator("#payrollCoefResult")).toHaveText("1,39");
   await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
   await expect(page.locator("#payrollNet")).not.toHaveText("—");
+  await expect(page.locator("#payrollWorkedHours")).toBeVisible();
+  await expect(page.locator("#payrollOvertimeHours")).toBeVisible();
+  await expect(page.locator("#payrollOvertimeValue")).toBeVisible();
   await expect(page.locator("#payrollDailyGross")).not.toHaveText("—");
   await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
