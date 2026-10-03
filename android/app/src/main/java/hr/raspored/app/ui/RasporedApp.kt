@@ -903,7 +903,6 @@ private fun largeMinutesLabel(minutes:Long):String {
                         TextButton(
                             onClick = {
                                 onShiftChange(date, null)
-                                editingDate = null
                             }
                         ) {
                             Icon(Icons.Outlined.DeleteOutline, null)
