@@ -16,6 +16,10 @@
           <button id="rescanBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg>Ponovno skeniraj</button>
           <button id="galleryBtn"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-image"></use></svg>Odaberi iz galerije</button>
         </div>
+        <div class="scan-transform-actions" id="scanTransformActions" hidden>
+          <button type="button" class="secondary-btn" id="scanRotateLeft" aria-label="Okreni fotografiju lijevo"><svg class="ui-icon scan-rotate-left" aria-hidden="true"><use href="assets/brand/icons.svg#icon-refresh"></use></svg>Okreni lijevo</button>
+          <button type="button" class="secondary-btn" id="scanRotateRight" aria-label="Okreni fotografiju desno"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-refresh"></use></svg>Okreni desno</button>
+        </div>
         <div class="scan-single-mode">
           <label><input type="checkbox" id="scanSinglePersonToggle"><span><b>Samo jedna osoba</b><small>Označi vodoravni redak: ime i prezime + svi dani</small></span></label>
           <div class="scan-crop-controls" id="scanCropControls" hidden>
@@ -26,7 +30,12 @@
               <b id="scanCropRowLabel">Redak —</b>
               <button type="button" class="secondary-btn" id="scanCropNext" aria-label="Sljedeći prepoznati redak">Sljedeći ↓</button>
             </div>
-            <small id="scanCropHint">Dodirni osobu na fotografiji za brzo postavljanje plavog pojasa.</small>
+            <div class="scan-crop-manual-actions">
+              <button type="button" class="secondary-btn" id="scanCropUp">↑ Pomakni gore</button>
+              <button type="button" class="secondary-btn" id="scanCropDown">↓ Pomakni dolje</button>
+              <button type="button" class="secondary-btn" id="scanCropReset">Vrati odabir</button>
+            </div>
+            <small id="scanCropHint">Dodirni osobu ili povuci plavi pojas gore/dolje za precizno postavljanje.</small>
             <button type="button" class="secondary-btn" id="scanSinglePersonBtn">Skeniraj označenu osobu</button>
           </div>
         </div>

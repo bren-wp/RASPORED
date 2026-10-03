@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -92,12 +93,12 @@ internal fun OcrScanScreen(
         message = "Odabran je redak ${safeIndex + 1} od ${detectedCropRanges.size}. Provjeri plavi pojas i pokreni skeniranje."
     }
 
-    fun moveCrop(delta: Float) {
-        val height = (personCropRange.endInclusive - personCropRange.start).coerceIn(0.02f, 0.25f)
-        val start = (personCropRange.start + delta).coerceIn(0f, 1f - height)
-        personCropRange = start..(start + height)
+    fun moveCrop(delta: Float, announce: Boolean = true) {
+        personCropRange = shiftCropRange(personCropRange, delta)
         detectedCropIndex = -1
-        message = "Odabir je pomaknut. Provjeri plavi okvir pa pokreni prepoznavanje."
+        if (announce) {
+            message = "Odabir je pomaknut. Provjeri plavi okvir pa pokreni prepoznavanje."
+        }
     }
 
 
@@ -551,20 +552,18 @@ internal fun OcrScanScreen(
                             .aspectRatio(previewAspect)
                             .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .testTag("scan-image-stage")
                             .pointerInput(singlePersonMode, detectedCropRanges, bitmap) {
                                 if (!singlePersonMode || bitmap == null) return@pointerInput
                                 detectTapGestures { offset ->
                                     val image = bitmap ?: return@detectTapGestures
-                                    if (size.height <= 0 || size.width <= 0 || image.height <= 0) return@detectTapGestures
-                                    val boxAspect = size.width.toFloat() / size.height.toFloat()
-                                    val imageAspect = image.width.toFloat() / image.height.toFloat()
-                                    val renderedHeight = if (imageAspect > boxAspect) {
-                                        size.width.toFloat() / imageAspect
-                                    } else {
-                                        size.height.toFloat()
-                                    }
-                                    val renderedTop = (size.height.toFloat() - renderedHeight) / 2f
-                                    val fraction = ((offset.y - renderedTop) / renderedHeight).coerceIn(0f, 1f)
+                                    val geometry = scanPreviewGeometry(
+                                        boxWidth = size.width.toFloat(),
+                                        boxHeight = size.height.toFloat(),
+                                        imageWidth = image.width.toFloat(),
+                                        imageHeight = image.height.toFloat()
+                                    ) ?: return@detectTapGestures
+                                    val fraction = ((offset.y - geometry.top) / geometry.height).coerceIn(0f, 1f)
                                     if (detectedCropRanges.isNotEmpty()) {
                                         val best = detectedCropRanges.indices.minByOrNull { index ->
                                             val range = detectedCropRanges[index]
@@ -576,8 +575,29 @@ internal fun OcrScanScreen(
                                         val start = (fraction - halfHeight).coerceIn(0f, 1f - halfHeight * 2f)
                                         personCropRange = start..(start + halfHeight * 2f)
                                         detectedCropIndex = -1
-                                        message = "Odabir je postavljen na dodirnuti redak. Po potrebi ga fino pomakni."
+                                        message = "Odabir je postavljen na dodirnuti redak. Po potrebi ga povuci ili fino pomakni."
                                     }
+                                }
+                            }
+                            .pointerInput(singlePersonMode, bitmap) {
+                                if (!singlePersonMode || bitmap == null) return@pointerInput
+                                detectDragGestures(
+                                    onDragEnd = {
+                                        message = "Odabir je pomaknut. Provjeri plavi okvir pa pokreni prepoznavanje."
+                                    },
+                                    onDragCancel = {
+                                        message = "Pomicanje odabira je prekinuto."
+                                    }
+                                ) { change, dragAmount ->
+                                    val image = bitmap ?: return@detectDragGestures
+                                    val geometry = scanPreviewGeometry(
+                                        boxWidth = size.width.toFloat(),
+                                        boxHeight = size.height.toFloat(),
+                                        imageWidth = image.width.toFloat(),
+                                        imageHeight = image.height.toFloat()
+                                    ) ?: return@detectDragGestures
+                                    change.consume()
+                                    moveCrop(dragAmount.y / geometry.height, announce = false)
                                 }
                             },
                         contentAlignment = Alignment.Center
@@ -1319,6 +1339,37 @@ internal fun bestRecognizedRowIndex(rows: List<RecognizedScheduleRow>): Int =
         compareBy<Int> { rows[it].dayShifts.size }
             .thenByDescending { rows[it].rowNumber ?: Int.MAX_VALUE }
     ) ?: -1
+
+
+internal data class ScanPreviewGeometry(
+    val top: Float,
+    val height: Float
+)
+
+internal fun scanPreviewGeometry(
+    boxWidth: Float,
+    boxHeight: Float,
+    imageWidth: Float,
+    imageHeight: Float
+): ScanPreviewGeometry? {
+    if (boxWidth <= 0f || boxHeight <= 0f || imageWidth <= 0f || imageHeight <= 0f) return null
+    val boxAspect = boxWidth / boxHeight
+    val imageAspect = imageWidth / imageHeight
+    val renderedHeight = if (imageAspect > boxAspect) boxWidth / imageAspect else boxHeight
+    return ScanPreviewGeometry(
+        top = (boxHeight - renderedHeight) / 2f,
+        height = renderedHeight
+    )
+}
+
+internal fun shiftCropRange(
+    range: ClosedFloatingPointRange<Float>,
+    delta: Float
+): ClosedFloatingPointRange<Float> {
+    val height = (range.endInclusive - range.start).coerceIn(0.02f, 0.25f)
+    val start = (range.start + delta).coerceIn(0f, 1f - height)
+    return start..(start + height)
+}
 
 
 internal fun focusSinglePersonResult(schedule: RecognizedSchedule): RecognizedSchedule {

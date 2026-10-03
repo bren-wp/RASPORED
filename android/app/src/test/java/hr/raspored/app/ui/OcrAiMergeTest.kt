@@ -135,4 +135,36 @@ class OcrAiMergeTest {
         assertEquals(1, focused.expectedRowCount)
     }
 
+
+    @Test
+    fun scanPreviewGeometryAccountsForVerticalLetterboxing() {
+        val geometry = scanPreviewGeometry(
+            boxWidth = 300f,
+            boxHeight = 300f,
+            imageWidth = 600f,
+            imageHeight = 300f
+        )
+
+        requireNotNull(geometry)
+        assertEquals(75f, geometry.top, 0.001f)
+        assertEquals(150f, geometry.height, 0.001f)
+    }
+
+    @Test
+    fun draggedCropKeepsHeightAndClampsToImageBounds() {
+        val original = 0.34f..0.38f
+
+        val down = shiftCropRange(original, 0.20f)
+        assertEquals(0.54f, down.start, 0.001f)
+        assertEquals(0.58f, down.endInclusive, 0.001f)
+
+        val clampedTop = shiftCropRange(original, -2f)
+        assertEquals(0f, clampedTop.start, 0.001f)
+        assertEquals(0.04f, clampedTop.endInclusive, 0.001f)
+
+        val clampedBottom = shiftCropRange(original, 2f)
+        assertEquals(0.96f, clampedBottom.start, 0.001f)
+        assertEquals(1f, clampedBottom.endInclusive, 0.001f)
+    }
+
 }
