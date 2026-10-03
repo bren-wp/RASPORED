@@ -77,6 +77,7 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
         composeRule.onNodeWithTag("stats-payroll-preview").performClick()
         composeRule.onNodeWithTag("screen-payroll").fetchSemanticsNode()
+        composeRule.onNodeWithTag("payroll-overtime-hours").fetchSemanticsNode()
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
 
