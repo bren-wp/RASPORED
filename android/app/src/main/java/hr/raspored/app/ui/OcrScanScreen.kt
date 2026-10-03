@@ -919,7 +919,7 @@ internal fun OcrScanScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         if (allowTeamImport) {
-                            "Odaberi jednu osobu za osobni kalendar. Ako radiš rasporede za tim, možeš spremiti sve pouzdano prepoznate djelatnike kao odvojene lokalne rasporede bez registracije."
+                            "Odaberi jednu osobu za osobni kalendar. Ako radiš rasporede za tim, možeš spremiti sve pouzdano prepoznate djelatnike kao odvojene rasporede na ovom uređaju."
                         } else {
                             "Ako raspored sadrži više osoba, odaberi samo jednu osobu čiji će se raspored uvesti."
                         },
