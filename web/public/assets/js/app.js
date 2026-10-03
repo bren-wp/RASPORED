@@ -232,7 +232,7 @@ function submitColleague(){
   var items=loadColleagues();
   if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return false}
   items.push({name:name,note:note||"Bez napomene"});
-  if(!saveColleagues(items)){toast("Podatke nije moguće spremiti u storage/data.");return false}
+  if(!saveColleagues(items)){toast("Podatke trenutačno nije moguće spremiti.");return false}
   renderColleagues();if(dialog)dialog.close();toast("Kolega je dodan.");return true;
 }
 function yearMonthKey(y,m){return y+"-"+String(m+1).padStart(2,"0")}
@@ -251,7 +251,7 @@ function renderPeriodMenu(){
 var SEARCH_ROUTES=[
   {label:"Početna",route:"home",keywords:"početna pocetna naslovnica"},
   {label:"Kalendar",route:"calendar",keywords:"kalendar raspored smjene"},
-  {label:"Skeniraj raspored",route:"scan",keywords:"skeniraj scan ocr fotografija uvezi"},
+  {label:"Uvezi raspored",route:"scan",keywords:"raspored fotografija uvoz osoba tim"},
   {label:"Statistika",route:"stats",keywords:"statistika saldo izvještaji izvjestaji"},
   {label:"Okvirna plaća",route:"payroll",keywords:"plaća placa bruto koeficijent bod osnovica"},
   {label:"Evidencija sati",route:"hours",keywords:"sati evidencija kalendar raspored"},
@@ -460,7 +460,7 @@ async function runAiScanVerification(){
         (state.scanSingleMode?"Dodatna provjera označene osobe završena: ":"Dodatna provjera završena: ")+state.scanPeople.length+" osoba. "+
         (unresolvedScanReviewCells().length
           ?unresolvedScanReviewCells().length+" ćelija razlikuje se od prvog prepoznavanja i ostavljena je za ručnu provjeru. "
-          :"Nisu pronađeni sukobi s lokalnim OCR-om. ")+
+          : "Nisu pronađene razlike između dviju provjera. ")+
         (payload.result.notes||"");
     }
   }catch(error){
@@ -524,7 +524,7 @@ function selectedScanSchedule(){
 }
 function importSelectedScanSchedule(){
   var person=scanPerson(),policy=individualScanPolicy();
-  if(unresolvedScanReviewCellsForPerson(person).length){toast("Prije uvoza riješi nejasne AI/OCR stavke odabrane osobe.");renderScanReview();return}
+  if(unresolvedScanReviewCellsForPerson(person).length){toast("Prije uvoza riješi sve nejasne stavke odabrane osobe.");renderScanReview();return}
   if(policy.restricted&&(policy.index<0||!person||normalizePersonName(person.name)!==normalizePersonName(policy.name))){
     toast("Osobni korisnički račun može uvesti samo raspored prijavljene osobe.");
     return;
@@ -538,7 +538,7 @@ function importSelectedScanSchedule(){
     if(n>=1&&n<=days&&code)state.schedule[iso(new Date(y,m,n))]=code;
   });
   state.cursor=new Date(y,m,1);state.selected=new Date(y,m,1);
-  if(!save()){loadSchedule();renderAll();toast("Raspored nije spremljen u storage/data.");return}
+  if(!save()){loadSchedule();renderAll();toast("Raspored trenutačno nije moguće spremiti.");return}
   clearScanSession();renderAll();toast("Uvezen je samo raspored za "+person.name+".");route("calendar");
 }
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -1343,7 +1343,7 @@ function bind(){
       if(value==="clear")delete state.schedule[key];
       else if(["D","N","J","GO","BO","PD","SD"].indexOf(value)>=0)state.schedule[key]=value;
       else return;
-      if(!save()){loadSchedule();toast("Promjenu nije moguće spremiti u storage/data.");}
+      if(!save()){loadSchedule();toast("Promjenu trenutačno nije moguće spremiti.");}
       renderAll();
       return;
     }
@@ -1352,7 +1352,7 @@ function bind(){
       var input=document.getElementById("calendarCustomCode"),custom=normalizeScheduleCode(input?input.value:""),customKey=iso(state.selected);
       if(!custom){toast("Upiši 1–8 slova ili brojeva.");return}
       state.schedule[customKey]=custom;
-      if(!save()){loadSchedule();toast("Promjenu nije moguće spremiti u storage/data.");return}
+      if(!save()){loadSchedule();toast("Promjenu trenutačno nije moguće spremiti.");return}
       renderAll();
       toast("Oznaka "+custom+" je spremljena.");
       return;
@@ -1545,7 +1545,7 @@ function bind(){
       var value=profileInput.value.trim().replace(/\s+/g," ").slice(0,80);
       if(value.length>0&&value.length<2){toast("Unesi valjano ime i prezime.");return}
       var stored=value?storageSet("raspored.profile.name",value):storageRemove("raspored.profile.name");
-      if(!stored){toast("Profil nije moguće spremiti u storage/data.");return}
+      if(!stored){toast("Profil trenutačno nije moguće spremiti.");return}
       configureProfile();toast("Profil je spremljen.");
     });
   }
@@ -1567,7 +1567,7 @@ function bind(){
 async function initApp(){
   if(!window.RasporedDataStore){throw new Error("Takto podatkovni sloj nije učitan.");}
   document.body.dataset.appReady="loading";
-  window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
+  window.addEventListener("raspored:storage-error",function(){toast("Spremanje trenutačno nije dostupno.");});
 
   // Navigation and non-data controls must be usable immediately. JSON/account
   // initialization can involve disk/session I/O; binding only after that await
@@ -1582,7 +1582,7 @@ async function initApp(){
   route(state.route);
   renderAll();
   document.body.dataset.appReady=window.RasporedDataStore.isAvailable()?"true":"storage-unavailable";
-  if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
+  if(!window.RasporedDataStore.isAvailable())toast("Podaci trenutačno nisu dostupni. Učitavanje i spremanje su privremeno onemogućeni.");
   if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
 }
 initApp().catch(function(){
