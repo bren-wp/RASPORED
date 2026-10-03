@@ -195,7 +195,7 @@ internal fun OcrScanScreen(
             scoped.rows.isEmpty() -> {
                 selectedRow = -1
                 phase = OcrPhase.Error
-                message = "Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Provjeri fotografiju i pokušaj ponovno."
+                message = "Nije pronađena osoba s oznakama D, N, J, GO, BO, PD ili SD. Provjeri fotografiju i pokušaj ponovno."
             }
             totalRecognizedDays == 0 -> {
                 selectedRow = -1
@@ -754,6 +754,7 @@ internal fun OcrScanScreen(
                         Column(Modifier.padding(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Switch(
+                                    modifier = Modifier.testTag("scan-single-person-toggle"),
                                     checked = singlePersonMode,
                                     onCheckedChange = { enabled ->
                                         singlePersonMode = enabled
