@@ -64,7 +64,7 @@ internal fun OcrScanScreen(
     var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var result by remember { mutableStateOf<RecognizedSchedule?>(null) }
     var phase by remember { mutableStateOf(OcrPhase.Idle) }
-    var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
+    var message by remember { mutableStateOf("Dodaj fotografiju i odaberi redak osobe.") }
     var selectedRow by remember { mutableIntStateOf(-1) }
     var selectedMonth by remember { mutableStateOf(defaultMonth) }
     var employeeMenu by remember { mutableStateOf(false) }
@@ -78,7 +78,7 @@ internal fun OcrScanScreen(
     var customConflictCode by remember { mutableStateOf("") }
     var ocrGeneration by remember { mutableIntStateOf(0) }
     var rosterIncomplete by remember { mutableStateOf(false) }
-    var singlePersonMode by remember { mutableStateOf(false) }
+    var singlePersonMode by remember { mutableStateOf(true) }
     var personCropRange by remember { mutableStateOf(0.34f..0.38f) }
     var detectedCropRanges by remember { mutableStateOf<List<ClosedFloatingPointRange<Float>>>(emptyList()) }
     var detectedCropIndex by remember { mutableIntStateOf(-1) }
@@ -773,8 +773,8 @@ internal fun OcrScanScreen(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Column {
-                                    Text("Samo jedna osoba", color = Color.White, fontWeight = FontWeight.Bold)
-                                    Text("Odaberi redak osobe", color = Color(0xFFC6D4EA), fontSize = 11.sp)
+                                    Text("Jedna osoba · preporučeno", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("Isključi samo kada namjerno uvoziš cijeli tim", color = Color(0xFFC6D4EA), fontSize = 11.sp)
                                 }
                             }
                             if (singlePersonMode && bitmap != null) {
