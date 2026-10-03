@@ -109,12 +109,14 @@ function evidenceForMonth(year,monthIndex){
   var result={total:0,night:0,saturday:0,sunday:0,holiday:0,secondShift:0,shift1:0,shift2:0,shift3:0,turnus:0,duty:0,standby:0,callout:0,goDays:0,boDays:0,pdDays:0,sdDays:0,compensated:0,absenceCompensated:0,holidayCompensated:0,holidayCompensatedDays:0,active:false,workedDates:{}};
 
   function accountShift(startDate,code){
-    var start=code==="D"
-      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),7,0,0)
-      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0);
+    var start=code==="N"
+      ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0)
+      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),7,0,0);
     var end=code==="D"
       ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),19,0,0)
-      :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+1,7,0,0);
+      :code==="J"
+        ?new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate(),15,0,0)
+        :new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()+1,7,0,0);
     for(var t=start.getTime();t<end.getTime();t+=60000){
       var d=new Date(t);
       if(d.getFullYear()!==year||d.getMonth()!==monthIndex)continue;
@@ -126,7 +128,7 @@ function evidenceForMonth(year,monthIndex){
       if(d.getDay()===0)result.sunday++;
       if(holidays[key])result.holiday++;
       if(hour>=14&&hour<22)result.secondShift++;
-      if(code==="D")result.shift1++;else result.shift3++;
+      if(code==="N")result.shift3++;else result.shift1++;
     }
   }
 
@@ -135,7 +137,7 @@ function evidenceForMonth(year,monthIndex){
     if(Number.isNaN(d.getTime()))return;
     var code=schedule[dateKey];
     if(d.getFullYear()===year&&d.getMonth()===monthIndex){
-      if(code==="D"||code==="N")accountShift(d,code);
+      if(code==="D"||code==="N"||code==="J")accountShift(d,code);
       else if(code==="GO")result.goDays++;
       else if(code==="BO")result.boDays++;
       else if(code==="PD")result.pdDays++;
