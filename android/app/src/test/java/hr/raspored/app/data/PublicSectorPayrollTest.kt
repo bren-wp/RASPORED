@@ -194,11 +194,31 @@ class PublicSectorPayrollTest {
     }
 
     @Test
+    fun morningJShiftContributesEightWorkedHours() {
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 10),
+            scheduleCodes = mapOf("2026-10-01" to "J"),
+            regimeId = "public-health",
+            coefficient = 1.25,
+            yearsService = 0,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = false
+        )
+
+        assertEquals(8L * 60L, estimate.evidence.workedMinutes)
+        assertEquals(8L * 60L, estimate.evidence.shift1Minutes)
+        assertEquals(0L, estimate.evidence.nightMinutes)
+    }
+
+    @Test
     fun customCalendarCodesDoNotInventPayrollHours() {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
             scheduleCodes = mapOf(
-                "2026-10-01" to "J",
                 "2026-10-02" to "P1"
             ),
             regimeId = "public-health",
