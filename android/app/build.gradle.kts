@@ -17,21 +17,6 @@ val backendBaseUrl = providers.gradleProperty("RASPORED_BACKEND_URL")
     .get()
     .trimEnd('/')
 
-val releaseStoreFile = providers.environmentVariable("RASPORED_RELEASE_STORE_FILE").orNull?.trim().orEmpty()
-val releaseStorePassword = providers.environmentVariable("RASPORED_RELEASE_STORE_PASSWORD").orNull.orEmpty()
-val releaseKeyAlias = providers.environmentVariable("RASPORED_RELEASE_KEY_ALIAS").orNull?.trim().orEmpty()
-val releaseKeyPassword = providers.environmentVariable("RASPORED_RELEASE_KEY_PASSWORD").orNull.orEmpty()
-val releaseSigningValues = listOf(
-    releaseStoreFile,
-    releaseStorePassword,
-    releaseKeyAlias,
-    releaseKeyPassword
-)
-val releaseSigningConfigured = releaseSigningValues.all { it.isNotBlank() }
-if (releaseSigningValues.any { it.isNotBlank() } && !releaseSigningConfigured) {
-    error("Release signing requires store file, store password, key alias and key password.")
-}
-
 android {
     namespace = "hr.raspored.app"
     compileSdk = 36
@@ -52,21 +37,7 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 
-    if (releaseSigningConfigured) {
-        signingConfigs {
-            create("release") {
-                storeFile = file(releaseStoreFile)
-                storePassword = releaseStorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
-            }
-        }
-        buildTypes {
-            getByName("release") {
-                signingConfig = signingConfigs.getByName("release")
-            }
-        }
-    }
+
 }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
