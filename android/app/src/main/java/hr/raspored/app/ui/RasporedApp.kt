@@ -271,12 +271,7 @@ private val NONE=Shift("","Nije označeno","—",0)
             Column(Modifier.weight(1f)){
                 Row(verticalAlignment=Alignment.CenterVertically){
                     Text("Takto",color=Color.White,fontSize=26.sp,fontWeight=FontWeight.ExtraBold)
-                    if(BuildConfig.DEMO_MODE){
-                        Spacer(Modifier.width(8.dp))
-                        Surface(shape=RoundedCornerShape(8.dp),color=Cyan){
-                            Text("DEMO",color=Navy,fontSize=9.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp))
-                        }
-                    }
+
                 }
                 Text("Dodirni. Označi. Radi.",color=Color(0xFFC6D4EA),fontSize=10.sp,letterSpacing=.8.sp)
             }
@@ -287,7 +282,7 @@ private val NONE=Shift("","Nije označeno","—",0)
             }
             if(screen==Screen.Stats){
                 IconButton(onClick=onSync){
-                    Icon(Icons.Outlined.Refresh,"Osvježi lokalne podatke",tint=Color.White)
+                    Icon(Icons.Outlined.Refresh,"Osvježi podatke",tint=Color.White)
                 }
             }else{
                 IconButton(onClick=onNotify){
