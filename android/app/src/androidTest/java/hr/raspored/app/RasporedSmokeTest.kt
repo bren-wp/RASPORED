@@ -26,6 +26,8 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(2)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(4)).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-j").performClick()
         // Make the neutral-state assertion deterministic even when another instrumented
         // test has left persisted schedule data for this date.
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
