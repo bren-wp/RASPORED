@@ -57,7 +57,7 @@ class EvidenceAnalyticsTest {
     }
 
     @Test
-    fun customAndAbsenceCodesDoNotInventWorkedHours() {
+    fun morningShiftIsBuiltInWhileCustomCodesDoNotInventHours() {
         val month = YearMonth.of(2026, 10)
         val summary = EvidenceAnalytics.summarize(
             month = month,
@@ -71,8 +71,11 @@ class EvidenceAnalyticsTest {
             )
         )
 
-        assertEquals(0L, summary.workedMinutes)
-        assertEquals("Nije definirano", EvidenceAnalytics.hoursLabel("J"))
+        assertEquals(8L * 60L, summary.workedMinutes)
+        assertEquals(8L * 60L, summary.dayMinutes)
+        assertEquals("8 h", EvidenceAnalytics.hoursLabel("J"))
+        assertEquals("Jutarnja smjena", EvidenceAnalytics.shiftLabel("J"))
+        assertEquals("Nije definirano", EvidenceAnalytics.hoursLabel("P1"))
         assertEquals("—", EvidenceAnalytics.hoursLabel("GO"))
         assertEquals("Nije označeno", EvidenceAnalytics.shiftLabel(""))
     }
