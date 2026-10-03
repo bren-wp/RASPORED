@@ -28,6 +28,35 @@ test("responsive Takto home uses production composition", async ({page}) => {
   }
 });
 
+test("primary navigation remains clickable across production screens", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const width=page.viewportSize()?.width ?? 1440;
+  const routes=width<=820
+    ?["calendar","scan","stats","settings","home"]
+    :["calendar","scan","stats","payroll","hours","colleagues","settings","home"];
+
+  for(const route of routes){
+    const control=page.locator('[data-route="'+route+'"]:visible').first();
+    await expect(control).toBeVisible();
+    await control.click();
+    await expect(page.locator('[data-view="'+route+'"]')).toBeVisible();
+  }
+});
+
+test("scan UI uses user-facing copy instead of implementation terminology", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  const scan=page.locator("#view-scan");
+  await expect(scan).toContainText("Samo jedna osoba");
+  await expect(scan).toContainText("Gornji rub odabira");
+  await expect(scan).toContainText("Donji rub odabira");
+  await expect(scan).not.toContainText("crop");
+  await expect(scan).not.toContainText("API ključ");
+  await expect(scan).not.toContainText("backend");
+  await expect(scan).not.toContainText("Lokalni OCR");
+});
+
 test("calendar and statistics remain interactive", async ({page}) => {
   await page.goto("/");
   await page.locator('[data-route="calendar"]:visible').first().click();
@@ -66,6 +95,30 @@ test("statistics show monthly fund and hours above fund", async ({page}) => {
   await expect(page.locator("#detailStats")).toContainText("16h");
   await expect(page.locator("#detailStats")).toContainText("Saldo");
   await expect(page.locator("#detailStats")).toContainText("+16h");
+  await expect(page.locator("#statsPayrollPreview")).toBeVisible();
+  await expect(page.locator("#statsPayrollPreview")).toContainText("Procjena plaće");
+  await page.locator("#statsPayrollPreview").click();
+  await expect(page.locator('[data-view="payroll"]')).toBeVisible();
+});
+
+test("payroll preview does not credit weekend absence as fund hours", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const accepted=await page.evaluate(async () => {
+    const schedule:any={};
+    for(let day=1;day<=15;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
+    schedule["2026-10-17"]="GO";
+    const store=(window as any).RasporedDataStore;
+    const ok=store.set("raspored.schedule",JSON.stringify(schedule));
+    await store.flush();
+    return ok;
+  });
+  expect(accepted).toBe(true);
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const preview=await page.evaluate(() => (window as any).RasporedPayroll.preview("2026-10"));
+  expect(preview).not.toBeNull();
+  expect(preview.overtimeMinutes).toBe(4*60);
 });
 
 test("home is the start view and manual calendar editing persists", async ({page}) => {
