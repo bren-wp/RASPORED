@@ -2,8 +2,10 @@ package hr.raspored.app.data
 
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
+import java.time.LocalDate
 import java.time.YearMonth
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,6 +40,35 @@ class ScheduleStoreInstrumentedTest {
             assertTrue(loaded.keys.any { it.startsWith(older.toString()) })
             assertTrue(loaded.keys.any { it.startsWith(current.toString()) })
             assertTrue(loaded.keys.any { it.startsWith(newer.toString()) })
+        } finally {
+            resetStore(context)
+        }
+    }
+
+    @Test
+    fun emptyFirstRunMigrationCannotResurrectClearedDayFromCompatibilityMirror() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        resetStore(context)
+
+        try {
+            val date = LocalDate.of(2026, 10, 3)
+            val store = ScheduleStore(context)
+
+            store.record(date, "D")
+            assertEquals("D", store.load()[date.toString()])
+
+            store.record(date, null)
+            assertNull(store.load()[date.toString()])
+
+            // Simulate a stale compatibility mirror surviving independently of
+            // the SQLite source of truth. A completed migration must never
+            // import this value again on store recreation.
+            legacyPreferences(context).edit()
+                .putString(date.toString(), "D")
+                .commit()
+
+            val reopened = ScheduleStore(context).load()
+            assertNull(reopened[date.toString()])
         } finally {
             resetStore(context)
         }
