@@ -138,7 +138,7 @@ private val NONE=Shift("","Nije označeno","—",0)
     val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
         val date = appDate().plusDays(offset)
         shiftFromCode(scheduleCodes[date.toString()].orEmpty())
-            ?.takeIf { it.code == "D" || it.code == "N" }
+            ?.takeIf { it.code in setOf("D","N","J") }
             ?.let { date to it }
     }
     val colors = if(darkMode) {
@@ -1104,13 +1104,13 @@ private fun largeMinutesLabel(minutes:Long):String {
     val payrollNet=java.text.NumberFormat.getCurrencyInstance(Locale("hr","HR")).format(payrollEstimate.estimatedNet)
     val holidays=CroatianHolidays.forYear(month.year)
     val saturdayCount=data.count{(day,shift)->
-        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==6
+        shift.code in setOf("D","N","J")&&month.atDay(day).dayOfWeek.value==6
     }
     val sundayCount=data.count{(day,shift)->
-        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==7
+        shift.code in setOf("D","N","J")&&month.atDay(day).dayOfWeek.value==7
     }
     val holidayShiftCount=data.count{(day,shift)->
-        shift.code in setOf("D","N")&&holidays.containsKey(month.atDay(day))
+        shift.code in setOf("D","N","J")&&holidays.containsKey(month.atDay(day))
     }
     val trend=if(previousAnalytics.workedMinutes>0L){
         ((analytics.workedMinutes-previousAnalytics.workedMinutes)*100L/previousAnalytics.workedMinutes).toInt()
