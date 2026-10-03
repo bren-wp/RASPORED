@@ -247,7 +247,7 @@
     {
       "id": "kbc-rijeka-2026",
       "sector": "Zdravstvo",
-      "label": "KBC Rijeka — javne službe / zdravstvo 2026",
+      "label": "KBC Rijeka — javne službe 2026",
       "baseType": "publicService",
       "additions": {
         "night": 0.4,
@@ -258,7 +258,7 @@
         "secondShift": 0.1,
         "turnus": null
       },
-      "note": "Izmjene Pravilnika o radu KBC-a Rijeka od 15.03.2024. vežu plaću i dodatke uz Zakon o plaćama i važeće kolektivne ugovore. TKU 2024 propisuje noć 40%, prekovremeni 50%, subotu 25%, nedjelju 50%, blagdan 150% i drugu smjenu 10%; dodatak za turnus ne pretpostavlja se bez primjenjivog granskog pravila."
+      "note": "Dodaci za noć, prekovremeni rad, subotu, nedjelju i blagdan prate TKU javnih službi NN 29/2024. Zaseban postotni dodatak za turnus ne primjenjuje se bez važećeg granskog ili ustanovnog izvora; rad u drugoj smjeni obračunava se prema stvarno odrađenim satima."
     },
     {
       "id": "public-education",
@@ -288,8 +288,7 @@
         "holiday": 1.5,
         "secondShift": 0.1,
         "turnus": 0.05
-      },
-      "note": "Kolektivni ugovor za državne službenike i namještenike, izmjene NN 29/2024: noć 40%, prekovremeni 50%, druga smjena 10%, turnus 5%, subota 25%, nedjelja 50% i blagdan/neradni dan 150%."
+      }
     },
     {
       "id": "police",
@@ -305,7 +304,7 @@
         "secondShift": 0.1,
         "turnus": 0.05
       },
-      "note": "Za osnovne dodatke primjenjuje se KU državnih službenika (NN 29/2024). Policijska radna mjesta mogu imati dodatna prava i posebne dodatke koji se bez konkretnog radnog mjesta/rješenja ne pretpostavljaju."
+      "note": "Policijska radna mjesta imaju velik broj posebnih službenih naziva i koeficijenata; odaberi točan naziv ili ručni unos."
     },
     {
       "id": "firefighter",
@@ -1585,16 +1584,9 @@
       "url": "https://zdravlje.gov.hr/-zdravstvenih-ustanova/bolnicke-zdravstvene-ustanove/2722"
     },
     {
-      "label": "KBC Rijeka — Statut i pravilnici (Pravilnik o radu 12.06.2023. i izmjene 15.03.2024.)",
-      "url": "https://kbc-rijeka.hr/statut-pravilnici-klinickog-bolnickog-centra-rijeka/"
+      "id": "kbc-work-rules",
+      "label": "KBC Rijeka — Pravilnik o radu (radno vrijeme, turnus i odmori)",
+      "url": "https://kbc-rijeka.hr/wp-content/uploads/2023/06/Pravilnik-o-radu-KBC-a-Rijeka-12.06.23..pdf"
     }
-  ],
-  "verifiedAt": "2026-10-02",
-  "sourceNotes": [
-    "Osnovice javnih i državnih službi za 2026.: NN 11/2026.",
-    "Temeljni kolektivni ugovor za zaposlenike u javnim službama: NN 29/2024.",
-    "Kolektivni ugovor za državne službenike i namještenike, izmjene: NN 29/2024.",
-    "KBC Rijeka: Izmjene Pravilnika o radu od 15.03.2024.; plaća i dodaci vezani su uz zakon i važeće kolektivne ugovore.",
-    "Porezne stope ovise o mjestu prebivališta; ugrađene lokalne vrijednosti treba provjeravati prema važećoj odluci JLS-a."
   ]
 }

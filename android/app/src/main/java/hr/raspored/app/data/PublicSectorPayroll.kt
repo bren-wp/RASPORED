@@ -154,9 +154,9 @@ object PublicSectorPayroll {
             "Turnus i druga posebna prava mogu ovisiti o granskom ili ustanovnom pravilu."
         ),
         PayrollRegime(
-            "kbc-rijeka-2026", "Zdravstvo", "KBC Rijeka — javne službe / zdravstvo 2026", "public",
+            "kbc-rijeka-2026", "Zdravstvo", "KBC Rijeka — javne službe 2026", "public",
             PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, null),
-            "Izmjene Pravilnika o radu KBC-a Rijeka od 15.03.2024. vežu plaću i dodatke uz Zakon o plaćama i važeće kolektivne ugovore. TKU 2024 propisuje noć 40%, prekovremeni 50%, subotu 25%, nedjelju 50%, blagdan 150% i drugu smjenu 10%; dodatak za turnus ne pretpostavlja se bez primjenjivog granskog pravila."
+            "Dodaci za noć, prekovremeni rad, subotu, nedjelju i blagdan prate TKU javnih službi NN 29/2024. Zaseban postotni dodatak za turnus ne primjenjuje se bez važećeg granskog ili ustanovnog izvora; rad u drugoj smjeni obračunava se prema stvarno odrađenim satima."
         ),
         PayrollRegime(
             "public-education", "Školstvo i obrazovanje", "Škole i učenički domovi", "public",
@@ -164,13 +164,12 @@ object PublicSectorPayroll {
         ),
         PayrollRegime(
             "state-service", "Državna služba", "Državna služba / ministarstva", "state",
-            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
-            "Kolektivni ugovor za državne službenike i namještenike, izmjene NN 29/2024: noć 40%, prekovremeni 50%, druga smjena 10%, turnus 5%, subota 25%, nedjelja 50% i blagdan/neradni dan 150%."
+            PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05)
         ),
         PayrollRegime(
             "police", "Policija", "MUP / policija", "state",
             PayrollRates(0.40, 0.50, 0.25, 0.50, 1.50, 0.10, 0.05),
-            "Za osnovne dodatke primjenjuje se KU državnih službenika (NN 29/2024). Policijska radna mjesta mogu imati dodatna prava i posebne dodatke koji se bez konkretnog radnog mjesta/rješenja ne pretpostavljaju."
+            "Policija ima velik broj službenih naziva radnih mjesta; odaberi točan naziv ili koristi ručni unos."
         ),
         PayrollRegime(
             "firefighter", "Vatrogastvo", "Profesionalno vatrogastvo", "state",
@@ -542,19 +541,18 @@ object PublicSectorPayroll {
             val date = runCatching { java.time.LocalDate.parse(dateText) }.getOrNull()
                 ?: return@forEach
             if (YearMonth.from(date) != month) return@forEach
-            val regularFundDay = date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
             when (code) {
                 "GO" -> {
                     goDays++
-                    if (regularFundDay) compensatedAbsenceDates += date
+                    compensatedAbsenceDates += date
                 }
                 "BO" -> {
                     boDays++
-                    if (regularFundDay) compensatedAbsenceDates += date
+                    compensatedAbsenceDates += date
                 }
                 "PD" -> {
                     pdDays++
-                    if (regularFundDay) compensatedAbsenceDates += date
+                    compensatedAbsenceDates += date
                 }
                 "SD" -> sdDays++
             }

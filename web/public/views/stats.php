@@ -12,12 +12,6 @@
         <div class="stats-hero"><div><h3>Ukupno odrađeno sati</h3><strong id="workedTotal">0:00 h</strong><p id="workedTrend">—</p></div><div class="donut" id="donut"><span><b id="donutHours">0h</b><small>ukupno</small></span></div></div>
         <div class="stats-categories" id="statsCategories"></div>
       </section>
-      <button type="button" class="card stats-payroll-preview" data-route="payroll">
-        <span class="stats-payroll-preview-head"><b>Procjena plaće</b><span>Otvori obračun ›</span></span>
-        <strong id="statsPayrollNet">Dopuni podatke za obračun</strong>
-        <small id="statsPayrollGross">Otvori obračun i odaberi odgovarajući režim.</small>
-        <small id="statsPayrollOvertime">Prekovremeni 0h</small>
-      </button>
       <section class="card chart-card"><div class="card-head"><h2>Raspodjela sati po tjednima</h2><span>›</span></div><div class="bar-chart" id="weeklyBars"></div></section>
       <section class="card detail-card"><div class="card-head"><h2>Detaljna statistika</h2><span>›</span></div><div class="detail-grid" id="detailStats"></div></section>
     </section>

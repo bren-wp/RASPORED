@@ -26,7 +26,7 @@
               <b id="scanCropRowLabel">Redak —</b>
               <button type="button" class="secondary-btn" id="scanCropNext" aria-label="Sljedeći prepoznati redak">Sljedeći ↓</button>
             </div>
-            <small id="scanCropHint">Dodirni osobu na fotografiji za brzo postavljanje plavog pojasa.</small>
+            <small id="scanCropHint">Dodirni osobu na fotografiji za brzo centriranje cropa.</small>
             <button type="button" class="secondary-btn" id="scanSinglePersonBtn">Skeniraj označenu osobu</button>
           </div>
         </div>
@@ -63,23 +63,23 @@
           <svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-scan"></use></svg>
           <span id="scanAiVerifyLabel">AI provjera cijelog rasporeda</span>
         </button>
-        <p>Opcionalna dodatna provjera za guste tablice. Fotografija napušta uređaj samo kada to izričito pokreneš.</p>
+        <p>Opcionalna druga provjera za guste tablice. Slika se šalje Takto poslužitelju i OpenAI API-ju samo kad ovo izričito pokreneš. API ključ ostaje isključivo na poslužitelju.</p>
       </div>
       <div class="scan-conflict-panel" id="scanConflictPanel" hidden>
         <strong id="scanConflictCount">Za provjeru: 0 nejasnih stavki</strong>
-        <p>Dvije provjere razlikuju se u ovim stavkama. Uvoz ostaje blokiran dok ne potvrdiš svaku nejasnu vrijednost.</p>
+        <p>Lokalni OCR i AI se ne slažu u ovim ćelijama. Uvoz ostaje blokiran dok ne potvrdiš svaku nejasnu stavku.</p>
         <button class="secondary-btn primary-btn--full" id="scanReviewNextBtn">Pregledaj nejasne stavke</button>
       </div>
       <dialog class="app-dialog" id="scanAiConsentDialog">
         <div class="dialog-card">
           <div class="dialog-head"><div><h2>AI analiza fotografije</h2><p>Opcionalna mrežna provjera.</p></div><form method="dialog"><button class="icon-btn" aria-label="Zatvori">×</button></form></div>
-          <p>Za ovu opcionalnu provjeru fotografija napušta uređaj i šalje se Takto poslužitelju te vanjskom servisu za analizu. Lokalno prepoznavanje radi i bez ove provjere.</p>
-          <div class="dialog-actions"><form method="dialog"><button class="secondary-btn">Ostani na lokalnom prepoznavanju</button></form><button class="primary-btn" id="scanAiConsentConfirm">Pokreni dodatnu provjeru</button></div>
+          <p>Fotografija rasporeda napušta uređaj: šalje se Takto backendu, koji je prosljeđuje AI servisu radi analize. Lokalni OCR radi i bez AI provjere.</p>
+          <div class="dialog-actions"><form method="dialog"><button class="secondary-btn">Ostani na lokalnom OCR-u</button></form><button class="primary-btn" id="scanAiConsentConfirm">Pošalji na AI provjeru</button></div>
         </div>
       </dialog>
       <dialog class="app-dialog" id="scanConflictDialog">
         <div class="dialog-card">
-          <div class="dialog-head"><div><h2>Nejasna stavka</h2><p id="scanConflictTitle">—</p></div><form method="dialog"><button class="icon-btn" aria-label="Zatvori">×</button></form></div>
+          <div class="dialog-head"><div><h2>Nejasna OCR stavka</h2><p id="scanConflictTitle">—</p></div><form method="dialog"><button class="icon-btn" aria-label="Zatvori">×</button></form></div>
           <p id="scanConflictValues">—</p>
           <div class="scan-conflict-actions">
             <button class="primary-btn" id="scanConflictLocal">Zadrži lokalno</button>

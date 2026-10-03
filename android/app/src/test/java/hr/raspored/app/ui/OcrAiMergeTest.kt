@@ -102,26 +102,6 @@ class OcrAiMergeTest {
     }
 
     @Test
-    fun singlePersonModeNeverExposesMultipleRecognizedPeople() {
-        val recognized = RecognizedSchedule(
-            month = month,
-            rows = listOf(
-                RecognizedScheduleRow(4, "Ana Horvat", mapOf(1 to "D", 2 to "N", 3 to "GO")),
-                RecognizedScheduleRow(9, "Luka Babić", mapOf(1 to "D")),
-                RecognizedScheduleRow(12, "Petra Novak", mapOf(1 to "N", 17 to "D"))
-            ),
-            rawText = "test",
-            expectedRowCount = 20
-        )
-
-        val constrained = constrainSinglePersonResult(recognized)
-
-        assertEquals(1, constrained.rows.size)
-        assertEquals("Ana Horvat", constrained.rows.single().name)
-        assertEquals(1, constrained.expectedRowCount)
-    }
-
-    @Test
     fun selectsMostCompleteRecognizedPersonForImmediatePersonalImport() {
         val rows = listOf(
             RecognizedScheduleRow(4, "Ana Horvat", mapOf(1 to "D", 2 to "N", 3 to "GO")),
@@ -131,6 +111,28 @@ class OcrAiMergeTest {
 
         assertEquals(0, bestRecognizedRowIndex(rows))
         assertEquals(-1, bestRecognizedRowIndex(emptyList()))
+    }
+
+
+    @Test
+    fun singlePersonModeKeepsOnlyMostCompleteRecognizedRow() {
+        val schedule = RecognizedSchedule(
+            month = month,
+            rows = listOf(
+                RecognizedScheduleRow(4, "Ana Horvat", mapOf(1 to "D", 2 to "N", 3 to "GO")),
+                RecognizedScheduleRow(9, "Luka Babić", mapOf(1 to "D")),
+                RecognizedScheduleRow(12, "Petra Novak", mapOf(1 to "N", 17 to "D"))
+            ),
+            rawText = "tablica",
+            expectedRowCount = 27
+        )
+
+        val focused = focusSinglePersonResult(schedule)
+
+        assertEquals(1, focused.rows.size)
+        assertEquals("Ana Horvat", focused.rows.single().name)
+        assertEquals(3, focused.rows.single().dayShifts.size)
+        assertEquals(1, focused.expectedRowCount)
     }
 
 }

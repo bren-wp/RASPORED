@@ -655,7 +655,7 @@ internal fun PayrollScreen(
                     )
                     Text(
                         "Izvori: NN 22/2024, NN 11/2026, NN 29/2024, NN 4/2025, " +
-                            "NN 85/2024, NN 152/2024, Ministarstvo zdravstva te Pravilnik o radu KBC-a Rijeka i izmjene od 15.03.2024.",
+                            "NN 85/2024, NN 152/2024, Ministarstvo zdravstva i Pravilnik o radu KBC-a Rijeka (12.06.2023.).",
                         modifier = Modifier.padding(top = 8.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp

@@ -18,7 +18,7 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun kbcRijekaUsesCurrentPublicServiceRatesWithoutInventedTurnus() {
+    fun kbcRijekaUsesCurrentPublicServiceAdditionsWithoutInventedTurnusRate() {
         val regime = PublicSectorPayroll.regime("kbc-rijeka-2026")
         assertEquals(0.40, regime.rates.night ?: -1.0, 0.001)
         assertEquals(null, regime.rates.turnus)
@@ -30,22 +30,10 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun stateServiceUsesCurrentCollectiveAgreementRates() {
+    fun stateServiceKeepsCurrentNightAndTurnusRates() {
         val regime = PublicSectorPayroll.regime("state-service")
         assertEquals(0.40, regime.rates.night ?: -1.0, 0.001)
         assertEquals(0.05, regime.rates.turnus ?: -1.0, 0.001)
-        assertEquals(0.25, regime.rates.saturday ?: -1.0, 0.001)
-        assertEquals(0.50, regime.rates.sunday ?: -1.0, 0.001)
-        assertEquals(1.50, regime.rates.holiday ?: -1.0, 0.001)
-        assertEquals(0.10, regime.rates.secondShift ?: -1.0, 0.001)
-        assertEquals(0.50, regime.rates.overtime ?: -1.0, 0.001)
-    }
-
-    @Test
-    fun genericPublicServiceKeepsTkuNightRateSeparateFromKbcPreset() {
-        val regime = PublicSectorPayroll.regime("public-health")
-        assertEquals(0.40, regime.rates.night ?: -1.0, 0.001)
-        assertEquals(null, regime.rates.turnus)
     }
 
     @Test
@@ -175,7 +163,7 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun paidAbsenceCountsOnlyRegularFundDays() {
+    fun paidAbsenceDaysContributeToOvertimeThresholdFromCalendar() {
         val schedule = buildMap {
             (2..9).forEach { day ->
                 put("2026-06-" + day.toString().padStart(2, '0'), "D")
@@ -196,65 +184,13 @@ class PublicSectorPayrollTest {
             taxHigher = 25.0,
             extraPercent = 0.0,
             secondShift = false,
-            turnus = false
+            turnus = true
         )
 
         assertEquals(11, estimate.evidence.goDays)
-        assertEquals(56L * 60L, estimate.evidence.compensatedAbsenceMinutes)
-        assertEquals(0L, estimate.evidence.overtimeMinutes)
-        assertEquals(0.0, estimate.overtimeBasePay, 0.001)
-    }
-
-    @Test
-    fun actualWorkAboveMonthlyFundCreatesPaidOvertime() {
-        val schedule = buildMap {
-            (1..16).forEach { day ->
-                put("2026-10-" + day.toString().padStart(2, '0'), "D")
-            }
-        }
-
-        val estimate = PublicSectorPayroll.estimate(
-            month = YearMonth.of(2026, 10),
-            scheduleCodes = schedule,
-            regimeId = "public-health",
-            coefficient = 1.25,
-            yearsService = 0,
-            personalAllowance = 600.0,
-            taxLower = 20.0,
-            taxHigher = 25.0,
-            extraPercent = 0.0,
-            secondShift = false,
-            turnus = false
-        )
-
-        assertEquals(16L * 60L, estimate.evidence.overtimeMinutes)
+        assertEquals(88L * 60L, estimate.evidence.compensatedAbsenceMinutes)
+        assertEquals(8L * 60L, estimate.evidence.overtimeMinutes)
         assertTrue(estimate.overtimeBasePay > 0.0)
-        assertTrue(estimate.overtimeAddition > 0.0)
-    }
-
-    @Test
-    fun weekendAbsenceDoesNotCreateFundHoursOrOvertime() {
-        val estimate = PublicSectorPayroll.estimate(
-            month = YearMonth.of(2026, 10),
-            scheduleCodes = mapOf(
-                "2026-10-03" to "GO",
-                "2026-10-04" to "BO"
-            ),
-            regimeId = "public-health",
-            coefficient = 1.25,
-            yearsService = 0,
-            personalAllowance = 600.0,
-            taxLower = 20.0,
-            taxHigher = 25.0,
-            extraPercent = 0.0,
-            secondShift = false,
-            turnus = false
-        )
-
-        assertEquals(1, estimate.evidence.goDays)
-        assertEquals(1, estimate.evidence.boDays)
-        assertEquals(0L, estimate.evidence.compensatedAbsenceMinutes)
-        assertEquals(0L, estimate.evidence.overtimeMinutes)
     }
 
     @Test

@@ -65,7 +65,7 @@
 <dialog class="app-dialog" id="registerDialog">
   <form class="dialog-card" id="registerForm">
     <div class="dialog-head">
-      <div><h2>Registracija</h2><p>Račun čuva tvoje podatke u zaštićenom spremištu ove Takto instalacije.</p></div>
+      <div><h2>Registracija</h2><p>Račun čuva podatke u zaštićenom <code>storage/data</code> spremištu ove instalacije.</p></div>
       <button class="icon-btn" type="button" data-close-auth aria-label="Zatvori">×</button>
     </div>
     <div class="auth-grid">

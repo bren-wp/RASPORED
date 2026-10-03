@@ -176,7 +176,7 @@ function renderTeamMembers(){
 }
 function importScannedTeamSchedules(){
   var policy=individualScanPolicy();
-  if(unresolvedScanReviewCells().length){toast("Prije timskog uvoza riješi sve nejasne stavke.");renderScanReview();return}
+  if(unresolvedScanReviewCells().length){toast("Prije timskog uvoza riješi sve nejasne AI/OCR stavke.");renderScanReview();return}
   if(policy.restricted){toast("Osobni korisnički račun može uvesti samo vlastiti raspored.");return}
   if(!state.scanPeople.length){toast("Najprije skeniraj raspored.");return}
   var target=scanTargetMonth(),y=target.getFullYear(),m=target.getMonth(),days=new Date(y,m+1,0).getDate();
@@ -200,7 +200,7 @@ function importScannedTeamSchedules(){
     imported++;
   });
   if(!imported){toast("Nijedan raspored nema dovoljno pouzdanih oznaka dana za uvoz.");return}
-  if(!saveTeamMembers(members)){toast("Rasporede tima trenutačno nije moguće spremiti.");return}
+  if(!saveTeamMembers(members)){toast("Rasporede tima nije moguće spremiti u storage/data.");return}
   renderTeamMembers();
   toast("Uvezeni su rasporedi za "+imported+" djelatnika"+(skipped?" · preskočeno bez oznaka: "+skipped:"")+".");
   route("colleagues");
@@ -232,7 +232,7 @@ function submitColleague(){
   var items=loadColleagues();
   if(items.some(function(x){return x.name.toLocaleLowerCase("hr-HR")===name.toLocaleLowerCase("hr-HR")})){toast("Kolega je već dodan.");return false}
   items.push({name:name,note:note||"Bez napomene"});
-  if(!saveColleagues(items)){toast("Podatke trenutačno nije moguće spremiti.");return false}
+  if(!saveColleagues(items)){toast("Podatke nije moguće spremiti u storage/data.");return false}
   renderColleagues();if(dialog)dialog.close();toast("Kolega je dodan.");return true;
 }
 function yearMonthKey(y,m){return y+"-"+String(m+1).padStart(2,"0")}
@@ -459,8 +459,8 @@ async function runAiScanVerification(){
       status.querySelector("span").textContent=
         (state.scanSingleMode?"AI provjera označene osobe završena: ":"AI provjera završena: ")+state.scanPeople.length+" osoba. "+
         (unresolvedScanReviewCells().length
-          ?unresolvedScanReviewCells().length+" stavki razlikuje se od lokalnog prepoznavanja i ostavljeno je za ručnu provjeru. "
-          :"Nisu pronađene razlike u odnosu na lokalno prepoznavanje. ")+
+          ?unresolvedScanReviewCells().length+" ćelija razlikuje se od lokalnog OCR-a i ostavljena je za ručnu provjeru. "
+          :"Nisu pronađeni sukobi s lokalnim OCR-om. ")+
         (payload.result.notes||"");
     }
   }catch(error){
@@ -524,7 +524,7 @@ function selectedScanSchedule(){
 }
 function importSelectedScanSchedule(){
   var person=scanPerson(),policy=individualScanPolicy();
-  if(unresolvedScanReviewCellsForPerson(person).length){toast("Prije uvoza riješi nejasne stavke odabrane osobe.");renderScanReview();return}
+  if(unresolvedScanReviewCellsForPerson(person).length){toast("Prije uvoza riješi nejasne AI/OCR stavke odabrane osobe.");renderScanReview();return}
   if(policy.restricted&&(policy.index<0||!person||normalizePersonName(person.name)!==normalizePersonName(policy.name))){
     toast("Osobni korisnički račun može uvesti samo raspored prijavljene osobe.");
     return;
@@ -538,7 +538,7 @@ function importSelectedScanSchedule(){
     if(n>=1&&n<=days&&code)state.schedule[iso(new Date(y,m,n))]=code;
   });
   state.cursor=new Date(y,m,1);state.selected=new Date(y,m,1);
-  if(!save()){loadSchedule();renderAll();toast("Raspored trenutačno nije spremljen.");return}
+  if(!save()){loadSchedule();renderAll();toast("Raspored nije spremljen u storage/data.");return}
   clearScanSession();renderAll();toast("Uvezen je samo raspored za "+person.name+".");route("calendar");
 }
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -565,20 +565,19 @@ function signedHoursText(minutes){
   return sign+hoursText(Math.abs(mins));
 }
 function largeHoursText(minutes){
-  var mins=Math.max(0,Math.round(minutes||0)),h=Math.floor(mins/60),m=mins%60;
-  return m===0?h+" h":h+" h "+String(m).padStart(2,"0")+" min";
+  var mins=Math.max(0,Math.round(minutes||0)),hours=Math.floor(mins/60),remainder=mins%60;
+  return remainder===0?hours+" h":hours+" h "+String(remainder).padStart(2,"0")+" min";
 }
 function monthData(y,m){
   var out={
     worked:0,workedMinutes:0,dayMinutes:0,night:0,nightMinutes:0,otherMinutes:0,
     sat:0,sun:0,holidays:0,satMinutes:0,sunMinutes:0,holidayMinutes:0,weekendHolidayMinutes:0,
-    go:0,bo:0,pd:0,sd:0,planned:0,plannedMinutes:0,accountedMinutes:0,
-    compensatedAbsenceMinutes:0,holidayCompensatedMinutes:0,overtimeMinutes:0,
-    balance:0,balanceMinutes:0,
+    go:0,bo:0,pd:0,sd:0,planned:0,plannedMinutes:0,creditedMinutes:0,overtimeMinutes:0,
+    compensatedAbsenceMinutes:0,holidayCreditMinutes:0,balance:0,balanceMinutes:0,
     counts:{D:0,N:0,GO:0,BO:0,PD:0,SD:0},
     weeks:[{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0},{d:0,n:0,o:0}]
   };
-  var hm=holidays(y),days=new Date(y,m+1,0).getDate(),workedDateKeys={};
+  var hm=holidays(y),days=new Date(y,m+1,0).getDate();
 
   function accountShift(startDate,code){
     var start=code==="D"
@@ -591,7 +590,6 @@ function monthData(y,m){
       var current=new Date(t);
       if(current.getFullYear()!==y||current.getMonth()!==m)continue;
       var key=iso(current),hour=current.getHours(),wi=Math.min(4,Math.floor((current.getDate()-1)/7));
-      workedDateKeys[key]=true;
       out.workedMinutes++;
       if(hour>=22||hour<6){out.nightMinutes++;out.weeks[wi].n+=1/60}
       else {out.dayMinutes++;out.weeks[wi].d+=1/60}
@@ -604,41 +602,38 @@ function monthData(y,m){
 
   for(var day=1;day<=days;day++){
     var date=new Date(y,m,day,12,0,0),key=iso(date),code=normalizeScheduleCode(state.schedule[key]||"");
-    if(code)out.counts[code]=(out.counts[code]||0)+1;
-    if(code==="D"||code==="N"){
-      if(date.getDay()===6)out.sat++;
-      if(date.getDay()===0)out.sun++;
-      if(hm[key])out.holidays++;
-      accountShift(date,code);
-    }else if(code==="GO")out.go++;
-    else if(code==="BO")out.bo++;
-    else if(code==="PD")out.pd++;
-    else if(code==="SD")out.sd++;
+    var ordinaryWeekday=date.getDay()!==0&&date.getDay()!==6&&!hm[key];
+    var weekdayHoliday=date.getDay()!==0&&date.getDay()!==6&&!!hm[key];
+    if(ordinaryWeekday)out.plannedMinutes+=8*60;
+
+    if(code){
+      out.counts[code]=(out.counts[code]||0)+1;
+      if(code==="D"||code==="N"){
+        if(date.getDay()===6)out.sat++;
+        if(date.getDay()===0)out.sun++;
+        if(hm[key])out.holidays++;
+        accountShift(date,code);
+      }else if(code==="GO")out.go++;
+      else if(code==="BO")out.bo++;
+      else if(code==="PD")out.pd++;
+      else if(code==="SD")out.sd++;
+    }
+
+    if(ordinaryWeekday&&["GO","BO","PD"].includes(code))out.compensatedAbsenceMinutes+=8*60;
+    if(weekdayHoliday&&code!=="D"&&code!=="N")out.holidayCreditMinutes+=8*60;
   }
 
   var previous=new Date(y,m,0,12,0,0);
   if(normalizeScheduleCode(state.schedule[iso(previous)]||"")==="N")accountShift(previous,"N");
 
-  for(var fundDay=1;fundDay<=days;fundDay++){
-    var fundDate=new Date(y,m,fundDay,12,0,0),fundKey=iso(fundDate),weekday=fundDate.getDay()!==0&&fundDate.getDay()!==6;
-    if(!weekday)continue;
-    out.plannedMinutes+=8*60;
-    var fundCode=normalizeScheduleCode(state.schedule[fundKey]||"");
-    if(fundCode==="GO"||fundCode==="BO"||fundCode==="PD"){
-      out.compensatedAbsenceMinutes+=8*60;
-    }else if(hm[fundKey]&&!workedDateKeys[fundKey]){
-      out.holidayCompensatedMinutes+=8*60;
-    }
-  }
-
   out.otherMinutes=0;
   out.worked=out.workedMinutes/60;
   out.night=out.nightMinutes/60;
   out.planned=out.plannedMinutes/60;
-  out.accountedMinutes=out.workedMinutes+out.compensatedAbsenceMinutes+out.holidayCompensatedMinutes;
-  out.overtimeMinutes=Math.max(0,out.accountedMinutes-out.plannedMinutes);
-  out.balanceMinutes=out.accountedMinutes-out.plannedMinutes;
+  out.creditedMinutes=out.workedMinutes+out.compensatedAbsenceMinutes+out.holidayCreditMinutes;
+  out.balanceMinutes=out.creditedMinutes-out.plannedMinutes;
   out.balance=out.balanceMinutes/60;
+  out.overtimeMinutes=Math.max(0,out.balanceMinutes);
   return out;
 }
 function statsForCursor(){return monthData(state.cursor.getFullYear(),state.cursor.getMonth())}
@@ -675,10 +670,10 @@ function renderSummary(){
   if(el)el.innerHTML=items.map(function(x){return '<div class="summary-item '+x[3]+'"><span class="ico">'+icon(x[0])+'</span><span><small>'+x[1]+'</small><b>'+x[2]+'</b></span></div>'}).join("");
   var strip=document.getElementById("monthStrip");
   if(strip)strip.innerHTML=[
-    ["Fond",hoursText(d.plannedMinutes)],
+    ["Planirano",d.planned+"h"],
     ["Odrađeno",hoursText(d.workedMinutes)],
-    ["Prekovremeni",hoursText(d.overtimeMinutes)],
-    ["Saldo",signedHoursText(d.balanceMinutes)]
+    ["Saldo",signedHoursText(d.balanceMinutes)],
+    ["Noćni sati",hoursText(d.nightMinutes)]
   ].map(function(x){return '<div class="month-strip-item"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>'}).join("");
 }
 function currentShiftFor(date){
@@ -806,7 +801,7 @@ function openNextScanConflict(){
   dialog.dataset.reviewName=conflict.employeeName;
   var title=document.getElementById("scanConflictTitle"),values=document.getElementById("scanConflictValues");
   if(title)title.textContent=(conflict.employeeRow?conflict.employeeRow+". ":"")+conflict.employeeName+" · dan "+conflict.day;
-  if(values)values.textContent="Lokalno prepoznavanje: "+(conflict.localCode||"prazno")+" · Dodatna provjera: "+(conflict.aiCode||"prazno");
+  if(values)values.textContent="Lokalni OCR: "+(conflict.localCode||"prazno")+" · AI: "+(conflict.aiCode||"prazno");
   var localBtn=document.getElementById("scanConflictLocal"),aiBtn=document.getElementById("scanConflictAi"),custom=document.getElementById("scanConflictCustom");
   if(localBtn){localBtn.hidden=!conflict.localCode;localBtn.textContent=conflict.localCode?"Zadrži lokalno: "+conflict.localCode:""}
   if(aiBtn){aiBtn.hidden=!conflict.aiCode;aiBtn.textContent=conflict.aiCode?"Odaberi AI: "+conflict.aiCode:""}
@@ -862,18 +857,18 @@ function renderStats(){
   var donut=document.getElementById("donut"),total=Math.max(1,d.workedMinutes),dayPct=Math.round(d.dayMinutes/total*100),nightPct=Math.round(d.nightMinutes/total*100);
   if(donut)donut.style.background="conic-gradient(#147DF5 0 "+dayPct+"%,#6D28D9 "+dayPct+"% "+(dayPct+nightPct)+"%,#60738F "+(dayPct+nightPct)+"% 100%)";
   var cats=[
-    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D smjene · "+d.counts.D],
-    ["#6D28D9","Noćni sati",hoursText(d.nightMinutes),"N smjene · "+d.counts.N],
-    ["#4CABFF","Mjesečni fond",hoursText(d.plannedMinutes),"Redovni fond"],
-    ["#8B5CF6","Prekovremeni",hoursText(d.overtimeMinutes),"Višak iznad fonda"],
-    ["#60738F","Saldo",signedHoursText(d.balanceMinutes),"Obračunski sati − fond"],
+    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
+    ["#6D28D9","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
     ["#60738F","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
     ["#FF4655","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
     ["#FFB51F","Blagdani",hoursText(d.holidayMinutes),d.holidays+" smjena"],
     ["#12D6A0","GO",d.go+" dana","Godišnji odmor"],
     ["#FFB51F","BO",d.bo+" dana","Bolovanje"],
     ["#E53648","PD",d.pd+" dana","Plaćeni dopust"],
-    ["#60738F","SD",d.sd+" dana","Slobodan dan"]
+    ["#60738F","SD",d.sd+" dana","Slobodan dan"],
+    ["#4CABFF","Fond sati",hoursText(d.plannedMinutes),"Kalendarski mjesečni fond"],
+    ["#12D6A0","Iznad fonda",hoursText(d.overtimeMinutes),"Kreditirani sati iznad fonda"],
+    ["#4CABFF","Ukupno sati",hoursText(d.workedMinutes),"Automatski iz kalendara"]
   ],el=document.getElementById("statsCategories");
   if(el)el.innerHTML=cats.map(function(x){return '<div class="stat-cat"><span><i style="background:'+x[0]+'"></i><b>'+x[2]+'</b></span><small>'+x[1]+' · '+x[3]+'</small></div>'}).join("");
   var max=1;d.weeks.forEach(function(w){max=Math.max(max,w.d+w.n+w.o)});
@@ -893,19 +888,11 @@ function renderStats(){
     ["calendar","PD",d.pd+" dana","Plaćeni dopust"],
     ["calendar","SD",d.sd+" dana","Slobodan dan"],
     ["calendar","Nedjelje",d.sun+" smjene",hoursText(d.sunMinutes)],
-    ["scale","Mjesečni fond","Redovni fond za odabrani mjesec",hoursText(d.plannedMinutes)],
-    ["clock","Obračunski sati","Rad + priznate odsutnosti + neradni blagdan",hoursText(d.accountedMinutes)],
-    ["clock","Prekovremeni","Kalendarski višak iznad fonda",hoursText(d.overtimeMinutes)],
-    ["scale","Saldo","Obračunski sati minus fond",signedHoursText(d.balanceMinutes)]
+    ["scale","Fond sati","Kalendarski mjesečni fond",hoursText(d.plannedMinutes)],
+    ["chart","Iznad fonda","Kreditirani sati iznad fonda",hoursText(d.overtimeMinutes)],
+    ["scale","Saldo","Kreditirani sati minus fond",signedHoursText(d.balanceMinutes)],
+    ["scale","Ukupno sati","Automatski iz kalendara",hoursText(d.workedMinutes)]
   ].map(function(x){return '<div class="detail-item"><i>'+icon(x[0])+'</i><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span><b>'+x[3]+'</b></div>'}).join("");
-
-  var preview=window.RasporedPayroll&&window.RasporedPayroll.preview
-    ?window.RasporedPayroll.preview(yearMonthKey(state.cursor.getFullYear(),state.cursor.getMonth()))
-    :null;
-  var netEl=document.getElementById("statsPayrollNet"),grossEl=document.getElementById("statsPayrollGross"),otEl=document.getElementById("statsPayrollOvertime");
-  if(netEl)netEl.textContent=preview&&preview.available?"≈ "+preview.money(preview.net)+" neto":"Dopuni podatke za obračun";
-  if(grossEl)grossEl.textContent=preview&&preview.available?"Procijenjeni bruto "+preview.money(preview.gross):"Otvori obračun i odaberi odgovarajući režim.";
-  if(otEl)otEl.textContent="Prekovremeni "+hoursText(preview?preview.overtimeMinutes:d.overtimeMinutes);
 }
 function renderHours(){
   var root=document.getElementById("view-hours");if(!root)return;
@@ -967,7 +954,7 @@ function updateScanCropOverlay(){
   if(next)next.disabled=!hasRows||state.scanDetectedRowIndex<0||state.scanDetectedRowIndex>=state.scanDetectedRows.length-1;
   if(hint)hint.textContent=hasRows
     ?"Pronađena je mreža tablice. Dodirni osobu na fotografiji ili koristi prethodni/sljedeći redak."
-    :"Dodirni osobu na fotografiji za brzo postavljanje plavog pojasa; po potrebi prilagodi granice.";
+    :"Dodirni osobu na fotografiji za brzo centriranje cropa; po potrebi fino prilagodi granice.";
   if(stage)stage.classList.toggle("is-row-detected",hasRows);
 }
 function selectDetectedScanRow(index){
@@ -1007,7 +994,7 @@ function loadScanImage(file){
   return new Promise(function(resolve,reject){
     var image=new Image(),url=URL.createObjectURL(file);
     image.onload=function(){URL.revokeObjectURL(url);resolve(image)};
-    image.onerror=function(){URL.revokeObjectURL(url);reject(new Error("Fotografiju nije moguće otvoriti za označavanje"))};
+    image.onerror=function(){URL.revokeObjectURL(url);reject(new Error("Fotografiju nije moguće otvoriti za crop"))};
     image.src=url;
   });
 }
@@ -1091,7 +1078,7 @@ async function createSinglePersonScanFile(file){
   ctx.drawImage(image,left,headerTop,cropWidth,headerHeight,0,0,cropWidth,headerHeight);
   ctx.drawImage(image,left,top,cropWidth,rowHeight,0,headerHeight+gap,cropWidth,rowHeight);
   var blob=await new Promise(function(resolve,reject){
-    canvas.toBlob(function(value){value?resolve(value):reject(new Error("Označeni dio fotografije nije moguće pripremiti"))},"image/jpeg",0.97);
+    canvas.toBlob(function(value){value?resolve(value):reject(new Error("Crop slike nije moguće izraditi"))},"image/jpeg",0.97);
   });
   return new File([blob],"raspored-jedna-osoba.jpg",{type:"image/jpeg"});
 }
@@ -1125,7 +1112,7 @@ async function handleScanFile(file,forceOcr,keepPreview){
   status.querySelector("span").textContent=state.scanSingleMode?"Prepoznavanje označene osobe...":"Automatsko prepoznavanje rasporeda...";
   if(progress)progress.style.width="4%";
   try{
-    if(!window.RasporedWebOcr||typeof window.RasporedWebOcr.recognizeSchedule!=="function")throw new Error("Prepoznavanje rasporeda trenutačno nije dostupno");
+    if(!window.RasporedWebOcr||typeof window.RasporedWebOcr.recognizeSchedule!=="function")throw new Error("OCR modul nije dostupan");
     var result=await window.RasporedWebOcr.recognizeSchedule(file,function(value){
       if(generation===state.scanGeneration&&progress)progress.style.width=Math.max(4,Math.min(96,Math.round(value*100)))+"%";
     });
@@ -1188,7 +1175,7 @@ async function handleScanFile(file,forceOcr,keepPreview){
     if(progress)progress.style.width="0";
     status.querySelector("span").textContent=navigator.onLine
       ?"Prepoznavanje nije uspjelo. Pokušaj ponovno s jasnijom fotografijom."
-      :"Za prvo prepoznavanje rasporeda potrebna je internetska veza.";
+      :"Za prvo OCR prepoznavanje potrebna je internetska veza.";
   }
   renderScanPersonPicker();renderRecognition();
 }
@@ -1253,7 +1240,7 @@ function bind(){
       if(value==="clear")delete state.schedule[key];
       else if(["D","N","GO","BO","PD","SD"].indexOf(value)>=0)state.schedule[key]=value;
       else return;
-      if(!save()){loadSchedule();toast("Promjenu trenutačno nije moguće spremiti.");}
+      if(!save()){loadSchedule();toast("Promjenu nije moguće spremiti u storage/data.");}
       renderAll();
       return;
     }
@@ -1262,7 +1249,7 @@ function bind(){
       var input=document.getElementById("calendarCustomCode"),custom=normalizeScheduleCode(input?input.value:""),customKey=iso(state.selected);
       if(!custom){toast("Upiši 1–8 slova ili brojeva.");return}
       state.schedule[customKey]=custom;
-      if(!save()){loadSchedule();toast("Promjenu trenutačno nije moguće spremiti.");return}
+      if(!save()){loadSchedule();toast("Promjenu nije moguće spremiti u storage/data.");return}
       renderAll();
       toast("Oznaka "+custom+" je spremljena.");
       return;
@@ -1365,7 +1352,7 @@ function bind(){
       var focused=await createSinglePersonScanFile(state.scanOriginalFile);
       await handleScanFile(focused,true,true);
     }catch(e){
-      toast("Označeni redak nije moguće pripremiti za prepoznavanje.");
+      toast("Označeni redak nije moguće pripremiti za OCR.");
     }finally{this.disabled=false}
   });
   ["cameraInput","galleryInput"].forEach(function(id){var input=document.getElementById(id);input.addEventListener("change",function(){if(this.files&&this.files[0])handleScanFile(this.files[0])})});
@@ -1438,7 +1425,7 @@ function bind(){
       var value=profileInput.value.trim().replace(/\s+/g," ").slice(0,80);
       if(value.length>0&&value.length<2){toast("Unesi valjano ime i prezime.");return}
       var stored=value?storageSet("raspored.profile.name",value):storageRemove("raspored.profile.name");
-      if(!stored){toast("Profil trenutačno nije moguće spremiti.");return}
+      if(!stored){toast("Profil nije moguće spremiti u storage/data.");return}
       configureProfile();toast("Profil je spremljen.");
     });
   }
@@ -1460,7 +1447,7 @@ function bind(){
 async function initApp(){
   if(!window.RasporedDataStore){throw new Error("Takto podatkovni sloj nije učitan.");}
   document.body.dataset.appReady="loading";
-  window.addEventListener("raspored:storage-error",function(){toast("Spremanje podataka trenutačno nije dostupno.");});
+  window.addEventListener("raspored:storage-error",function(){toast("Spremanje u storage/data trenutačno nije dostupno.");});
 
   // Navigation and non-data controls must be usable immediately. JSON/account
   // initialization can involve disk/session I/O; binding only after that await
@@ -1475,7 +1462,7 @@ async function initApp(){
   route(state.route);
   renderAll();
   document.body.dataset.appReady=window.RasporedDataStore.isAvailable()?"true":"storage-unavailable";
-  if(!window.RasporedDataStore.isAvailable())toast("Spremište podataka nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
+  if(!window.RasporedDataStore.isAvailable())toast("storage/data nije dostupno. Podaci nisu učitani i spremanje je onemogućeno.");
   if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register((document.body.dataset.base||"")+"/sw.js").catch(function(){})})}
 }
 initApp().catch(function(){

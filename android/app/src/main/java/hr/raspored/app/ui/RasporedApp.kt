@@ -39,9 +39,9 @@ import hr.raspored.app.data.CroatianHolidays
 import hr.raspored.app.data.TeamStore
 import hr.raspored.app.data.UiSettingsStore
 import hr.raspored.app.data.EvidenceAnalytics
-import hr.raspored.app.data.ReportExporter
 import hr.raspored.app.data.PayrollSettingsStore
 import hr.raspored.app.data.PublicSectorPayroll
+import hr.raspored.app.data.ReportExporter
 import hr.raspored.app.data.RemoteAccountClient
 import hr.raspored.app.data.RemoteAccountStore
 import hr.raspored.app.data.RemoteSessionInvalidException
@@ -51,7 +51,6 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.TextStyle
-import java.text.NumberFormat
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -424,6 +423,11 @@ private fun minutesLabel(minutes:Long):String {
     return if(remainder==0L) hours.toString()+"h" else hours.toString()+"h "+remainder.toString().padStart(2,'0')+"min"
 }
 
+private fun minutesLabelSigned(minutes:Long):String {
+    val sign=if(minutes<0L) "−" else ""
+    return sign+minutesLabel(kotlin.math.abs(minutes))
+}
+
 private fun largeMinutesLabel(minutes:Long):String {
     val safe=minutes.coerceAtLeast(0L)
     val hours=safe/60L
@@ -431,18 +435,6 @@ private fun largeMinutesLabel(minutes:Long):String {
     return if(remainder==0L) hours.toString()+" h"
     else hours.toString()+" h "+remainder.toString().padStart(2,'0')+" min"
 }
-
-private fun signedMinutesLabel(minutes:Long):String {
-    val sign=when {
-        minutes>0L -> "+"
-        minutes<0L -> "−"
-        else -> ""
-    }
-    return sign+minutesLabel(kotlin.math.abs(minutes))
-}
-
-private fun moneyText(value:Double):String =
-    NumberFormat.getCurrencyInstance(Locale("hr","HR")).format(value)
 
 @Composable private fun HomeScreen(
     scheduleCodes:Map<String,String>,
@@ -1070,9 +1062,9 @@ private fun moneyText(value:Double):String =
     scheduleCodes:Map<String,String>,
     onPayroll:()->Unit
 ){
+    val context=LocalContext.current
     var month by remember { mutableStateOf(YearMonth.from(appDate())) }
     var periodMenu by remember { mutableStateOf(false) }
-    val context=LocalContext.current
     val data=scheduleFor(month,scheduleCodes)
     val previousMonth=month.minusMonths(1)
     val previousData=scheduleFor(previousMonth,scheduleCodes)
@@ -1084,7 +1076,7 @@ private fun moneyText(value:Double):String =
         month=previousMonth,
         scheduleCodes=codesForMonth(previousMonth,previousData)
     )
-    val payrollSettings=PayrollSettingsStore(context).load()
+    val payrollSettings=remember(context){PayrollSettingsStore(context).load()}
     val payrollEstimate=PublicSectorPayroll.estimate(
         month=month,
         scheduleCodes=scheduleCodes,
@@ -1099,7 +1091,8 @@ private fun moneyText(value:Double):String =
         turnus=payrollSettings.turnus,
         customBase=payrollSettings.customBase
     )
-    val salaryAvailable=payrollEstimate.base>0.0
+    val payrollAvailable=payrollEstimate.base>0.0
+    val payrollNet=java.text.NumberFormat.getCurrencyInstance(Locale("hr","HR")).format(payrollEstimate.estimatedNet)
     val holidays=CroatianHolidays.forYear(month.year)
     val saturdayCount=data.count{(day,shift)->
         shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==6
@@ -1119,139 +1112,145 @@ private fun moneyText(value:Double):String =
 
     LazyColumn(
         Modifier.fillMaxSize().testTag("screen-stats").padding(horizontal=14.dp),
-        contentPadding=PaddingValues(top=16.dp,bottom=28.dp),
+        contentPadding=PaddingValues(top=16.dp,bottom=22.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ){
         item{
-            Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Text(
-                    "Statistika",
-                    fontSize=31.sp,
-                    fontWeight=FontWeight.ExtraBold,
-                    maxLines=1,
-                    softWrap=false
-                )
+            Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+                Text("Statistika",fontSize=31.sp,fontWeight=FontWeight.ExtraBold,maxLines=1)
                 Box{
                     OutlinedButton(
                         onClick={periodMenu=true},
-                        modifier=Modifier.fillMaxWidth()
+                        modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)
                     ){
                         Icon(Icons.Outlined.CalendarMonth,null)
-                        Text(" "+monthTitle+" ",maxLines=1,softWrap=false)
+                        Text(" "+monthTitle+" ",modifier=Modifier.weight(1f),textAlign=TextAlign.Center,maxLines=1)
                         Icon(Icons.Outlined.ExpandMore,null)
                     }
                     DropdownMenu(expanded=periodMenu,onDismissRequest={periodMenu=false}){
                         (0..11).map{YearMonth.from(appDate()).minusMonths(it.toLong())}.forEach{option->
                             val label=option.month.getDisplayName(TextStyle.FULL,Locale("hr","HR"))
                                 .replaceFirstChar{it.titlecase(Locale("hr","HR"))}+" "+option.year+"."
-                            DropdownMenuItem(
-                                text={Text(label)},
-                                onClick={month=option;periodMenu=false}
-                            )
+                            DropdownMenuItem(text={Text(label)},onClick={month=option;periodMenu=false})
                         }
                     }
                 }
             }
         }
-
-        item{
-            Surface(
-                shape=RoundedCornerShape(22.dp),
-                color=MaterialTheme.colorScheme.surface
-            ){
-                Column(Modifier.padding(18.dp)){
-                    Text("Ukupno odrađeno",fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        largeMinutesLabel(analytics.workedMinutes),
-                        fontSize=44.sp,
-                        fontWeight=FontWeight.ExtraBold,
-                        maxLines=1
-                    )
-                    Text(
-                        when{
-                            trend==null->"Nema podataka za usporedbu s prethodnim mjesecom"
-                            trend>0->"↗ +"+trend+"% prema prethodnom mjesecu"
-                            trend<0->"↘ "+trend+"% prema prethodnom mjesecu"
-                            else->"Jednako kao prethodni mjesec"
-                        },
-                        color=if((trend?:0)>=0)Teal else Red,
-                        fontWeight=FontWeight.SemiBold,
-                        fontSize=12.sp
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.Center){
-                        HoursDonut(
-                            dayMinutes=analytics.dayMinutes,
-                            nightMinutes=analytics.nightMinutes,
-                            otherMinutes=analytics.otherMinutes,
-                            totalMinutes=analytics.workedMinutes
-                        )
-                    }
-                    Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-                        StatMini("Fond",minutesLabel(analytics.plannedMinutes),Cyan,Modifier.weight(1f))
-                        StatMini(
-                            "Prekovremeni",
-                            minutesLabel(analytics.overtimeMinutes),
-                            if(analytics.overtimeMinutes>0L) Purple else MaterialTheme.colorScheme.outline,
-                            Modifier.weight(1f)
-                        )
-                        StatMini("GO",data.values.count{it.code=="GO"}.toString()+" d",Teal,Modifier.weight(1f))
-                        StatMini("BO",data.values.count{it.code=="BO"}.toString()+" d",RasporedTokens.Amber,Modifier.weight(1f))
-                    }
-                    if(analytics.overtimeMinutes>0L){
-                        Text(
-                            "Prikazan je kalendarski višak iznad mjesečnog fonda. Konačan broj prekovremenih sati potvrđuje službena evidencija poslodavca.",
-                            modifier=Modifier.padding(top=12.dp),
-                            color=MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize=11.sp
-                        )
-                    }
-                }
-            }
-        }
-
         item{
             Surface(
                 onClick=onPayroll,
-                shape=RoundedCornerShape(22.dp),
+                shape=RoundedCornerShape(20.dp),
                 color=MaterialTheme.colorScheme.secondaryContainer,
-                modifier=Modifier.fillMaxWidth()
+                modifier=Modifier.fillMaxWidth().testTag("stats-payroll-preview")
             ){
-                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.spacedBy(12.dp)
+                ){
+                    Icon(Icons.Outlined.Payments,null,modifier=Modifier.size(28.dp))
+                    Column(Modifier.weight(1f)){
+                        Text("Procjena plaće",fontWeight=FontWeight.ExtraBold,fontSize=17.sp)
                         Text(
-                            "Procjena plaće",
-                            fontWeight=FontWeight.ExtraBold,
-                            fontSize=18.sp,
-                            modifier=Modifier.weight(1f)
+                            if(payrollAvailable) payrollNet+" neto" else "Dovrši podatke za obračun",
+                            fontWeight=FontWeight.Bold,
+                            fontSize=20.sp
                         )
-                        Icon(Icons.Outlined.ChevronRight,"Otvori obračun")
+                        Text(
+                            "Prema spremljenom radnom mjestu, stažu, porezu i rasporedu. Dodirni za detaljan obračun.",
+                            fontSize=10.sp,
+                            color=MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                    Icon(Icons.Outlined.ChevronRight,null)
+                }
+            }
+        }
+        item{
+            Surface(shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surface){
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+                    BoxWithConstraints(Modifier.fillMaxWidth()){
+                        if(maxWidth<430.dp){
+                            Column(
+                                Modifier.fillMaxWidth(),
+                                horizontalAlignment=Alignment.CenterHorizontally,
+                                verticalArrangement=Arrangement.spacedBy(12.dp)
+                            ){
+                                Column(Modifier.fillMaxWidth()){
+                                    Text("Ukupno odrađeno",fontWeight=FontWeight.Bold,fontSize=17.sp)
+                                    Text(
+                                        largeMinutesLabel(analytics.workedMinutes),
+                                        fontSize=44.sp,
+                                        lineHeight=48.sp,
+                                        fontWeight=FontWeight.ExtraBold,
+                                        modifier=Modifier.testTag("stats-worked-total")
+                                    )
+                                    Text(
+                                        when{
+                                            trend==null->"Nema podataka za prethodni mjesec"
+                                            trend>0->"↗ +"+trend+"% prema prethodnom mjesecu"
+                                            trend<0->"↘ "+trend+"% prema prethodnom mjesecu"
+                                            else->"Bez promjene prema prethodnom mjesecu"
+                                        },
+                                        color=if((trend?:0)>=0)Teal else Red,
+                                        fontWeight=FontWeight.Bold,
+                                        fontSize=12.sp
+                                    )
+                                }
+                                HoursDonut(
+                                    dayMinutes=analytics.dayMinutes,
+                                    nightMinutes=analytics.nightMinutes,
+                                    otherMinutes=analytics.otherMinutes,
+                                    totalMinutes=analytics.workedMinutes
+                                )
+                            }
+                        }else{
+                            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                                Column(Modifier.weight(1f)){
+                                    Text("Ukupno odrađeno",fontWeight=FontWeight.Bold)
+                                    Text(
+                                        largeMinutesLabel(analytics.workedMinutes),
+                                        fontSize=44.sp,
+                                        fontWeight=FontWeight.ExtraBold,
+                                        modifier=Modifier.testTag("stats-worked-total")
+                                    )
+                                }
+                                HoursDonut(
+                                    dayMinutes=analytics.dayMinutes,
+                                    nightMinutes=analytics.nightMinutes,
+                                    otherMinutes=analytics.otherMinutes,
+                                    totalMinutes=analytics.workedMinutes
+                                )
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
+                        StatMini("Dnevni",minutesLabel(analytics.dayMinutes),Cyan,Modifier.weight(1f))
+                        StatMini("Noćni",minutesLabel(analytics.nightMinutes),Nbg,Modifier.weight(1f))
+                        StatMini("GO",data.values.count{it.code=="GO"}.toString()+" d",Teal,Modifier.weight(1f))
+                        StatMini("BO",data.values.count{it.code=="BO"}.toString()+" d",RasporedTokens.Amber,Modifier.weight(1f))
+                    }
+                    HorizontalDivider()
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
+                        StatMini("Fond",minutesLabel(analytics.plannedMinutes),Slate,Modifier.weight(1f))
+                        StatMini("Iznad fonda",minutesLabel(analytics.overtimeMinutes),Teal,Modifier.weight(1f).testTag("stats-overtime"))
+                        StatMini(
+                            "Saldo",
+                            (if(analytics.balanceMinutes>0) "+" else "")+minutesLabelSigned(analytics.balanceMinutes),
+                            if(analytics.balanceMinutes>=0) Teal else Red,
+                            Modifier.weight(1f)
+                        )
                     }
                     Text(
-                        if(salaryAvailable) "≈ "+moneyText(payrollEstimate.estimatedNet)+" neto"
-                        else "Dopuni podatke za obračun",
-                        fontSize=if(salaryAvailable)28.sp else 20.sp,
-                        fontWeight=FontWeight.ExtraBold
-                    )
-                    Text(
-                        if(salaryAvailable)
-                            "Procijenjeni bruto: "+moneyText(payrollEstimate.estimatedGross)+
-                                " · prekovremeni "+minutesLabel(payrollEstimate.evidence.overtimeMinutes)
-                        else
-                            "Odaberi sektor, radno mjesto i osnovicu gdje je potreban ručni unos.",
-                        color=MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontSize=11.sp
-                    )
-                    Text(
-                        "Otvori detaljni obračun i provjeri osobni odbitak, porezne stope i dodatke.",
-                        color=MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontSize=11.sp
+                        "Fond je kalendarski mjesečni fond. GO, BO i PD kreditiraju 8 h samo na redovni radni dan; SD i prazni dan ne dodaju sate.",
+                        color=MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize=10.sp,
+                        lineHeight=14.sp
                     )
                 }
             }
         }
-
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp)){
@@ -1266,114 +1265,38 @@ private fun moneyText(value:Double):String =
                             Column(horizontalAlignment=Alignment.CenterHorizontally){
                                 Text(minutesLabel(minutes),fontWeight=FontWeight.Bold)
                                 Box(
-                                    Modifier.width(54.dp)
+                                    Modifier.width(46.dp)
                                         .height(maxOf(6,((minutes.toFloat()/maxWeek.toFloat())*100f).toInt()).dp)
                                         .background(Cyan,RoundedCornerShape(7.dp,7.dp,0.dp,0.dp))
                                 )
-                                Text((i+1).toString()+". tjedan",fontSize=10.sp,color=Slate)
+                                Text((i+1).toString()+". tj.",fontSize=10.sp,color=Slate)
                             }
                         }
                     }
                 }
             }
         }
-
-        item{
-            Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
-                Column(Modifier.padding(18.dp)){
-                    Text("Sati i obračunski fond",fontSize=20.sp,fontWeight=FontWeight.Bold)
-                    DetailLine(
-                        Icons.Outlined.Schedule,
-                        "Mjesečni fond",
-                        "Redovni fond za odabrani mjesec",
-                        minutesLabel(analytics.plannedMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.CheckCircle,
-                        "Obračunski sati",
-                        "Rad + priznate odsutnosti + neradni blagdan",
-                        minutesLabel(analytics.accountedMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.MoreTime,
-                        "Prekovremeni",
-                        "Višak iznad mjesečnog fonda",
-                        minutesLabel(analytics.overtimeMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.Balance,
-                        "Saldo",
-                        "Obračunski sati minus mjesečni fond",
-                        signedMinutesLabel(analytics.balanceMinutes)
-                    )
-                }
-            }
-        }
-
         item{
             Surface(shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surface){
                 Column(Modifier.padding(18.dp)){
                     Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold)
-                    DetailLine(
-                        Icons.Outlined.WbSunny,
-                        "Dnevni sati",
-                        "D smjene · "+data.values.count{it.code=="D"}.toString(),
-                        minutesLabel(analytics.dayMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.DarkMode,
-                        "Noćni sati",
-                        "N smjene · "+data.values.count{it.code=="N"}.toString(),
-                        minutesLabel(analytics.nightMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.CalendarMonth,
-                        "Subote",
-                        saturdayCount.toString()+" smjena",
-                        minutesLabel(analytics.saturdayMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.Event,
-                        "Nedjelje",
-                        sundayCount.toString()+" smjena",
-                        minutesLabel(analytics.sundayMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.Celebration,
-                        "Blagdani",
-                        holidayShiftCount.toString()+" smjena",
-                        minutesLabel(analytics.holidayMinutes)
-                    )
-                    DetailLine(
-                        Icons.Outlined.BeachAccess,
-                        "GO",
-                        "Godišnji odmor",
-                        data.values.count{it.code=="GO"}.toString()+" dana"
-                    )
-                    DetailLine(
-                        Icons.Outlined.MedicalServices,
-                        "BO",
-                        "Bolovanje",
-                        data.values.count{it.code=="BO"}.toString()+" dana"
-                    )
-                    DetailLine(
-                        Icons.Outlined.EventAvailable,
-                        "PD",
-                        "Plaćeni dopust",
-                        data.values.count{it.code=="PD"}.toString()+" dana"
-                    )
-                    DetailLine(
-                        Icons.Outlined.Weekend,
-                        "SD",
-                        "Slobodan dan",
-                        data.values.count{it.code=="SD"}.toString()+" dana"
-                    )
+                    DetailLine(Icons.Outlined.Balance,"Mjesečni fond","Kalendarski fond rada",minutesLabel(analytics.plannedMinutes))
+                    DetailLine(Icons.Outlined.Addchart,"Iznad fonda","Kreditirani sati iznad fonda",minutesLabel(analytics.overtimeMinutes))
+                    DetailLine(Icons.Outlined.WbSunny,"Dnevni sati","D · "+data.values.count{it.code=="D"}+" smjena",minutesLabel(analytics.dayMinutes))
+                    DetailLine(Icons.Outlined.DarkMode,"Noćni sati","N · "+data.values.count{it.code=="N"}+" smjena",minutesLabel(analytics.nightMinutes))
+                    DetailLine(Icons.Outlined.CalendarMonth,"Subote",saturdayCount.toString()+" smjena",minutesLabel(analytics.saturdayMinutes))
+                    DetailLine(Icons.Outlined.Event,"Nedjelje",sundayCount.toString()+" smjena",minutesLabel(analytics.sundayMinutes))
+                    DetailLine(Icons.Outlined.Celebration,"Blagdani",holidayShiftCount.toString()+" smjena",minutesLabel(analytics.holidayMinutes))
+                    DetailLine(Icons.Outlined.BeachAccess,"GO","Godišnji odmor",data.values.count{it.code=="GO"}.toString()+" dana")
+                    DetailLine(Icons.Outlined.MedicalServices,"BO","Bolovanje",data.values.count{it.code=="BO"}.toString()+" dana")
+                    DetailLine(Icons.Outlined.EventAvailable,"PD","Plaćeni dopust",data.values.count{it.code=="PD"}.toString()+" dana")
+                    DetailLine(Icons.Outlined.Weekend,"SD","Slobodan dan",data.values.count{it.code=="SD"}.toString()+" dana")
+                    DetailLine(Icons.Outlined.Schedule,"Ukupno odrađeno","Automatski iz kalendara",minutesLabel(analytics.workedMinutes))
                 }
             }
         }
     }
 }
-
 @Composable private fun HoursDonut(
     dayMinutes:Long,
     nightMinutes:Long,

@@ -43,6 +43,31 @@ test("calendar and statistics remain interactive", async ({page}) => {
   await expect(page.locator("#statsPeriodMenu")).toBeVisible();
 });
 
+test("statistics show monthly fund and hours above fund", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const accepted=await page.evaluate(async () => {
+    const schedule:any={};
+    for(let day=1;day<=16;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
+    const store=(window as any).RasporedDataStore;
+    const ok=store.set("raspored.schedule",JSON.stringify(schedule));
+    await store.flush();
+    return ok;
+  });
+  expect(accepted).toBe(true);
+  await page.reload();
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  await page.locator('[data-route="stats"]:visible').first().click();
+
+  await expect(page.locator("#workedTotal")).toHaveText("192 h");
+  await expect(page.locator("#detailStats")).toContainText("Fond sati");
+  await expect(page.locator("#detailStats")).toContainText("176h");
+  await expect(page.locator("#detailStats")).toContainText("Iznad fonda");
+  await expect(page.locator("#detailStats")).toContainText("16h");
+  await expect(page.locator("#detailStats")).toContainText("Saldo");
+  await expect(page.locator("#detailStats")).toContainText("+16h");
+});
+
 test("home is the start view and manual calendar editing persists", async ({page}) => {
   await page.goto("/");
   await expect(page.locator('[data-view="home"]')).toBeVisible();
@@ -800,7 +825,7 @@ async function openPayroll(page:any){
   await expect(page.locator('[data-view="payroll"]')).toBeVisible();
 }
 
-test("salary estimator uses verified KBC Rijeka settings and persists choices", async ({page}) => {
+test("salary estimator uses current KBC Rijeka public-service settings and persists choices", async ({page}) => {
   await page.goto("/");
   await openPayroll(page);
   await expect(page.locator("#payrollCounty")).toHaveValue("Primorsko-goranska");
@@ -828,7 +853,7 @@ test("salary estimator uses verified KBC Rijeka settings and persists choices", 
   await expect(page.locator("#payrollRole")).toHaveValue("health-portir");
   await expect(page.locator("#payrollCoefficient")).toHaveValue("1.39");
   await expect(page.locator("#payrollYears")).toHaveValue("10");
-  await expect(page.locator("#payrollTurnus")).not.toBeChecked();
+  await expect(page.locator("#payrollTurnus")).toBeDisabled();
 });
 
 test("salary estimator switches between police, fire and manual local regimes", async ({page}) => {
@@ -895,7 +920,7 @@ test("salary estimator applies residence tax presets independently from institut
   expect(stored.taxHigher).toBe(29.5);
 });
 
-test("salary estimator counts GO BO PD only on regular fund days", async ({page}) => {
+test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime base separately", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
   await page.evaluate(async () => {
@@ -910,33 +935,8 @@ test("salary estimator counts GO BO PD only on regular fund days", async ({page}
   await page.locator("#payrollMonth").fill("2026-06");
   await page.locator("#payrollMonth").dispatchEvent("change");
   await expect(page.locator("#payrollBreakdown")).toContainText("Planirani izostanci");
-  await expect(page.locator("#payrollBreakdown")).toContainText("56 h");
-  await expect(page.locator("#payrollBreakdown")).not.toContainText("Osnovna satnica prekovremenih sati");
-});
-
-test("statistics and salary estimator expose real overtime above monthly fund", async ({page}) => {
-  await page.goto("/");
-  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
-  const accepted=await page.evaluate(async () => {
-    const store=(window as any).RasporedDataStore;
-    const schedule:any={};
-    for(let day=1;day<=16;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
-    const ok=store.set("raspored.schedule",JSON.stringify(schedule));
-    await store.flush();
-    return ok;
-  });
-  expect(accepted).toBe(true);
-  await page.reload();
-  await page.locator('[data-route="stats"]:visible').first().click();
-  await expect(page.locator("#statsCategories")).toContainText("Prekovremeni");
-  await expect(page.locator("#statsCategories")).toContainText("16h");
-  await expect(page.locator("#statsPayrollOvertime")).toContainText("16h");
-
-  await openPayroll(page);
-  await page.locator("#payrollMonth").fill("2026-10");
-  await page.locator("#payrollMonth").dispatchEvent("change");
   await expect(page.locator("#payrollBreakdown")).toContainText("Osnovna satnica prekovremenih sati");
-  await expect(page.locator("#payrollBreakdown")).toContainText("16 h");
+  await expect(page.locator("#payrollBreakdown")).toContainText("8 h");
 });
 
 test("salary estimator exposes official sources and clearly labels approximation limits", async ({page}) => {
@@ -978,7 +978,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
   await expect(page.locator(".about-takto")).toContainText("Takto");
-  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.25");
+  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.26");
   await expect(page.locator(".about-takto")).toContainText("Brendigo");
 });
 
