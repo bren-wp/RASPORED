@@ -948,21 +948,73 @@ function renderHours(){
   if(history)history.innerHTML=rows.length?rows.join(""):'<div class="hours-empty">'+icon("clock")+'<p>Za ovaj mjesec nema oznaka u kalendaru.</p></div>';
 }
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
+function scanPreviewContentGeometry(){
+  var stage=document.getElementById("scanImageStage"),img=document.getElementById("scanPreviewImage");
+  if(!stage||!img||!img.naturalWidth||!img.naturalHeight)return null;
+  var stageRect=stage.getBoundingClientRect(),imgRect=img.getBoundingClientRect();
+  if(stageRect.width<=0||stageRect.height<=0||imgRect.width<=0||imgRect.height<=0)return null;
+  var imageAspect=img.naturalWidth/img.naturalHeight,boxAspect=imgRect.width/imgRect.height;
+  var width,height,left,top;
+  if(imageAspect>boxAspect){
+    width=imgRect.width;height=width/imageAspect;
+    left=imgRect.left-stageRect.left;top=imgRect.top-stageRect.top+(imgRect.height-height)/2;
+  }else{
+    height=imgRect.height;width=height*imageAspect;
+    top=imgRect.top-stageRect.top;left=imgRect.left-stageRect.left+(imgRect.width-width)/2;
+  }
+  return {left:left,top:top,width:width,height:height};
+}
+function scanPercentFromClientY(clientY){
+  var stage=document.getElementById("scanImageStage"),geometry=scanPreviewContentGeometry();
+  if(!stage||!geometry||geometry.height<=0)return null;
+  var rect=stage.getBoundingClientRect();
+  return Math.max(0,Math.min(100,((clientY-rect.top-geometry.top)/geometry.height)*100));
+}
+function setScanCrop(top,bottom,detectedIndex){
+  var height=Math.max(2,Math.min(25,Number(bottom)-Number(top)));
+  top=Math.max(0,Math.min(100-height,Number(top)||0));
+  bottom=top+height;
+  state.scanCropTop=top;state.scanCropBottom=bottom;
+  state.scanDetectedRowIndex=Number.isInteger(detectedIndex)?detectedIndex:-1;
+  var topInput=document.getElementById("scanCropTop"),bottomInput=document.getElementById("scanCropBottom");
+  if(topInput)topInput.value=String(top);
+  if(bottomInput)bottomInput.value=String(bottom);
+  updateScanCropOverlay();
+}
+function shiftScanCrop(delta){
+  var height=Math.max(2,state.scanCropBottom-state.scanCropTop);
+  var top=Math.max(0,Math.min(100-height,state.scanCropTop+Number(delta||0)));
+  setScanCrop(top,top+height,-1);
+}
+function resetScanCrop(){
+  if(state.scanDetectedRows.length&&state.scanDetectedRowIndex>=0){
+    selectDetectedScanRow(state.scanDetectedRowIndex);
+    return;
+  }
+  setScanCrop(34,38,-1);
+}
 function updateScanCropOverlay(){
   var band=document.getElementById("scanRowCrop"),controls=document.getElementById("scanCropControls");
   var topInput=document.getElementById("scanCropTop"),bottomInput=document.getElementById("scanCropBottom");
   var nav=document.getElementById("scanCropRowNav"),label=document.getElementById("scanCropRowLabel");
   var prev=document.getElementById("scanCropPrev"),next=document.getElementById("scanCropNext");
   var hint=document.getElementById("scanCropHint"),stage=document.getElementById("scanImageStage");
+  var transforms=document.getElementById("scanTransformActions");
   if(topInput)state.scanCropTop=Math.max(0,Math.min(98,Number(topInput.value)||34));
   if(bottomInput)state.scanCropBottom=Math.max(2,Math.min(100,Number(bottomInput.value)||38));
   if(state.scanCropBottom<state.scanCropTop+2)state.scanCropBottom=Math.min(100,state.scanCropTop+2);
   if(band){
     band.hidden=!state.scanSingleMode||!state.scanOriginalFile;
-    band.style.top=state.scanCropTop+"%";
-    band.style.height=Math.max(2,state.scanCropBottom-state.scanCropTop)+"%";
+    var geometry=scanPreviewContentGeometry();
+    if(geometry){
+      band.style.left=geometry.left+"px";
+      band.style.right=Math.max(0,(stage?stage.clientWidth:0)-geometry.left-geometry.width)+"px";
+      band.style.top=(geometry.top+geometry.height*state.scanCropTop/100)+"px";
+      band.style.height=Math.max(2,geometry.height*(state.scanCropBottom-state.scanCropTop)/100)+"px";
+    }
   }
   if(controls)controls.hidden=!state.scanSingleMode||!state.scanOriginalFile;
+  if(transforms)transforms.hidden=!state.scanOriginalFile;
   var hasRows=state.scanSingleMode&&state.scanDetectedRows.length>0;
   if(nav)nav.hidden=!hasRows;
   if(label)label.textContent=hasRows&&state.scanDetectedRowIndex>=0
@@ -971,21 +1023,15 @@ function updateScanCropOverlay(){
   if(prev)prev.disabled=!hasRows||state.scanDetectedRowIndex<=0;
   if(next)next.disabled=!hasRows||state.scanDetectedRowIndex<0||state.scanDetectedRowIndex>=state.scanDetectedRows.length-1;
   if(hint)hint.textContent=hasRows
-    ?"Pronađena je mreža tablice. Dodirni osobu na fotografiji ili koristi prethodni/sljedeći redak."
-    :"Dodirni osobu na fotografiji za brzo centriranje cropa; po potrebi fino prilagodi granice.";
+    ?"Dodirni osobu, povuci plavi pojas ili koristi prethodni/sljedeći redak."
+    :"Dodirni osobu ili povuci plavi pojas gore/dolje; rubove dodatno prilagodi klizačima.";
   if(stage)stage.classList.toggle("is-row-detected",hasRows);
 }
 function selectDetectedScanRow(index){
   if(!state.scanDetectedRows.length)return;
   index=Math.max(0,Math.min(state.scanDetectedRows.length-1,Number(index)||0));
   var row=state.scanDetectedRows[index];
-  state.scanDetectedRowIndex=index;
-  state.scanCropTop=row.top;
-  state.scanCropBottom=row.bottom;
-  var top=document.getElementById("scanCropTop"),bottom=document.getElementById("scanCropBottom");
-  if(top)top.value=String(row.top);
-  if(bottom)bottom.value=String(row.bottom);
-  updateScanCropOverlay();
+  setScanCrop(row.top,row.bottom,index);
 }
 function snapScanCropToPercent(percent){
   percent=Math.max(0,Math.min(100,Number(percent)||0));
@@ -1000,21 +1046,50 @@ function snapScanCropToPercent(percent){
   }
   var half=2;
   var top=Math.max(0,Math.min(100-half*2,percent-half));
-  state.scanDetectedRowIndex=-1;
-  state.scanCropTop=top;
-  state.scanCropBottom=top+half*2;
-  var topInput=document.getElementById("scanCropTop"),bottomInput=document.getElementById("scanCropBottom");
-  if(topInput)topInput.value=String(state.scanCropTop);
-  if(bottomInput)bottomInput.value=String(state.scanCropBottom);
-  updateScanCropOverlay();
+  setScanCrop(top,top+half*2,-1);
 }
 function loadScanImage(file){
   return new Promise(function(resolve,reject){
     var image=new Image(),url=URL.createObjectURL(file);
     image.onload=function(){URL.revokeObjectURL(url);resolve(image)};
-    image.onerror=function(){URL.revokeObjectURL(url);reject(new Error("Fotografiju nije moguće otvoriti za crop"))};
+    image.onerror=function(){URL.revokeObjectURL(url);reject(new Error("Fotografiju nije moguće otvoriti."))};
     image.src=url;
   });
+}
+async function rotateScanFile(file,degrees){
+  var image=await loadScanImage(file),normalized=((Number(degrees)||0)%360+360)%360;
+  if(![90,180,270].includes(normalized))return file;
+  var sourceWidth=image.naturalWidth||image.width,sourceHeight=image.naturalHeight||image.height;
+  if(!sourceWidth||!sourceHeight)throw new Error("Fotografija nema valjane dimenzije.");
+  var swap=normalized===90||normalized===270,canvas=document.createElement("canvas");
+  canvas.width=swap?sourceHeight:sourceWidth;canvas.height=swap?sourceWidth:sourceHeight;
+  var ctx=canvas.getContext("2d");
+  if(!ctx)throw new Error("Fotografiju nije moguće obraditi.");
+  ctx.translate(canvas.width/2,canvas.height/2);
+  ctx.rotate(normalized*Math.PI/180);
+  ctx.drawImage(image,-sourceWidth/2,-sourceHeight/2,sourceWidth,sourceHeight);
+  var blob=await new Promise(function(resolve,reject){
+    canvas.toBlob(function(value){value?resolve(value):reject(new Error("Fotografiju nije moguće okrenuti."))},"image/jpeg",.97);
+  });
+  return new File([blob],"raspored-okrenut.jpg",{type:"image/jpeg"});
+}
+async function rotateCurrentScan(degrees){
+  if(!state.scanOriginalFile)return;
+  var left=document.getElementById("scanRotateLeft"),right=document.getElementById("scanRotateRight");
+  if(left)left.disabled=true;if(right)right.disabled=true;
+  var status=document.getElementById("scanStatus");
+  if(status)status.querySelector("span").textContent="Okrećem fotografiju...";
+  try{
+    var rotated=await rotateScanFile(state.scanOriginalFile,degrees);
+    state.scanCropTop=34;state.scanCropBottom=38;state.scanDetectedRowIndex=-1;
+    var top=document.getElementById("scanCropTop"),bottom=document.getElementById("scanCropBottom");
+    if(top)top.value="34";if(bottom)bottom.value="38";
+    await handleScanFile(rotated,false,false);
+  }catch(error){
+    toast(error&&error.message?error.message:"Fotografiju nije moguće okrenuti.");
+  }finally{
+    if(left)left.disabled=false;if(right)right.disabled=false;
+  }
 }
 async function detectSinglePersonScanRows(file){
   state.scanDetectedRows=[];
@@ -1130,7 +1205,7 @@ async function handleScanFile(file,forceOcr,keepPreview){
   status.querySelector("span").textContent=state.scanSingleMode?"Prepoznavanje označene osobe...":"Automatsko prepoznavanje rasporeda...";
   if(progress)progress.style.width="4%";
   try{
-    if(!window.RasporedWebOcr||typeof window.RasporedWebOcr.recognizeSchedule!=="function")throw new Error("OCR modul nije dostupan");
+    if(!window.RasporedWebOcr||typeof window.RasporedWebOcr.recognizeSchedule!=="function")throw new Error("Prepoznavanje trenutačno nije dostupno.");
     var result=await window.RasporedWebOcr.recognizeSchedule(file,function(value){
       if(generation===state.scanGeneration&&progress)progress.style.width=Math.max(4,Math.min(96,Math.round(value*100)))+"%";
     });
@@ -1370,7 +1445,7 @@ function bind(){
       var focused=await createSinglePersonScanFile(state.scanOriginalFile);
       await handleScanFile(focused,true,true);
     }catch(e){
-      toast("Označeni redak nije moguće pripremiti za OCR.");
+      toast("Označeni redak nije moguće pripremiti za prepoznavanje.");
     }finally{this.disabled=false}
   });
   ["cameraInput","galleryInput"].forEach(function(id){var input=document.getElementById(id);input.addEventListener("change",function(){if(this.files&&this.files[0])handleScanFile(this.files[0])})});
