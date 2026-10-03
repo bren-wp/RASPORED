@@ -67,19 +67,17 @@ class ScheduleStore(context: Context) {
 
     fun record(date: LocalDate, rawCode: String?) {
         val code = normalizeCode(rawCode)
-        runCatching {
-            val db = database.writableDatabase
-            if (code == null) {
-                db.delete(TABLE_ENTRIES, "$COLUMN_DATE = ?", arrayOf(date.toString()))
-            } else {
-                putEntry(db, date.toString(), code)
-            }
+        val db = database.writableDatabase
+        if (code == null) {
+            db.delete(TABLE_ENTRIES, "$COLUMN_DATE = ?", arrayOf(date.toString()))
+        } else {
+            putEntry(db, date.toString(), code)
         }
 
         val editor = legacyPreferences.edit()
         if (code != null) editor.putString(date.toString(), code)
         else editor.remove(date.toString())
-        editor.apply()
+        check(editor.commit()) { "Unable to persist schedule compatibility mirror" }
     }
 
     private fun loadFromDatabase(): Map<String, String> {
@@ -116,51 +114,45 @@ class ScheduleStore(context: Context) {
 
     private fun migrateLegacyPreferences() {
         val legacy = loadFromLegacyPreferences()
-        if (legacy.isEmpty()) {
-            // Opening the DB still guarantees schema creation before first write.
-            runCatching { database.writableDatabase }
-            return
-        }
-
-        runCatching {
-            val db = database.writableDatabase
-            db.beginTransaction()
-            try {
-                val migrated = db.rawQuery(
-                    "SELECT $COLUMN_META_VALUE FROM $TABLE_META WHERE $COLUMN_META_KEY = ? LIMIT 1",
-                    arrayOf(META_LEGACY_MIGRATED)
-                ).use { cursor ->
-                    cursor.moveToFirst() && cursor.getString(0) == "1"
-                }
-
-                if (!migrated) {
-                    legacy.forEach { (date, code) ->
-                        val values = ContentValues().apply {
-                            put(COLUMN_DATE, date)
-                            put(COLUMN_CODE, code)
-                        }
-                        db.insertWithOnConflict(
-                            TABLE_ENTRIES,
-                            null,
-                            values,
-                            SQLiteDatabase.CONFLICT_IGNORE
-                        )
-                    }
-                    val meta = ContentValues().apply {
-                        put(COLUMN_META_KEY, META_LEGACY_MIGRATED)
-                        put(COLUMN_META_VALUE, "1")
-                    }
-                    db.insertWithOnConflict(
-                        TABLE_META,
-                        null,
-                        meta,
-                        SQLiteDatabase.CONFLICT_REPLACE
-                    )
-                }
-                db.setTransactionSuccessful()
-            } finally {
-                db.endTransaction()
+        val db = database.writableDatabase
+        db.beginTransaction()
+        try {
+            val migrated = db.rawQuery(
+                "SELECT $COLUMN_META_VALUE FROM $TABLE_META WHERE $COLUMN_META_KEY = ? LIMIT 1",
+                arrayOf(META_LEGACY_MIGRATED)
+            ).use { cursor ->
+                cursor.moveToFirst() && cursor.getString(0) == "1"
             }
+
+            if (!migrated) {
+                legacy.forEach { (date, code) ->
+                    val values = ContentValues().apply {
+                        put(COLUMN_DATE, date)
+                        put(COLUMN_CODE, code)
+                    }
+                    val inserted = db.insertWithOnConflict(
+                        TABLE_ENTRIES,
+                        null,
+                        values,
+                        SQLiteDatabase.CONFLICT_IGNORE
+                    )
+                    check(inserted != -1L) { "Unable to migrate legacy schedule entry $date" }
+                }
+                val meta = ContentValues().apply {
+                    put(COLUMN_META_KEY, META_LEGACY_MIGRATED)
+                    put(COLUMN_META_VALUE, "1")
+                }
+                val marker = db.insertWithOnConflict(
+                    TABLE_META,
+                    null,
+                    meta,
+                    SQLiteDatabase.CONFLICT_REPLACE
+                )
+                check(marker != -1L) { "Unable to persist schedule migration marker" }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
     }
 
@@ -183,12 +175,13 @@ class ScheduleStore(context: Context) {
             put(COLUMN_DATE, date)
             put(COLUMN_CODE, code)
         }
-        db.insertWithOnConflict(
+        val result = db.insertWithOnConflict(
             TABLE_ENTRIES,
             null,
             values,
             SQLiteDatabase.CONFLICT_REPLACE
         )
+        check(result != -1L) { "Unable to persist schedule entry $date" }
     }
 
     private class ScheduleDatabaseHelper(context: Context) :
