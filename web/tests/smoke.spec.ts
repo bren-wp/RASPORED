@@ -448,16 +448,19 @@ test("recognized schedule can be corrected before import", async ({page}) => {
 
 test("time evidence is derived automatically from the calendar", async ({page}) => {
   await page.goto("/");
-  await page.evaluate(async () => {
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const accepted=await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
-    store.set("raspored.schedule",JSON.stringify({
+    const ok=store.set("raspored.schedule",JSON.stringify({
       "2026-10-01":"D",
       "2026-10-02":"N",
       "2026-10-03":"GO",
       "2026-10-04":"J"
     }));
     await store.flush();
+    return ok;
   });
+  expect(accepted).toBe(true);
   await page.reload();
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
