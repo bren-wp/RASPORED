@@ -59,6 +59,7 @@ for (const route of ["home","calendar","scan","stats","payroll","hours","setting
     }
 
     if(route==="scan"){
+      await page.locator("#scanSinglePersonToggle").uncheck();
       await page.locator("#galleryInput").setInputFiles({
         name:"raspored-izmisljeni.svg",
         mimeType:"image/svg+xml",
