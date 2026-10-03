@@ -7,11 +7,12 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
 import java.time.YearMonth
+import androidx.test.platform.app.InstrumentationRegistry
+import hr.raspored.app.data.ScheduleStore
 import org.junit.Rule
 import org.junit.Test
 
@@ -37,15 +38,17 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithText("Očisti dan").performClick()
+        val clearedDate = currentMonth.atDay(3)
+        val persistedStore = ScheduleStore(InstrumentationRegistry.getInstrumentation().targetContext)
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithTag("calendar-dialog-current-state")
-                .fetchSemanticsNodes().isEmpty()
+            persistedStore.load()[clearedDate.toString()] == null
         }
-        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithTag("calendar-dialog-current-state")
-                .fetchSemanticsNodes().size == 1
-        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("nav-home").performClick()
+        composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
+        composeRule.onNodeWithTag("nav-calendar").performClick()
+        composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
+        composeRule.onNodeWithTag("calendar-day-"+clearedDate).performClick()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("Nije označeno")
         composeRule.onAllNodesWithText("Očisti dan").assertCountEquals(0)
         composeRule.onNodeWithText("Zatvori").performClick()
