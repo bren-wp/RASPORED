@@ -261,7 +261,7 @@ $localOcr = ai_text_slice($localOcr, 12000);
 $prompt = <<<'PROMPT'
 Analiziraj fotografiju mjesečnog rasporeda rada. Izvuci SVAKI numerirani redak djelatnika i SVAKU vidljivu oznaku po točnom stupcu dana. Ne sažimaj prazne dane i ne pomiči oznake ulijevo. Brojevi 1–31 u zaglavlju određuju stupce. Vrati redni broj, ime i prezime kako su čitljivi, te samo stvarno vidljive oznake za dane.
 
-Standardne oznake: D=dnevna smjena, N=noćna smjena, GO=godišnji odmor, BO=bolovanje, PD=plaćeni dopust, SD=slobodan dan. Ako je u ćeliji druga kratka oznaka kao J, S, P1 ili broj 1/2/3, sačuvaj je doslovno i NE izmišljaj značenje. Prazna ćelija ne dobiva oznaku.
+Standardne oznake: D=dnevna smjena 12 h, N=noćna smjena 12 h, J=jutarnja smjena 8 h, GO=godišnji odmor, BO=bolovanje, PD=plaćeni dopust, SD=slobodan dan. Ako je u ćeliji druga kratka oznaka kao S, P1 ili broj 1/2/3, sačuvaj je doslovno i NE izmišljaj značenje. Prazna ćelija ne dobiva oznaku.
 
 Ako je raspored fotografiran s monitora ili pod perspektivom, svejedno koristi geometriju tablice i redne brojeve. Posebno provjeri prvi i zadnji redak te dane 1 i zadnji dan mjeseca. expectedRows postavi na najveći pouzdano vidljiv broj redaka/raspon numeriranih redaka. Ne izmišljaj osobe, oznake ni dane. Ako nešto nije čitljivo, izostavi oznaku umjesto nagađanja.
 PROMPT;
