@@ -37,6 +37,7 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithText("Očisti dan").performClick()
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("Nije označeno")
         composeRule.onAllNodesWithText("Očisti dan").assertCountEquals(0)
         composeRule.onNodeWithText("Zatvori").performClick()
