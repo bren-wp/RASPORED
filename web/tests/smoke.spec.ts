@@ -14,7 +14,7 @@ test("responsive Takto home uses production composition", async ({page}) => {
     await expect(page.getByText("Tvoj raspored.")).toBeVisible();
     await expect(page.getByText("Na prvi pogled.")).toBeVisible();
     await expect(page.getByText("Dobro jutro!")).toBeVisible();
-    await expect(page.getByRole("button",{name:/Skeniraj raspored/i}).last()).toBeVisible();
+    await expect(page.getByRole("button",{name:/Uvezi raspored/i}).last()).toBeVisible();
     const mobileNav=page.locator(".bottom-nav");
     await expect(mobileNav).toContainText("Početna");
     await expect(mobileNav).toContainText("Kalendar");
