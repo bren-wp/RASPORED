@@ -484,7 +484,7 @@ function render(){
   }
   if(evidence.holidayCompensatedDays){
     rows.push({
-      label:"Blagdan / neradni dan bez kalendarske D/N smjene",
+      label:"Blagdan / neradni dan bez kalendarske D/N/J smjene",
       minutes:evidence.holidayCompensated,
       value:null,
       rate:null
