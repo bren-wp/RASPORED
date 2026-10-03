@@ -269,8 +269,11 @@ test("single-person scan supports rotation, manual movement and direct drag", as
   expect(Number(await top.inputValue())).toBeGreaterThan(34);
 
   const band=page.locator("#scanRowCrop");
+  await band.scrollIntoViewIfNeeded();
+  await expect(band).toBeVisible();
   const box=await band.boundingBox();
   expect(box).not.toBeNull();
+  expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
   const beforeDrag=Number(await top.inputValue());
   await page.mouse.move((box?.x||0)+(box?.width||1)/2,(box?.y||0)+(box?.height||1)/2);
   await page.mouse.down();
