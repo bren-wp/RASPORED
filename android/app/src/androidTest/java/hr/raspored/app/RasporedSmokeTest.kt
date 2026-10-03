@@ -1,10 +1,12 @@
 package hr.raspored.app
 
-import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
@@ -26,14 +28,28 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(2)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(4)).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-j").performClick()
         // Make the neutral-state assertion deterministic even when another instrumented
         // test has left persisted schedule data for this date.
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithText("Očisti dan").performClick()
+        composeRule.waitForIdle()
+
+        val transientSheetStillVisible = composeRule
+            .onAllNodes(hasTestTag("calendar-dialog-current-state"))
+            .fetchSemanticsNodes()
+            .isNotEmpty()
+        if (transientSheetStillVisible) {
+            composeRule.onNodeWithText("Zatvori").performClick()
+            composeRule.waitForIdle()
+        }
+
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
-        composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextEquals("Nije označeno")
+        composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("Nije označeno")
+        composeRule.onAllNodesWithText("Očisti dan").assertCountEquals(0)
         composeRule.onNodeWithText("Zatvori").performClick()
 
         composeRule.onNodeWithTag("nav-home").performClick()
@@ -57,6 +73,9 @@ class RasporedSmokeTest {
 
         composeRule.onNodeWithTag("nav-scan").performClick()
         composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()
+        composeRule.onNodeWithTag("scan-source-step").fetchSemanticsNode()
+        composeRule.onNodeWithTag("scan-single-person-toggle").fetchSemanticsNode()
+        composeRule.onNodeWithText("Jedna osoba · preporučeno").fetchSemanticsNode()
         composeRule.onNodeWithContentDescription("Pomoć za skeniranje").performClick()
         composeRule.onNodeWithText("Kako dobiti dobar rezultat").fetchSemanticsNode()
         composeRule.onNodeWithText("Prazna kućica ostaje „Nije označeno”", substring = true).fetchSemanticsNode()
@@ -68,6 +87,7 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
         composeRule.onNodeWithTag("stats-payroll-preview").performClick()
         composeRule.onNodeWithTag("screen-payroll").fetchSemanticsNode()
+        composeRule.onNodeWithTag("payroll-overtime-hours").fetchSemanticsNode()
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithTag("screen-stats").fetchSemanticsNode()
 

@@ -64,7 +64,7 @@ internal fun OcrScanScreen(
     var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var result by remember { mutableStateOf<RecognizedSchedule?>(null) }
     var phase by remember { mutableStateOf(OcrPhase.Idle) }
-    var message by remember { mutableStateOf("Slikaj raspored ili odaberi fotografiju iz galerije.") }
+    var message by remember { mutableStateOf("Dodaj fotografiju i odaberi redak osobe.") }
     var selectedRow by remember { mutableIntStateOf(-1) }
     var selectedMonth by remember { mutableStateOf(defaultMonth) }
     var employeeMenu by remember { mutableStateOf(false) }
@@ -78,7 +78,7 @@ internal fun OcrScanScreen(
     var customConflictCode by remember { mutableStateOf("") }
     var ocrGeneration by remember { mutableIntStateOf(0) }
     var rosterIncomplete by remember { mutableStateOf(false) }
-    var singlePersonMode by remember { mutableStateOf(false) }
+    var singlePersonMode by remember { mutableStateOf(true) }
     var personCropRange by remember { mutableStateOf(0.34f..0.38f) }
     var detectedCropRanges by remember { mutableStateOf<List<ClosedFloatingPointRange<Float>>>(emptyList()) }
     var detectedCropIndex by remember { mutableIntStateOf(-1) }
@@ -195,7 +195,7 @@ internal fun OcrScanScreen(
             scoped.rows.isEmpty() -> {
                 selectedRow = -1
                 phase = OcrPhase.Error
-                message = "Nije pronađena osoba s oznakama D, N, GO, BO, PD ili SD. Provjeri fotografiju i pokušaj ponovno."
+                message = "Nije pronađena osoba s oznakama D, N, J, GO, BO, PD ili SD. Provjeri fotografiju i pokušaj ponovno."
             }
             totalRecognizedDays == 0 -> {
                 selectedRow = -1
@@ -522,13 +522,9 @@ internal fun OcrScanScreen(
         item {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text("Skeniraj raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Uvezi raspored", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        if (singlePersonMode) {
-                            "Učitaj cijelu fotografiju, zatim označi samo vodoravni redak jedne osobe — od imena i prezimena kroz sve dane."
-                        } else {
-                            "Slikaj cijelu tablicu ili učitaj fotografiju. Važno je da su vidljivi svi redci osoba i zaglavlje sa svim danima."
-                        },
+                        "Dodaj fotografiju, poravnaj tablicu, odaberi osobu i provjeri oznake prije spremanja.",
                         color = RasporedTokens.Slate
                     )
                 }
@@ -540,11 +536,58 @@ internal fun OcrScanScreen(
 
         item {
             Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 1.dp,
+                modifier = Modifier.fillMaxWidth().testTag("scan-source-step")
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ScanStepHeader(
+                        number = "1",
+                        title = "Dodaj fotografiju",
+                        subtitle = "Fotografiraj cijelu tablicu ili odaberi postojeću fotografiju. Najbolji rezultat daje ravna i oštra slika bez odsjaja."
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { launchCamera() },
+                            modifier = Modifier.weight(1f).heightIn(min = 66.dp).testTag("scan-source-camera"),
+                            shape = RoundedCornerShape(15.dp)
+                        ) {
+                            Icon(Icons.Outlined.PhotoCamera, null)
+                            Spacer(Modifier.width(7.dp))
+                            Text("Fotografiraj", fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(
+                            onClick = { galleryLauncher.launch("image/*") },
+                            modifier = Modifier.weight(1f).heightIn(min = 66.dp).testTag("scan-source-gallery"),
+                            shape = RoundedCornerShape(15.dp)
+                        ) {
+                            Icon(Icons.Outlined.Image, null)
+                            Spacer(Modifier.width(7.dp))
+                            Text("Odaberi sliku", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Surface(
                 shape = RoundedCornerShape(RasporedTokens.RadiusLarge),
                 color = RasporedTokens.Navy,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp)) {
+                    ScanStepHeader(
+                        number = "2",
+                        title = "Poravnaj i odaberi",
+                        subtitle = "Provjeri orijentaciju. Ako uvoziš samo jednu osobu, označi njezin vodoravni redak.",
+                        dark = true
+                    )
+                    Spacer(Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -677,28 +720,6 @@ internal fun OcrScanScreen(
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        TextButton(
-                            onClick = { launchCamera() },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Outlined.PhotoCamera, null, tint = Color.White)
-                            Spacer(Modifier.width(7.dp))
-                            Text("Ponovno skeniraj", color = Color.White, fontSize = 12.sp)
-                        }
-                        TextButton(
-                            onClick = { galleryLauncher.launch("image/*") },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Outlined.Image, null, tint = Color.White)
-                            Spacer(Modifier.width(7.dp))
-                            Text("Odaberi iz galerije", color = Color.White, fontSize = 12.sp)
-                        }
-                    }
-
                     if (bitmap != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -733,6 +754,7 @@ internal fun OcrScanScreen(
                         Column(Modifier.padding(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Switch(
+                                    modifier = Modifier.testTag("scan-single-person-toggle"),
                                     checked = singlePersonMode,
                                     onCheckedChange = { enabled ->
                                         singlePersonMode = enabled
@@ -752,8 +774,8 @@ internal fun OcrScanScreen(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Column {
-                                    Text("Samo jedna osoba", color = Color.White, fontWeight = FontWeight.Bold)
-                                    Text("Odaberi redak osobe", color = Color(0xFFC6D4EA), fontSize = 11.sp)
+                                    Text("Jedna osoba · preporučeno", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("Isključi samo kada namjerno uvoziš cijeli tim", color = Color(0xFFC6D4EA), fontSize = 11.sp)
                                 }
                             }
                             if (singlePersonMode && bitmap != null) {
@@ -890,10 +912,15 @@ internal fun OcrScanScreen(
                 shadowElevation = 1.dp
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Odaberi osobu", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    ScanStepHeader(
+                        number = "3",
+                        title = "Odaberi osobu i mjesec",
+                        subtitle = "Provjeri ime osobe prije uvoza. Rasporedi različitih osoba nikada se ne spajaju."
+                    )
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         if (allowTeamImport) {
-                            "Odaberi jednu osobu za osobni kalendar. Ako radiš rasporede za tim, možeš spremiti sve pouzdano prepoznate djelatnike kao odvojene lokalne rasporede bez registracije."
+                            "Odaberi jednu osobu za osobni kalendar. Ako radiš rasporede za tim, možeš spremiti sve pouzdano prepoznate djelatnike kao odvojene rasporede na ovom uređaju."
                         } else {
                             "Ako raspored sadrži više osoba, odaberi samo jednu osobu čiji će se raspored uvesti."
                         },
@@ -978,9 +1005,13 @@ internal fun OcrScanScreen(
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f)) {
-                            Text("Provjera rasporeda", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            ScanStepHeader(
+                                number = "4",
+                                title = "Provjeri i spremi",
+                                subtitle = "Pregledaj prepoznate oznake i dodirni oznaku za ispravak. Prazan dan ostaje „Nije označeno”."
+                            )
                             Text(
-                                "Pregledaj prepoznate smjene i dodirni oznaku za ispravak.",
+                                "D i N su primarne 12-satne smjene; J je dodatna jutarnja smjena.",
                                 color = RasporedTokens.Slate,
                                 fontSize = 12.sp
                             )
@@ -1248,13 +1279,43 @@ internal fun OcrScanScreen(
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Kalendar i prepoznavanje na uređaju rade bez računa. Android Postavke nemaju prijavu ni registraciju; osnovni rad ne ovisi o mreži.")
                     Text("• Prazna kućica ostaje „Nije označeno” i ne tretira se automatski kao SD. SD odaberi samo ako je izričito upisan ili odobren u izvornom rasporedu.")
-                    Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
+                    Text("• Provjeri D, N, J, GO, BO, PD i SD prije spremanja. D i N su primarne 12-satne smjene, J je jutarnja 8-satna smjena; druge kratke oznake aplikacija čuva bez izmišljanja značenja.")
                 }
             },
             confirmButton = {
                 TextButton(onClick = { helpOpen = false }) { Text("U redu") }
             }
         )
+    }
+}
+
+@Composable
+private fun ScanStepHeader(
+    number: String,
+    title: String,
+    subtitle: String,
+    dark: Boolean = false
+) {
+    val titleColor = if (dark) Color.White else MaterialTheme.colorScheme.onSurface
+    val subtitleColor = if (dark) Color(0xFFC6D4EA) else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(11.dp),
+            color = RasporedTokens.Cyan,
+            modifier = Modifier.size(34.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(number, color = Color.White, fontWeight = FontWeight.Black)
+            }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, color = titleColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Text(subtitle, color = subtitleColor, fontSize = 11.sp, lineHeight = 15.sp)
+        }
     }
 }
 
@@ -1288,6 +1349,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
     val bg = when (code) {
         "D" -> RasporedTokens.CyanSoft
         "N" -> RasporedTokens.NavyAlt
+        "J" -> RasporedTokens.Sky
         "GO" -> RasporedTokens.TealSoft
         "BO" -> RasporedTokens.Amber
         "PD" -> RasporedTokens.RedSoft
@@ -1295,7 +1357,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
         else -> Color(0xFF20314A)
     }
     val fg = when (code) {
-        "D", "N", "GO", "PD" -> Color.White
+        "D", "N", "J", "GO", "PD" -> Color.White
         "BO" -> RasporedTokens.Navy
         "SD" -> Color(0xFFD7E3F4)
         else -> Color(0xFFD7E3F4)
@@ -1328,7 +1390,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
 }
 
 private fun nextShiftCode(current: String): String {
-    val order = listOf("", "D", "N", "GO", "BO", "PD", "SD")
+    val order = listOf("", "D", "N", "J", "GO", "BO", "PD", "SD")
     val index = order.indexOf(current).takeIf { it >= 0 } ?: 0
     return order[(index + 1) % order.size]
 }

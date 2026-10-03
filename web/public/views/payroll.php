@@ -95,6 +95,9 @@
             <div><small>Koeficijent</small><b id="payrollCoefResult">—</b></div>
             <div><small>Staž</small><b id="payrollSeniority">—</b></div>
             <div><small>Mjesečni fond</small><b id="payrollFund">—</b></div>
+            <div><small>Odrađeno</small><b id="payrollWorkedHours">—</b></div>
+            <div><small>Prekovremeni sati</small><b id="payrollOvertimeHours">—</b></div>
+            <div><small>Vrijednost prekovremenih</small><b id="payrollOvertimeValue">—</b></div>
             <div><small>Bruto satnica</small><b id="payrollHourlyGross">—</b></div>
             <div><small>Radni dani iz evidencije</small><b id="payrollWorkedDays">—</b></div>
             <div><small>Prosj. bruto / radni dan</small><b id="payrollDailyGross">—</b></div>

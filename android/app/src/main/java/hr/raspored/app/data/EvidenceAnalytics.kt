@@ -26,14 +26,16 @@ data class EvidenceMonthSummary(
 /**
  * Calendar-derived monthly work summary.
  *
- * D and N are 12-hour shifts. GO/BO/PD receive an 8-hour monthly-fund credit
+ * D and N are the primary 12-hour shifts. J is an optional 8-hour morning shift.
+ * GO/BO/PD receive an 8-hour monthly-fund credit
  * only on ordinary Monday-Friday workdays. SD, blank days and custom codes do
  * not receive invented hours. A weekday public holiday receives an 8-hour
- * fund credit when no D/N shift is worked that day.
+ * fund credit when no D/N/J shift is worked that day.
  */
 object EvidenceAnalytics {
     const val DAY_SHIFT_MINUTES = 12L * 60L
     const val NIGHT_SHIFT_MINUTES = 12L * 60L
+    const val MORNING_SHIFT_MINUTES = 8L * 60L
     const val NIGHT_WINDOW_MINUTES = 8L * 60L
     const val STANDARD_DAY_MINUTES = 8L * 60L
 
@@ -72,11 +74,12 @@ object EvidenceAnalytics {
 
             if (shiftMinutes > 0L) {
                 worked += shiftMinutes
-                if (code == "D") {
-                    dayMinutes += shiftMinutes
-                } else if (code == "N") {
-                    nightMinutes += NIGHT_WINDOW_MINUTES
-                    dayMinutes += shiftMinutes - NIGHT_WINDOW_MINUTES
+                when (code) {
+                    "D", "J" -> dayMinutes += shiftMinutes
+                    "N" -> {
+                        nightMinutes += NIGHT_WINDOW_MINUTES
+                        dayMinutes += shiftMinutes - NIGHT_WINDOW_MINUTES
+                    }
                 }
 
                 when (date.dayOfWeek) {
@@ -102,7 +105,7 @@ object EvidenceAnalytics {
             val weekdayHoliday =
                 date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) &&
                     holidays.containsKey(date)
-            if (weekdayHoliday && code !in setOf("D", "N")) {
+            if (weekdayHoliday && code !in setOf("D", "N", "J")) {
                 holidayCreditMinutes += STANDARD_DAY_MINUTES
             }
         }
@@ -131,11 +134,13 @@ object EvidenceAnalytics {
     fun minutesForCode(code: String?): Long = when (ScheduleStore.normalizeCode(code)) {
         "D" -> DAY_SHIFT_MINUTES
         "N" -> NIGHT_SHIFT_MINUTES
+        "J" -> MORNING_SHIFT_MINUTES
         else -> 0L
     }
 
     fun hoursLabel(code: String?): String = when (ScheduleStore.normalizeCode(code)) {
         "D", "N" -> "12 h"
+        "J" -> "8 h"
         "GO", "BO", "PD", "SD" -> "—"
         null -> "—"
         else -> "Nije definirano"
@@ -144,6 +149,7 @@ object EvidenceAnalytics {
     fun shiftLabel(code: String?): String = when (val normalized = ScheduleStore.normalizeCode(code)) {
         "D" -> "Dnevna smjena"
         "N" -> "Noćna smjena"
+        "J" -> "Jutarnja smjena"
         "GO" -> "Godišnji odmor"
         "BO" -> "Bolovanje"
         "PD" -> "Plaćeni dopust"

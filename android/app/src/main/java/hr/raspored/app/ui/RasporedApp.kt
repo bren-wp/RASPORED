@@ -64,6 +64,7 @@ private val Red=RasporedTokens.Red
 private val Slate=RasporedTokens.Slate
 private val Dbg=RasporedTokens.CyanSoft
 private val Nbg=RasporedTokens.NavyAlt
+private val Jbg=RasporedTokens.Sky
 private val GObg=RasporedTokens.TealSoft
 private val BObg=RasporedTokens.Amber
 private val PDbg=RasporedTokens.RedSoft
@@ -73,6 +74,7 @@ private enum class Screen { Home, Calendar, Scan, Stats, Payroll, Hours, Setting
 private data class Shift(val code:String,val name:String,val time:String,val hours:Int)
 private val D=Shift("D","Dnevna smjena","07:00 – 19:00 (12h)",12)
 private val N=Shift("N","Noćna smjena","19:00 – 07:00 (12h)",12)
+private val J=Shift("J","Jutarnja smjena","07:00 – 15:00 (8h)",8)
 private val GO=Shift("GO","Godišnji odmor","—",0)
 private val BO=Shift("BO","Bolovanje","—",0)
 private val PD=Shift("PD","Plaćeni dopust","—",0)
@@ -136,7 +138,7 @@ private val NONE=Shift("","Nije označeno","—",0)
     val upcomingHeaderShift = (0L..31L).firstNotNullOfOrNull { offset ->
         val date = appDate().plusDays(offset)
         shiftFromCode(scheduleCodes[date.toString()].orEmpty())
-            ?.takeIf { it.code == "D" || it.code == "N" }
+            ?.takeIf { it.code in setOf("D","N","J") }
             ?.let { date to it }
     }
     val colors = if(darkMode) {
@@ -269,23 +271,18 @@ private val NONE=Shift("","Nije označeno","—",0)
             Column(Modifier.weight(1f)){
                 Row(verticalAlignment=Alignment.CenterVertically){
                     Text("Takto",color=Color.White,fontSize=26.sp,fontWeight=FontWeight.ExtraBold)
-                    if(BuildConfig.DEMO_MODE){
-                        Spacer(Modifier.width(8.dp))
-                        Surface(shape=RoundedCornerShape(8.dp),color=Cyan){
-                            Text("DEMO",color=Navy,fontSize=9.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp))
-                        }
-                    }
+
                 }
                 Text("Dodirni. Označi. Radi.",color=Color(0xFFC6D4EA),fontSize=10.sp,letterSpacing=.8.sp)
             }
             if(screen==Screen.Calendar){
                 IconButton(onClick=onScan){
-                    Icon(Icons.Outlined.DocumentScanner,"Skeniraj raspored",tint=Color.White)
+                    Icon(Icons.Outlined.DocumentScanner,"Uvezi raspored",tint=Color.White)
                 }
             }
             if(screen==Screen.Stats){
                 IconButton(onClick=onSync){
-                    Icon(Icons.Outlined.Refresh,"Osvježi lokalne podatke",tint=Color.White)
+                    Icon(Icons.Outlined.Refresh,"Osvježi podatke",tint=Color.White)
                 }
             }else{
                 IconButton(onClick=onNotify){
@@ -333,7 +330,7 @@ private val NONE=Shift("","Nije označeno","—",0)
     NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=8.dp){
         NavItem(selected,Screen.Home,"Početna",Icons.Outlined.Home,onSelect)
         NavItem(selected,Screen.Calendar,"Kalendar",Icons.Outlined.CalendarMonth,onSelect)
-        NavItem(selected,Screen.Scan,"Skeniraj",Icons.Outlined.PhotoCamera,onSelect,true)
+        NavItem(selected,Screen.Scan,"Uvezi",Icons.Outlined.PhotoCamera,onSelect,true)
         NavItem(selected,Screen.Stats,"Statistika",Icons.Outlined.BarChart,onSelect)
         NavItem(selected,Screen.Settings,"Više",Icons.Outlined.MoreHoriz,onSelect)
     }
@@ -352,13 +349,14 @@ private fun appDateTime():LocalDateTime = LocalDateTime.now()
 private fun appDate():LocalDate = appDateTime().toLocalDate()
 
 private fun shiftStatusLabel(date:LocalDate,shift:Shift,now:LocalDateTime=appDateTime()):String {
-    if(shift.code!="D"&&shift.code!="N")return if(shift.code.isBlank())"Nema smjene" else "Danas"
+    if(shift.code !in setOf("D","N","J"))return if(shift.code.isBlank())"Nema smjene" else "Danas"
     val start=when(shift.code){
-        "D"->date.atTime(LocalTime.of(7,0))
+        "D","J"->date.atTime(LocalTime.of(7,0))
         else->date.atTime(LocalTime.of(19,0))
     }
     val end=when(shift.code){
         "D"->date.atTime(LocalTime.of(19,0))
+        "J"->date.atTime(LocalTime.of(15,0))
         else->date.plusDays(1).atTime(LocalTime.of(7,0))
     }
     return when{
@@ -387,7 +385,7 @@ private fun currentShiftAt(now:LocalDateTime,codes:Map<String,String>):Pair<Loca
 private fun nextWorkShift(after:LocalDate,codes:Map<String,String>):Pair<LocalDate,Shift>? =
     (1L..62L).firstNotNullOfOrNull{offset->
         val date=after.plusDays(offset)
-        shiftAt(date,codes)?.takeIf{it.code=="D"||it.code=="N"}?.let{date to it}
+        shiftAt(date,codes)?.takeIf{it.code in setOf("D","N","J")}?.let{date to it}
     }
 
 private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String {
@@ -400,6 +398,7 @@ private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String 
 private fun shiftFromCode(code:String):Shift?=when(val normalized=ScheduleStore.normalizeCode(code)){
     "D"->D
     "N"->N
+    "J"->J
     "GO"->GO
     "BO"->BO
     "PD"->PD
@@ -527,7 +526,7 @@ private fun largeMinutesLabel(minutes:Long):String {
         item{
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
                 MetricCard("Ovaj mjesec",minutesLabel(analytics.workedMinutes),"Odrađeno sati",Icons.Outlined.CalendarMonth,Modifier.weight(1f))
-                MetricCard("Radne smjene",data.values.count{it.code=="D"||it.code=="N"}.toString(),"Ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
+                MetricCard("Radne smjene",data.values.count{it.code in setOf("D","N","J")}.toString(),"Ovaj mjesec",Icons.Outlined.BarChart,Modifier.weight(1f))
             }
         }
         item{
@@ -538,7 +537,7 @@ private fun largeMinutesLabel(minutes:Long):String {
             ){
                 Icon(Icons.Outlined.PhotoCamera,null)
                 Spacer(Modifier.width(10.dp))
-                Text("Skeniraj raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)
+                Text("Uvezi raspored",fontWeight=FontWeight.Bold,fontSize=18.sp)
             }
         }
         item{ShiftLegendGrid()}
@@ -774,9 +773,18 @@ private fun largeMinutesLabel(minutes:Long):String {
                     fontSize = 12.sp
                 )
 
+                Text(
+                    "Radne smjene · D i N su zadano 12 h",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
                 listOf(
-                    listOf(D, N, GO),
-                    listOf(BO, PD, SD)
+                    listOf(D, N),
+                    listOf(J, GO),
+                    listOf(BO, PD),
+                    listOf(SD)
                 ).forEach { row ->
                     Row(
                         Modifier.fillMaxWidth(),
@@ -814,6 +822,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                                         when (shift.code) {
                                             "D" -> "Dan"
                                             "N" -> "Noć"
+                                            "J" -> "Jutarnja"
                                             "GO" -> "Godišnji"
                                             "BO" -> "Bolovanje"
                                             "PD" -> "Plaćeni dopust"
@@ -839,7 +848,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                             .take(8)
                     },
                     label = { Text("Vlastita oznaka") },
-                    placeholder = { Text("npr. J, S, P1") },
+                    placeholder = { Text("npr. S, P1, EDU") },
                     leadingIcon = { Icon(Icons.Outlined.Edit, null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("calendar-custom-code")
@@ -1095,13 +1104,13 @@ private fun largeMinutesLabel(minutes:Long):String {
     val payrollNet=java.text.NumberFormat.getCurrencyInstance(Locale("hr","HR")).format(payrollEstimate.estimatedNet)
     val holidays=CroatianHolidays.forYear(month.year)
     val saturdayCount=data.count{(day,shift)->
-        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==6
+        shift.code in setOf("D","N","J")&&month.atDay(day).dayOfWeek.value==6
     }
     val sundayCount=data.count{(day,shift)->
-        shift.code in setOf("D","N")&&month.atDay(day).dayOfWeek.value==7
+        shift.code in setOf("D","N","J")&&month.atDay(day).dayOfWeek.value==7
     }
     val holidayShiftCount=data.count{(day,shift)->
-        shift.code in setOf("D","N")&&holidays.containsKey(month.atDay(day))
+        shift.code in setOf("D","N","J")&&holidays.containsKey(month.atDay(day))
     }
     val trend=if(previousAnalytics.workedMinutes>0L){
         ((analytics.workedMinutes-previousAnalytics.workedMinutes)*100L/previousAnalytics.workedMinutes).toInt()
@@ -1282,7 +1291,8 @@ private fun largeMinutesLabel(minutes:Long):String {
                     Text("Detaljna statistika",fontSize=20.sp,fontWeight=FontWeight.Bold)
                     DetailLine(Icons.Outlined.Balance,"Mjesečni fond","Kalendarski fond rada",minutesLabel(analytics.plannedMinutes))
                     DetailLine(Icons.Outlined.Addchart,"Iznad fonda","Kreditirani sati iznad fonda",minutesLabel(analytics.overtimeMinutes))
-                    DetailLine(Icons.Outlined.WbSunny,"Dnevni sati","D · "+data.values.count{it.code=="D"}+" smjena",minutesLabel(analytics.dayMinutes))
+                    DetailLine(Icons.Outlined.WbSunny,"Dnevni sati","D + J · "+data.values.count{it.code=="D"||it.code=="J"}+" smjena",minutesLabel(analytics.dayMinutes))
+                    DetailLine(Icons.Outlined.Schedule,"Jutarnje smjene","J · "+data.values.count{it.code=="J"}+" smjena",minutesLabel(data.values.count{it.code=="J"}.toLong()*EvidenceAnalytics.MORNING_SHIFT_MINUTES))
                     DetailLine(Icons.Outlined.DarkMode,"Noćni sati","N · "+data.values.count{it.code=="N"}+" smjena",minutesLabel(analytics.nightMinutes))
                     DetailLine(Icons.Outlined.CalendarMonth,"Subote",saturdayCount.toString()+" smjena",minutesLabel(analytics.saturdayMinutes))
                     DetailLine(Icons.Outlined.Event,"Nedjelje",sundayCount.toString()+" smjena",minutesLabel(analytics.sundayMinutes))
@@ -1589,7 +1599,7 @@ private fun largeMinutesLabel(minutes:Long):String {
 @Composable private fun ShiftLegendGrid(){
     Column(verticalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
         Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
-            listOf(D,N,GO).forEach{ShiftChip(it,Modifier.weight(1f))}
+            listOf(D,N,J,GO).forEach{ShiftChip(it,Modifier.weight(1f))}
         }
         Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
             listOf(BO,PD,SD).forEach{ShiftChip(it,Modifier.weight(1f))}
@@ -1597,5 +1607,5 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 }
 
-private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"GO"->GObg;"BO"->BObg;"PD"->PDbg;"SD"->SDbg;else->Color(0xFF20314A)}
-private fun shiftFg(s:Shift)=when(s.code){"D","N","GO","PD"->Color.White;"BO"->Navy;"SD"->Color(0xFFD7E3F4);else->Color(0xFFD7E3F4)}
+private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"J"->Jbg;"GO"->GObg;"BO"->BObg;"PD"->PDbg;"SD"->SDbg;else->Color(0xFF475569)}
+private fun shiftFg(s:Shift)=when(s.code){"D","N","GO","PD","J"->Color.White;"BO"->Navy;"SD"->Color(0xFFD7E3F4);else->Color.White}

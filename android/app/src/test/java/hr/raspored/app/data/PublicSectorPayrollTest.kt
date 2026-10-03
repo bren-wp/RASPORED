@@ -163,7 +163,13 @@ class PublicSectorPayrollTest {
     }
 
     @Test
-    fun paidAbsenceDaysContributeToOvertimeThresholdFromCalendar() {
+    fun monthlyFundExcludesWeekdayPublicHolidays() {
+        assertEquals(160, PublicSectorPayroll.monthlyFundHours(YearMonth.of(2026, 6)))
+        assertEquals(176, PublicSectorPayroll.monthlyFundHours(YearMonth.of(2026, 10)))
+    }
+
+    @Test
+    fun absenceCreditsOnlyOrdinaryWorkdaysAndKeepsHolidayCreditSeparate() {
         val schedule = buildMap {
             (2..9).forEach { day ->
                 put("2026-06-" + day.toString().padStart(2, '0'), "D")
@@ -188,9 +194,55 @@ class PublicSectorPayrollTest {
         )
 
         assertEquals(11, estimate.evidence.goDays)
-        assertEquals(88L * 60L, estimate.evidence.compensatedAbsenceMinutes)
-        assertEquals(8L * 60L, estimate.evidence.overtimeMinutes)
+        assertEquals(48L * 60L, estimate.evidence.compensatedAbsenceMinutes)
+        assertEquals(8L * 60L, estimate.evidence.holidayCompensatedMinutes)
+        assertEquals(0L, estimate.evidence.overtimeMinutes)
+    }
+
+    @Test
+    fun overtimeStartsOnlyAboveCorrectMonthlyFund() {
+        val schedule = (1..15).associate { day ->
+            "2026-10-" + day.toString().padStart(2, '0') to "D"
+        }
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 10),
+            scheduleCodes = schedule,
+            regimeId = "kbc-rijeka-2026",
+            coefficient = 1.25,
+            yearsService = 0,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = false
+        )
+
+        assertEquals(176, estimate.monthlyFundHours)
+        assertEquals(4L * 60L, estimate.evidence.overtimeMinutes)
         assertTrue(estimate.overtimeBasePay > 0.0)
+        assertTrue(estimate.overtimeAddition > 0.0)
+    }
+
+    @Test
+    fun morningJShiftContributesEightWorkedHours() {
+        val estimate = PublicSectorPayroll.estimate(
+            month = YearMonth.of(2026, 10),
+            scheduleCodes = mapOf("2026-10-01" to "J"),
+            regimeId = "public-health",
+            coefficient = 1.25,
+            yearsService = 0,
+            personalAllowance = 600.0,
+            taxLower = 20.0,
+            taxHigher = 25.0,
+            extraPercent = 0.0,
+            secondShift = false,
+            turnus = false
+        )
+
+        assertEquals(8L * 60L, estimate.evidence.workedMinutes)
+        assertEquals(8L * 60L, estimate.evidence.shift1Minutes)
+        assertEquals(0L, estimate.evidence.nightMinutes)
     }
 
     @Test
@@ -198,7 +250,6 @@ class PublicSectorPayrollTest {
         val estimate = PublicSectorPayroll.estimate(
             month = YearMonth.of(2026, 10),
             scheduleCodes = mapOf(
-                "2026-10-01" to "J",
                 "2026-10-02" to "P1"
             ),
             regimeId = "public-health",

@@ -67,7 +67,7 @@ class AndroidReadmeScreenshotTest {
 
         composeRule.onNodeWithTag("nav-scan").performClick()
         composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()
-        composeRule.onNodeWithText("Skeniraj raspored").fetchSemanticsNode()
+        composeRule.onNodeWithText("Uvezi raspored").fetchSemanticsNode()
         capture("android-scan")
         composeRule.onNodeWithContentDescription("Natrag").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()

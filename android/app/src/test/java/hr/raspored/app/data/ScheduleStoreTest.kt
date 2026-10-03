@@ -8,12 +8,19 @@ class ScheduleStoreTest {
     @Test
     fun normalizesBuiltInAndCustomScheduleCodes() {
         assertEquals("D", ScheduleStore.normalizeCode(" d "))
+        assertEquals("N", ScheduleStore.normalizeCode(" n "))
+        assertEquals("J", ScheduleStore.normalizeCode(" j "))
         assertEquals("PD", ScheduleStore.normalizeCode("pd"))
         assertEquals("P1", ScheduleStore.normalizeCode(" p1 "))
         assertEquals("EDU", ScheduleStore.normalizeCode("edu"))
         assertEquals("Č1", ScheduleStore.normalizeCode("č1"))
         assertEquals("GO", ScheduleStore.normalizeCode("G0"))
         assertEquals("BO", ScheduleStore.normalizeCode("b0"))
+    }
+
+    @Test
+    fun builtInCodesKeepPrimaryDAndNFirst() {
+        assertEquals(listOf("D", "N", "J", "GO", "BO", "PD", "SD"), ScheduleStore.BUILT_IN_CODES.toList())
     }
 
     @Test

@@ -7,8 +7,9 @@
       </section>
       <section class="card selected-day" id="selectedDayCard"></section>
       <div class="shift-legend">
-        <span><i class="shift d">D</i>Dnevna<br><small>radna smjena</small></span>
-        <span><i class="shift n">N</i>Noćna<br><small>radna smjena</small></span>
+        <span><i class="shift d">D</i>Dnevna<br><small>radna smjena · 12 h</small></span>
+        <span><i class="shift n">N</i>Noćna<br><small>radna smjena · 12 h</small></span>
+        <span><i class="shift j">J</i>Jutarnja<br><small>dodatna smjena · 8 h</small></span>
         <span><i class="shift go">GO</i>Godišnji odmor</span>
         <span><i class="shift bo">BO</i>Bolovanje</span>
         <span><i class="shift pd">PD</i>Plaćeni dopust</span>

@@ -12,7 +12,7 @@ import java.util.Locale
  * Deterministic local schedule store backed by SQLite.
  *
  * Values are short user-visible schedule labels. Built-in semantic codes
- * (D/N/GO/BO/PD/SD) keep their special meaning, while users may also save
+ * (D/N/J/GO/BO/PD/SD) keep their special meaning, while users may also save
  * their own short labels for workplace-specific roster notation.
  *
  * Existing SharedPreferences data is migrated transactionally on first use.
@@ -222,7 +222,7 @@ class ScheduleStore(context: Context) {
     companion object {
         const val ARCHIVE_GUARANTEE_YEARS = 10
         const val DATABASE_NAME = "raspored_schedule.db"
-        val BUILT_IN_CODES = setOf("D", "N", "GO", "BO", "PD", "SD")
+        val BUILT_IN_CODES = linkedSetOf("D", "N", "J", "GO", "BO", "PD", "SD")
 
         private const val DATABASE_VERSION = 1
         private const val LEGACY_PREFERENCES = "raspored.schedule"

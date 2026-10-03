@@ -864,10 +864,35 @@ private fun PayrollResultCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 PayrollMetric(
+                    "Odrađeno",
+                    minutesLabelPayroll(estimate.evidence.workedMinutes),
+                    Modifier.weight(1f)
+                )
+                PayrollMetric(
+                    "Prekovremeni",
+                    minutesLabelPayroll(estimate.evidence.overtimeMinutes),
+                    Modifier.weight(1f).testTag("payroll-overtime-hours")
+                )
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PayrollMetric(
+                    "Vrijednost prekovremenih",
+                    if (baseAvailable) euro(estimate.overtimeBasePay + estimate.overtimeAddition) else "—",
+                    Modifier.weight(1f)
+                )
+                PayrollMetric(
                     "Bruto satnica",
                     if (baseAvailable) euro(estimate.hourlyGross) else "—",
                     Modifier.weight(1f)
                 )
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 PayrollMetric(
                     "Radni dani",
                     if (estimate.evidence.workedDays > 0) {
@@ -875,6 +900,11 @@ private fun PayrollResultCard(
                     } else {
                         (estimate.monthlyFundHours / 8).toString() + " plan."
                     },
+                    Modifier.weight(1f)
+                )
+                PayrollMetric(
+                    "Dodaci",
+                    if (baseAvailable) euro(estimate.additions) else "—",
                     Modifier.weight(1f)
                 )
             }

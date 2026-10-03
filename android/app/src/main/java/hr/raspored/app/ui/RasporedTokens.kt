@@ -9,6 +9,7 @@ internal object RasporedTokens {
     val Cyan = Color(0xFF0A8CFF)
     val CyanSoft = Color(0xFF147DF5)
     val Purple = Color(0xFF8B5CF6)
+    val Sky = Color(0xFF0891B2)
     val Teal = Color(0xFF12D6A0)
     val TealSoft = Color(0xFF0CC58E)
     val Slate = Color(0xFFA9B7CB)

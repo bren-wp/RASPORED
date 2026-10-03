@@ -8,11 +8,11 @@ import java.time.YearMonth
 class ScheduleOcrParserTest {
     @Test
     fun parsesEmployeeRowAndShiftCodes() {
-        val result = ScheduleOcrParser.parse("6 ANA HORVAT 1 D 2 N 3 D 4 GO 5 BO")
+        val result = ScheduleOcrParser.parse("6 ANA HORVAT 1 D 2 N 3 J 4 GO 5 BO")
         assertEquals(1, result.rows.size)
         assertEquals(6, result.rows.single().rowNumber)
         assertEquals("ANA HORVAT", result.rows.single().name)
-        assertEquals(listOf("D", "N", "D", "GO", "BO"), result.rows.single().shifts)
+        assertEquals(listOf("D", "N", "J", "GO", "BO"), result.rows.single().shifts)
     }
 
     @Test
@@ -42,8 +42,8 @@ class ScheduleOcrParserTest {
 
     @Test
     fun normalizesCommonOcrConfusionsForGoAndBo() {
-        val result = ScheduleOcrParser.parse("3 ANA HORVAT 1 G0 2 B0 3 D 4 N 5 PD 6 SD")
-        assertEquals(listOf("GO", "BO", "D", "N", "PD", "SD"), result.rows.single().shifts)
+        val result = ScheduleOcrParser.parse("3 ANA HORVAT 1 G0 2 B0 3 D 4 N 5 J 6 PD 7 SD")
+        assertEquals(listOf("GO", "BO", "D", "N", "J", "PD", "SD"), result.rows.single().shifts)
     }
 
     @Test

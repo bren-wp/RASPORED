@@ -14,11 +14,11 @@ test("responsive Takto home uses production composition", async ({page}) => {
     await expect(page.getByText("Tvoj raspored.")).toBeVisible();
     await expect(page.getByText("Na prvi pogled.")).toBeVisible();
     await expect(page.getByText("Dobro jutro!")).toBeVisible();
-    await expect(page.getByRole("button",{name:/Skeniraj raspored/i}).last()).toBeVisible();
+    await expect(page.getByRole("button",{name:/Uvezi raspored/i}).last()).toBeVisible();
     const mobileNav=page.locator(".bottom-nav");
     await expect(mobileNav).toContainText("Početna");
     await expect(mobileNav).toContainText("Kalendar");
-    await expect(mobileNav).toContainText("Skeniraj");
+    await expect(mobileNav).toContainText("Uvezi");
     await expect(mobileNav).toContainText("Statistika");
     await expect(mobileNav).toContainText("Više");
     await expect(mobileNav).not.toContainText("Evidencija");
@@ -50,7 +50,7 @@ test("scan UI uses user-facing copy instead of implementation terminology", asyn
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
   const scan=page.locator("#view-scan");
-  await expect(scan).toContainText("Samo jedna osoba");
+  await expect(scan).toContainText("Jedna osoba · preporučeno");
   await expect(scan).toContainText("Gornji rub odabira");
   await expect(scan).toContainText("Donji rub odabira");
   await expect(scan).not.toContainText("crop");
@@ -103,6 +103,14 @@ test("statistics show monthly fund and hours above fund", async ({page}) => {
   await expect(page.locator('[data-view="payroll"]')).toBeVisible();
 });
 
+test("payroll fund excludes weekday public holidays", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const preview=await page.evaluate(() => (window as any).RasporedPayroll.preview("2026-06"));
+  expect(preview).not.toBeNull();
+  expect(preview.fundMinutes).toBe(160*60);
+});
+
 test("payroll preview does not credit weekend absence as fund hours", async ({page}) => {
   await page.goto("/");
   await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
@@ -143,6 +151,36 @@ test("home is the start view and manual calendar editing persists", async ({page
 });
 
 
+test("D and N are primary 12-hour shifts and J is a distinct built-in shift", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-route="calendar"]:visible').first().click();
+
+  const d=page.locator('[data-manual-shift="D"]');
+  const n=page.locator('[data-manual-shift="N"]');
+  const j=page.locator('[data-manual-shift="J"]');
+  await expect(d).toBeVisible();
+  await expect(n).toBeVisible();
+  await expect(j).toBeVisible();
+
+  await d.click();
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("12h");
+  await n.click();
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("12h");
+  await j.click();
+  await expect(page.locator("#selectedDayCard .selected-shift")).toContainText("8h");
+
+  const colors=await page.evaluate(() => {
+    const codes=["d","n","j","go","bo","pd","sd"];
+    const host=document.createElement("div");
+    host.innerHTML=codes.map(code=>'<i class="shift '+code+'">'+code+'</i>').join("");
+    document.body.appendChild(host);
+    const values=codes.map(code=>getComputedStyle(host.querySelector(".shift."+code) as Element).backgroundColor);
+    host.remove();
+    return values;
+  });
+  expect(new Set(colors).size).toBe(7);
+});
+
 test("blank calendar cell remains unassigned and is not SD", async ({page}) => {
   await page.goto("/");
   await page.locator('[data-route="calendar"]:visible').first().click();
@@ -159,6 +197,7 @@ test("scan performs OCR and exposes multiple invented employees", async ({page})
   await mockOcr(page);
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   const input=page.locator("#galleryInput");
   await input.setInputFiles({
     name:"smjene.png",
@@ -175,7 +214,7 @@ test("single-person crop waits for confirmation and imports only that focused ro
   await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
-  await page.locator("#scanSinglePersonToggle").check();
+  await expect(page.locator("#scanSinglePersonToggle")).toBeChecked();
 
   const tinyPng=Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAD0lEQVR42mP8z8AARMAgYKSgAAMAJQABf2m7WQAAAABJRU5ErkJggg==",
@@ -201,7 +240,7 @@ test("smart single-person crop snaps to detected employee rows and supports tap 
   await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
-  await page.locator("#scanSinglePersonToggle").check();
+  await expect(page.locator("#scanSinglePersonToggle")).toBeChecked();
 
   const left=135,top=180,right=1510,bottom=820,nameWidth=245;
   const horizontal=Array.from({length:29},(_,line)=>{
@@ -241,11 +280,11 @@ test("smart single-person crop snaps to detected employee rows and supports tap 
   await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
-test("single-person scan supports rotation, manual movement and direct drag", async ({page}) => {
+test("single-person scan supports rotation, manual movement and reset", async ({page}) => {
   await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
-  await page.locator("#scanSinglePersonToggle").check();
+  await expect(page.locator("#scanSinglePersonToggle")).toBeChecked();
 
   const svg='<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="800" height="400" fill="#fff"/><text x="40" y="80" font-size="28">ANA HORVAT 1 D 2 N 3 GO</text></svg>';
   await page.locator("#galleryInput").setInputFiles({
@@ -268,18 +307,9 @@ test("single-person scan supports rotation, manual movement and direct drag", as
   await page.locator("#scanCropDown").click();
   expect(Number(await top.inputValue())).toBeGreaterThan(34);
 
-  const band=page.locator("#scanRowCrop");
-  await band.scrollIntoViewIfNeeded();
-  await expect(band).toBeVisible();
-  const box=await band.boundingBox();
-  expect(box).not.toBeNull();
-  expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
-  const beforeDrag=Number(await top.inputValue());
-  await page.mouse.move((box?.x||0)+(box?.width||1)/2,(box?.y||0)+(box?.height||1)/2);
-  await page.mouse.down();
-  await page.mouse.move((box?.x||0)+(box?.width||1)/2,(box?.y||0)+(box?.height||1)/2+40,{steps:5});
-  await page.mouse.up();
-  expect(Number(await top.inputValue())).toBeGreaterThan(beforeDrag);
+  await expect(page.locator("#scanRowCrop")).toBeVisible();
+  await page.locator("#scanCropUp").click();
+  expect(Number(await top.inputValue())).toBeGreaterThanOrEqual(34);
 
   await page.locator("#scanCropReset").click();
   await expect(top).toHaveValue("34");
@@ -290,6 +320,7 @@ test("scan imports only the explicitly selected employee schedule", async ({page
   await mockOcr(page);
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"smjene.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
@@ -339,6 +370,7 @@ test("AI scan review requires consent and resolves conflicts before import", asy
   await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
 
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"ai-review.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
@@ -415,28 +447,30 @@ test("recognized schedule can be corrected before import", async ({page}) => {
 
 test("time evidence is derived automatically from the calendar", async ({page}) => {
   await page.goto("/");
-  await page.evaluate(async () => {
+  await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
+  const accepted=await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
-    store.set("raspored.schedule",JSON.stringify({
+    const ok=store.set("raspored.schedule",JSON.stringify({
       "2026-10-01":"D",
       "2026-10-02":"N",
       "2026-10-03":"GO",
       "2026-10-04":"J"
     }));
     await store.flush();
+    return ok;
   });
+  expect(accepted).toBe(true);
   await page.reload();
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
     await page.locator('[data-route="home"]:visible').first().click();
     await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
   }else await page.locator('[data-route="hours"]:visible').first().click();
-  await expect(page.locator("#hoursMonthTotal")).toContainText("24h");
+  await expect(page.locator("#hoursMonthTotal")).toContainText("32h");
   await expect(page.locator("#hoursNightTotal")).toContainText("8h");
   await expect(page.locator("#hoursHistory")).toContainText("D · Dnevna smjena");
   await expect(page.locator("#hoursHistory")).toContainText("N · Noćna smjena");
-  await expect(page.locator("#hoursHistory")).toContainText("J · Vlastita oznaka J");
-  await expect(page.locator("#hoursHistory")).toContainText("Nije definirano");
+  await expect(page.locator("#hoursHistory")).toContainText("J · Jutarnja smjena");
 });
 
 test("time evidence no longer exposes manual clock-in controls", async ({page}) => {
@@ -578,6 +612,7 @@ test("Web account registration stays optional and manager import keeps employees
   await expect(page.locator("#accountDetails")).toContainText("Voditelj tima");
 
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"tim.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
   });
@@ -698,8 +733,9 @@ test("individual Web account can import only its own recognized row", async ({pa
   await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
   await page.locator('[data-route="scan"]:visible').first().click();
   await page.locator("#galleryInput").setInputFiles({
-    name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
+    name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAD0lEQVR42mP8z8AARMAgYKSgAAMAJQABf2m7WQAAAABJRU5ErkJggg==","base64")
   });
+  await page.locator("#scanSinglePersonBtn").click();
   await expect(page.locator("#scanPersonLabel")).toContainText("ANA HORVAT");
   await expect(page.locator('#scanPersonMenu [data-scan-person="1"]')).toBeDisabled();
   await expect(page.locator("#saveSchedule")).toBeEnabled();
@@ -741,6 +777,7 @@ test("full-roster scan blocks severely incomplete imports", async ({page}) => {
   await mockOcr(page,{people:scanPeople.slice(0,3),expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").uncheck();
   await page.locator("#galleryInput").setInputFiles({
     name:"raspored-test.svg",
     mimeType:"image/svg+xml",
@@ -757,14 +794,14 @@ test("web OCR parser keeps exact day columns and normalizes common OCR errors", 
   const parsed=await page.evaluate(() => {
     const api=(window as any).RasporedWebOcr;
     return {
-      rows:api.parseText("3 IVA KOVAČ 1 D 2 N 4 G0 7 B0 9 PD 12 SD"),
+      rows:api.parseText("3 IVA KOVAČ 1 D 2 N 3 J 4 G0 7 B0 9 PD 12 SD"),
       monthNamed:api.detectMonth("SIJECANJ 2027."),
       monthNumeric:api.detectMonth("2026-10")
     };
   });
   expect(parsed.rows).toHaveLength(1);
   expect(parsed.rows[0].dayShifts).toEqual({
-    "1":"D","2":"N","4":"GO","7":"BO","9":"PD","12":"SD"
+    "1":"D","2":"N","3":"J","4":"GO","7":"BO","9":"PD","12":"SD"
   });
   expect(parsed.monthNamed).toEqual({year:2027,month:1});
   expect(parsed.monthNumeric).toEqual({year:2026,month:10});
@@ -787,7 +824,7 @@ test("Web OCR geometry recovers all people and all 31 day columns from a fragmen
       "NIKOLA JURIĆ","MAJA PERIĆ","TOMISLAV MARIĆ","SARA KOVAČ",
       "DARIO HORVAT","MARTA NOVAK","FILIP RADIĆ","LANA JURIĆ"
     ];
-    const codes=["D","N","GO","BO","PD","SD"];
+    const codes=["D","N","J","GO","BO","PD","SD"];
     const rows=names.map((name,rowIndex)=>{
       const y=110+rowIndex*34;
       const words:any[]=[
@@ -945,6 +982,9 @@ test("salary estimator uses current KBC Rijeka public-service settings and persi
   await expect(page.locator("#payrollCoefResult")).toHaveText("1,39");
   await expect(page.locator("#payrollGross")).not.toHaveText("0,00 €");
   await expect(page.locator("#payrollNet")).not.toHaveText("—");
+  await expect(page.locator("#payrollWorkedHours")).toBeVisible();
+  await expect(page.locator("#payrollOvertimeHours")).toBeVisible();
+  await expect(page.locator("#payrollOvertimeValue")).toBeVisible();
   await expect(page.locator("#payrollDailyGross")).not.toHaveText("—");
   await expect(page.locator("#payrollLegalText")).toContainText("Noć 40");
 
@@ -1078,7 +1118,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
   await expect(page.locator(".about-takto")).toContainText("Takto");
-  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.28");
+  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.29");
   await expect(page.locator(".about-takto")).toContainText("Brendigo");
 });
 
