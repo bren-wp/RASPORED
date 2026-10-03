@@ -59,6 +59,7 @@ class RasporedSmokeTest {
 
         composeRule.onNodeWithTag("nav-scan").performClick()
         composeRule.onNodeWithTag("screen-scan").fetchSemanticsNode()
+        composeRule.onNodeWithTag("scan-source-step").fetchSemanticsNode()
         composeRule.onNodeWithContentDescription("Pomoć za skeniranje").performClick()
         composeRule.onNodeWithText("Kako dobiti dobar rezultat").fetchSemanticsNode()
         composeRule.onNodeWithText("Prazna kućica ostaje „Nije označeno”", substring = true).fetchSemanticsNode()
