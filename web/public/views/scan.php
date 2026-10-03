@@ -66,8 +66,8 @@
 
         <div class="scan-mode-card">
           <label class="scan-mode-toggle">
-            <input type="checkbox" id="scanSinglePersonToggle">
-            <span><b>Samo jedna osoba</b><small>Uključi kada želiš izdvojiti samo jedan redak iz rasporeda.</small></span>
+            <input type="checkbox" id="scanSinglePersonToggle" checked>
+            <span><b>Jedna osoba · preporučeno</b><small>Isključi samo kada namjerno želiš uvesti cijeli tim.</small></span>
           </label>
           <div class="scan-crop-controls" id="scanCropControls" hidden>
             <div class="scan-crop-row-nav" id="scanCropRowNav" hidden>
