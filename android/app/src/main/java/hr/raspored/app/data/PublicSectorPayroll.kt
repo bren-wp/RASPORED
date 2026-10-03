@@ -489,12 +489,13 @@ object PublicSectorPayroll {
 
         fun accountShift(date: java.time.LocalDate, code: String) {
             val start = when (code) {
-                "D" -> date.atTime(7, 0).atZone(zone)
+                "D", "J" -> date.atTime(7, 0).atZone(zone)
                 "N" -> date.atTime(19, 0).atZone(zone)
                 else -> return
             }
             val end = when (code) {
                 "D" -> date.atTime(19, 0).atZone(zone)
+                "J" -> date.atTime(15, 0).atZone(zone)
                 else -> date.plusDays(1).atTime(7, 0).atZone(zone)
             }
             workedDates += date
@@ -509,7 +510,7 @@ object PublicSectorPayroll {
                     if (localDate.dayOfWeek == DayOfWeek.SUNDAY) sunday++
                     if (holidays.containsKey(localDate)) holiday++
                     if (hour in 14..21) second++
-                    if (code == "D") shift1++ else shift3++
+                    if (code == "N") shift3++ else shift1++
                 }
                 cursor = cursor.plusMinutes(1)
             }
@@ -520,6 +521,7 @@ object PublicSectorPayroll {
             when (scheduleCodes[date.toString()].orEmpty()) {
                 "D" -> accountShift(date, "D")
                 "N" -> accountShift(date, "N")
+                "J" -> accountShift(date, "J")
             }
         }
         // A night shift starting on the last day of the previous month can
