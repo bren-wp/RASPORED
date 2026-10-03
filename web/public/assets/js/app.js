@@ -1468,24 +1468,23 @@ function bind(){
       if(percent==null)return;
       dragPointer=event.pointerId;dragStartPercent=percent;dragStartTop=state.scanCropTop;dragStartBottom=state.scanCropBottom;
       state.scanDetectedRowIndex=-1;
-      scanRowCrop.setPointerCapture(event.pointerId);
       event.preventDefault();
+      event.stopPropagation();
     });
-    scanRowCrop.addEventListener("pointermove",function(event){
+    window.addEventListener("pointermove",function(event){
       if(dragPointer!==event.pointerId)return;
       var percent=scanPercentFromClientY(event.clientY);
       if(percent==null)return;
       var height=dragStartBottom-dragStartTop,top=Math.max(0,Math.min(100-height,dragStartTop+(percent-dragStartPercent)));
       setScanCrop(top,top+height,-1);
       event.preventDefault();
-    });
+    },{passive:false});
     function stopCropDrag(event){
       if(dragPointer!==event.pointerId)return;
-      if(scanRowCrop.hasPointerCapture(event.pointerId))scanRowCrop.releasePointerCapture(event.pointerId);
       dragPointer=null;
     }
-    scanRowCrop.addEventListener("pointerup",stopCropDrag);
-    scanRowCrop.addEventListener("pointercancel",stopCropDrag);
+    window.addEventListener("pointerup",stopCropDrag);
+    window.addEventListener("pointercancel",stopCropDrag);
   }
   document.getElementById("scanSinglePersonBtn").addEventListener("click",async function(){
     if(!state.scanOriginalFile){toast("Najprije učitaj fotografiju rasporeda.");return}
