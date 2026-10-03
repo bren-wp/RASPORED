@@ -64,6 +64,7 @@ private val Red=RasporedTokens.Red
 private val Slate=RasporedTokens.Slate
 private val Dbg=RasporedTokens.CyanSoft
 private val Nbg=RasporedTokens.NavyAlt
+private val Jbg=RasporedTokens.Sky
 private val GObg=RasporedTokens.TealSoft
 private val BObg=RasporedTokens.Amber
 private val PDbg=RasporedTokens.RedSoft
@@ -73,6 +74,7 @@ private enum class Screen { Home, Calendar, Scan, Stats, Payroll, Hours, Setting
 private data class Shift(val code:String,val name:String,val time:String,val hours:Int)
 private val D=Shift("D","Dnevna smjena","07:00 – 19:00 (12h)",12)
 private val N=Shift("N","Noćna smjena","19:00 – 07:00 (12h)",12)
+private val J=Shift("J","Jutarnja smjena","07:00 – 15:00 (8h)",8)
 private val GO=Shift("GO","Godišnji odmor","—",0)
 private val BO=Shift("BO","Bolovanje","—",0)
 private val PD=Shift("PD","Plaćeni dopust","—",0)
@@ -352,13 +354,14 @@ private fun appDateTime():LocalDateTime = LocalDateTime.now()
 private fun appDate():LocalDate = appDateTime().toLocalDate()
 
 private fun shiftStatusLabel(date:LocalDate,shift:Shift,now:LocalDateTime=appDateTime()):String {
-    if(shift.code!="D"&&shift.code!="N")return if(shift.code.isBlank())"Nema smjene" else "Danas"
+    if(shift.code !in setOf("D","N","J"))return if(shift.code.isBlank())"Nema smjene" else "Danas"
     val start=when(shift.code){
-        "D"->date.atTime(LocalTime.of(7,0))
+        "D","J"->date.atTime(LocalTime.of(7,0))
         else->date.atTime(LocalTime.of(19,0))
     }
     val end=when(shift.code){
         "D"->date.atTime(LocalTime.of(19,0))
+        "J"->date.atTime(LocalTime.of(15,0))
         else->date.plusDays(1).atTime(LocalTime.of(7,0))
     }
     return when{
@@ -387,7 +390,7 @@ private fun currentShiftAt(now:LocalDateTime,codes:Map<String,String>):Pair<Loca
 private fun nextWorkShift(after:LocalDate,codes:Map<String,String>):Pair<LocalDate,Shift>? =
     (1L..62L).firstNotNullOfOrNull{offset->
         val date=after.plusDays(offset)
-        shiftAt(date,codes)?.takeIf{it.code=="D"||it.code=="N"}?.let{date to it}
+        shiftAt(date,codes)?.takeIf{it.code in setOf("D","N","J")}?.let{date to it}
     }
 
 private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String {
@@ -400,6 +403,7 @@ private fun nextShiftStatus(today:LocalDate,start:LocalDate,shift:Shift):String 
 private fun shiftFromCode(code:String):Shift?=when(val normalized=ScheduleStore.normalizeCode(code)){
     "D"->D
     "N"->N
+    "J"->J
     "GO"->GO
     "BO"->BO
     "PD"->PD
@@ -774,9 +778,18 @@ private fun largeMinutesLabel(minutes:Long):String {
                     fontSize = 12.sp
                 )
 
+                Text(
+                    "Radne smjene · D i N su zadano 12 h",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
                 listOf(
-                    listOf(D, N, GO),
-                    listOf(BO, PD, SD)
+                    listOf(D, N),
+                    listOf(J, GO),
+                    listOf(BO, PD),
+                    listOf(SD)
                 ).forEach { row ->
                     Row(
                         Modifier.fillMaxWidth(),
@@ -814,6 +827,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                                         when (shift.code) {
                                             "D" -> "Dan"
                                             "N" -> "Noć"
+                                            "J" -> "Jutarnja"
                                             "GO" -> "Godišnji"
                                             "BO" -> "Bolovanje"
                                             "PD" -> "Plaćeni dopust"
@@ -839,7 +853,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                             .take(8)
                     },
                     label = { Text("Vlastita oznaka") },
-                    placeholder = { Text("npr. J, S, P1") },
+                    placeholder = { Text("npr. S, P1, EDU") },
                     leadingIcon = { Icon(Icons.Outlined.Edit, null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("calendar-custom-code")
@@ -1589,7 +1603,7 @@ private fun largeMinutesLabel(minutes:Long):String {
 @Composable private fun ShiftLegendGrid(){
     Column(verticalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
         Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
-            listOf(D,N,GO).forEach{ShiftChip(it,Modifier.weight(1f))}
+            listOf(D,N,J,GO).forEach{ShiftChip(it,Modifier.weight(1f))}
         }
         Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
             listOf(BO,PD,SD).forEach{ShiftChip(it,Modifier.weight(1f))}
@@ -1597,5 +1611,5 @@ private fun largeMinutesLabel(minutes:Long):String {
     }
 }
 
-private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"GO"->GObg;"BO"->BObg;"PD"->PDbg;"SD"->SDbg;else->Color(0xFF20314A)}
-private fun shiftFg(s:Shift)=when(s.code){"D","N","GO","PD"->Color.White;"BO"->Navy;"SD"->Color(0xFFD7E3F4);else->Color(0xFFD7E3F4)}
+private fun shiftBg(s:Shift)=when(s.code){"D"->Dbg;"N"->Nbg;"J"->Jbg;"GO"->GObg;"BO"->BObg;"PD"->PDbg;"SD"->SDbg;else->Color(0xFF475569)}
+private fun shiftFg(s:Shift)=when(s.code){"D","N","GO","PD","J"->Color.White;"BO"->Navy;"SD"->Color(0xFFD7E3F4);else->Color.White}
