@@ -54,6 +54,7 @@ jobs:
           ! grep -Eq 'ANDROID_UPLOAD_|RASPORED_RELEASE_STORE_|release-signing-baseline|Require Android release signing' "$RELEASE" || { echo "release.yml must not require custom Android signing keys or secrets"; exit 1; }
           grep -Fq 'gh run download "$RUN_ID"' "$RELEASE" || { echo "release.yml must reuse verified CI artifacts"; exit 1; }
           grep -Fq 'adb install dist/RASPORED.apk' "$RELEASE" || { echo "release.yml must clean-install the exact release APK"; exit 1; }
+          grep -Fq 'takto-github-apk-signing-v1' ".github/workflows/ci.yml" || { echo "ci.yml must preserve the stable main APK signing identity"; exit 1; }
 
   web:
     needs: version
@@ -121,6 +122,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.13
+      - name: Restore stable GitHub APK signing identity
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: takto-github-apk-signing-v1
+      - name: Prepare stable GitHub APK signing identity
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [[ ! -s "$HOME/.android/debug.keystore" ]]; then
+            keytool -genkeypair -noprompt               -keystore "$HOME/.android/debug.keystore"               -storepass android               -alias androiddebugkey               -keypass android               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=Takto GitHub Distribution, OU=Takto, O=Brendigo, L=Rijeka, ST=Primorsko-goranska, C=HR"
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
       - name: Android debug build
         run: gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease :demo:assembleDebug :demo:lintDebug --stacktrace
       - name: Prepare installable Android artifacts
