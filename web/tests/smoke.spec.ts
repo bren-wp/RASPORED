@@ -792,14 +792,14 @@ test("web OCR parser keeps exact day columns and normalizes common OCR errors", 
   const parsed=await page.evaluate(() => {
     const api=(window as any).RasporedWebOcr;
     return {
-      rows:api.parseText("3 IVA KOVAČ 1 D 2 N 4 G0 7 B0 9 PD 12 SD"),
+      rows:api.parseText("3 IVA KOVAČ 1 D 2 N 3 J 4 G0 7 B0 9 PD 12 SD"),
       monthNamed:api.detectMonth("SIJECANJ 2027."),
       monthNumeric:api.detectMonth("2026-10")
     };
   });
   expect(parsed.rows).toHaveLength(1);
   expect(parsed.rows[0].dayShifts).toEqual({
-    "1":"D","2":"N","4":"GO","7":"BO","9":"PD","12":"SD"
+    "1":"D","2":"N","3":"J","4":"GO","7":"BO","9":"PD","12":"SD"
   });
   expect(parsed.monthNamed).toEqual({year:2027,month:1});
   expect(parsed.monthNumeric).toEqual({year:2026,month:10});
@@ -822,7 +822,7 @@ test("Web OCR geometry recovers all people and all 31 day columns from a fragmen
       "NIKOLA JURIĆ","MAJA PERIĆ","TOMISLAV MARIĆ","SARA KOVAČ",
       "DARIO HORVAT","MARTA NOVAK","FILIP RADIĆ","LANA JURIĆ"
     ];
-    const codes=["D","N","GO","BO","PD","SD"];
+    const codes=["D","N","J","GO","BO","PD","SD"];
     const rows=names.map((name,rowIndex)=>{
       const y=110+rowIndex*34;
       const words:any[]=[
