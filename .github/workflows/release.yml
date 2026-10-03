@@ -5,7 +5,6 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,12 +16,12 @@ concurrency:
 
 jobs:
   release:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Read version
         id: version
@@ -37,102 +36,29 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.13
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-
-      - name: Require Android release signing
-        id: signing
-        env:
-          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
-          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
-          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
-          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          configured=0
-          for name in ANDROID_UPLOAD_KEYSTORE_BASE64 ANDROID_UPLOAD_STORE_PASSWORD ANDROID_UPLOAD_KEY_ALIAS ANDROID_UPLOAD_KEY_PASSWORD; do
-            [[ -n "${!name:-}" ]] && configured=$((configured + 1))
-          done
-
-          if [[ "$configured" -ne 4 ]]; then
-            echo "::error::Produkcijski Android release zahtijeva trajni signing keystore."
-            echo "::error::Postavi sva četiri GitHub Secrets: ANDROID_UPLOAD_KEYSTORE_BASE64, ANDROID_UPLOAD_STORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS i ANDROID_UPLOAD_KEY_PASSWORD."
-            echo "::error::Debug-signed fallback je zabranjen jer različiti CI runneri stvaraju različite potpise i time onemogućuju nadogradnju postojeće aplikacije."
-            exit 1
-          fi
-
-          KEYSTORE_PATH="${RUNNER_TEMP}/takto-release.jks"
-          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
-          test -s "$KEYSTORE_PATH"
-          chmod 600 "$KEYSTORE_PATH"
-
-          echo "RASPORED_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "RASPORED_RELEASE_STORE_PASSWORD=$ANDROID_UPLOAD_STORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "RASPORED_RELEASE_KEY_ALIAS=$ANDROID_UPLOAD_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "RASPORED_RELEASE_KEY_PASSWORD=$ANDROID_UPLOAD_KEY_PASSWORD" >> "$GITHUB_ENV"
-          echo "mode=release" >> "$GITHUB_OUTPUT"
-
-      - name: Android QA and artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          gradle -p android             :app:assembleRelease             :app:bundleRelease             :app:testDebugUnitTest             :app:compileDebugAndroidTestKotlin             :app:lintDebug             :app:lintRelease             :demo:assembleRelease             :demo:lintDebug             :demo:lintRelease
-
-          mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk dist/RASPORED.apk
-          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
-          cp demo/build/outputs/apk/release/demo-release.apk dist/raspored_demo.apk
-
-          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
-          test -n "$APKSIGNER"
-
-          "$APKSIGNER" verify --verbose --print-certs dist/RASPORED.apk | tee "${RUNNER_TEMP}/raspored-apk-signature.txt"
-          "$APKSIGNER" verify --verbose --print-certs dist/raspored_demo.apk | tee "${RUNNER_TEMP}/raspored-demo-signature.txt"
-          grep -Fq "Signer #1 certificate SHA-256 digest:" "${RUNNER_TEMP}/raspored-apk-signature.txt"
-          grep -Fq "Signer #1 certificate SHA-256 digest:" "${RUNNER_TEMP}/raspored-demo-signature.txt"
-
-          SIGNATURE_REPORT="${RUNNER_TEMP}/raspored-aab-signature.txt"
-          jarsigner -verify -verbose -certs dist/RASPORED.aab > "$SIGNATURE_REPORT"
-          grep -q "jar verified" "$SIGNATURE_REPORT"
-          unzip -l dist/RASPORED.aab | grep -Eq 'META-INF/[^/]+\.(RSA|DSA|EC)$'
-
-      - name: Prepare Android upgrade smoke
+      - name: Download verified CI artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
-          BASELINE="$(tr -d '[:space:]' < android/release-signing-baseline.txt)"
-          [[ "$BASELINE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid signing baseline: $BASELINE"; exit 1; }
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          rm -rf dist
+          mkdir -p dist
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name RASPORED-android --dir dist
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name RASPORED-web --dir dist
 
-          rm -rf dist/upgrade
-          mkdir -p dist/upgrade
+          test -s dist/RASPORED.apk
+          test -s dist/RASPORED.aab
+          test -s dist/raspored_demo.apk
+          WEB_ZIP="$(find dist -maxdepth 1 -type f -name 'RASPORED-web-v*.zip' -print -quit)"
+          test -n "$WEB_ZIP"
+          test -s "$WEB_ZIP"
 
-          if [[ "$VERSION" == "$BASELINE" ]]; then
-            echo "v$VERSION establishes the persistent Android signing baseline; clean-install smoke will be used."
-          else
-            PREVIOUS_TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName')"
-            [[ -n "$PREVIOUS_TAG" ]] || { echo "Previous GitHub release not found."; exit 1; }
-
-            gh release download "$PREVIOUS_TAG"               --repo "$GITHUB_REPOSITORY"               --pattern RASPORED.apk               --dir dist/upgrade               --clobber
-            gh release download "$PREVIOUS_TAG"               --repo "$GITHUB_REPOSITORY"               --pattern raspored_demo.apk               --dir dist/upgrade               --clobber
-
-            test -s dist/upgrade/RASPORED.apk
-            test -s dist/upgrade/raspored_demo.apk
-            echo "Upgrade smoke will verify $PREVIOUS_TAG -> v$VERSION."
-          fi
+          unzip -tq dist/RASPORED.apk
+          unzip -tq dist/RASPORED.aab
+          unzip -tq dist/raspored_demo.apk
+          unzip -tq "$WEB_ZIP"
 
       - name: Enable KVM
         run: |
@@ -140,7 +66,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Android launch smoke test
+      - name: Android clean-install smoke test
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -150,68 +76,40 @@ jobs:
           disable-animations: true
           script: |
             set -eu
-            gradle -p android :app:connectedDebugAndroidTest --stacktrace
+            APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
+            test -n "$APKSIGNER"
+            "$APKSIGNER" verify --verbose dist/RASPORED.apk
+            "$APKSIGNER" verify --verbose dist/raspored_demo.apk
 
-            adb uninstall hr.raspored.app.test >/dev/null 2>&1 || true
             adb uninstall hr.raspored.app >/dev/null 2>&1 || true
             adb uninstall hr.raspored.demo >/dev/null 2>&1 || true
 
-            if [ -s dist/upgrade/RASPORED.apk ]; then
-              adb install dist/upgrade/RASPORED.apk
-              adb install -r dist/RASPORED.apk
-              adb install dist/upgrade/raspored_demo.apk
-              adb install -r dist/raspored_demo.apk
-            else
-              adb install dist/RASPORED.apk
-              adb install dist/raspored_demo.apk
-            fi
+            adb install dist/RASPORED.apk
+            adb install dist/raspored_demo.apk
 
             adb shell am force-stop hr.raspored.app
             adb shell am start -W -n hr.raspored.app/.MainActivity
             adb shell pidof hr.raspored.app
             adb shell dumpsys package hr.raspored.app | grep -F "versionName=${{ steps.version.outputs.version }}"
 
+            adb shell am force-stop hr.raspored.demo
+            adb shell am start -W -n hr.raspored.demo/hr.raspored.app.MainActivity
+            adb shell pidof hr.raspored.demo
             adb shell dumpsys package hr.raspored.demo | grep -F "versionName=${{ steps.version.outputs.version }}"
-
-      - name: Web QA
-        working-directory: web
-        run: |
-          set -euo pipefail
-          find public -name '*.php' -print0 | xargs -0 -n1 php -l
-          find public/assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
-          node -e "JSON.parse(require('fs').readFileSync('public/assets/data/payroll-public-sector-2026.json','utf8'))"
-          npm install
-          npx playwright install --with-deps chromium
-          npx playwright test tests/smoke.spec.ts tests/capture.spec.ts tests/export-history.spec.ts tests/ocr-parser.spec.ts
 
       - name: Package and verify release artifacts
         shell: bash
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          rm -rf dist/web-package
-          mkdir -p dist/web-package/storage/data
-          cp -R web/public/. dist/web-package/
-          cp web/storage/.htaccess dist/web-package/storage/.htaccess
-          printf '%s\n' '# Runtime JSON files are created here.' > dist/web-package/storage/data/.gitkeep
+          WEB_ZIP="$(find dist -maxdepth 1 -type f -name "RASPORED-web-v${VERSION}.zip" -print -quit)"
+          test -n "$WEB_ZIP"
+
           (
-            cd dist/web-package
-            zip -r "../RASPORED-web-v${VERSION}.zip" .               -x "*.DS_Store"               -x "__MACOSX/*"               -x "storage/data/client-*.json"               -x "storage/data/.write.lock"
+            cd dist
+            sha256sum RASPORED.apk RASPORED.aab raspored_demo.apk "RASPORED-web-v${VERSION}.zip" > SHA256SUMS
+            sha256sum -c SHA256SUMS
           )
-
-          sha256sum             dist/RASPORED.apk             dist/RASPORED.aab             dist/raspored_demo.apk             "dist/RASPORED-web-v${VERSION}.zip"             > dist/SHA256SUMS
-
-          test -s dist/RASPORED.apk
-          test -s dist/RASPORED.aab
-          test -s dist/raspored_demo.apk
-          test -s "dist/RASPORED-web-v${VERSION}.zip"
-          test -s dist/SHA256SUMS
-
-          unzip -tq dist/RASPORED.apk
-          unzip -tq dist/RASPORED.aab
-          unzip -tq dist/raspored_demo.apk
-          unzip -tq "dist/RASPORED-web-v${VERSION}.zip"
-          sha256sum -c dist/SHA256SUMS
 
       - name: Create GitHub release
         env:
@@ -220,16 +118,9 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
-          BASELINE="$(tr -d '[:space:]' < android/release-signing-baseline.txt)"
+          RELEASE_SHA="${{ github.event.workflow_run.head_sha }}"
 
-          if [[ "$VERSION" == "$BASELINE" ]]; then
-            MIGRATION_NOTE="Ovo izdanje uspostavlja trajni produkcijski Android potpis. Zbog ranijih debug-signed izdanja do v1.0.28 potreban je jednokratni uninstall stare aplikacije prije instalacije ove verzije."
-          else
-            MIGRATION_NOTE="Android nadogradnja glavne i demo aplikacije preko prethodnog GitHub Release APK-a provjerena je u emulatoru prije objave."
-          fi
-
-          gh release create "v${VERSION}"             dist/RASPORED.apk             dist/RASPORED.aab             dist/raspored_demo.apk             "dist/RASPORED-web-v${VERSION}.zip"             dist/SHA256SUMS             --target "$RELEASE_SHA"             --title "Takto v${VERSION}"             --notes "Produkcijsko izdanje Takto aplikacije za Android i Web/PWA. Tehnički nazivi artefakata RASPORED zadržani su radi kompatibilnosti. Android APK, AAB i demo APK koriste trajni produkcijski potpis. ${MIGRATION_NOTE} Workflow prije objave provjerava build, testove, stvarni install/upgrade smoke test, potpise, ZIP integritet i SHA-256 kontrolne vrijednosti."
+          gh release create "v${VERSION}"             dist/RASPORED.apk             dist/RASPORED.aab             dist/raspored_demo.apk             "dist/RASPORED-web-v${VERSION}.zip"             dist/SHA256SUMS             --target "$RELEASE_SHA"             --title "Takto v${VERSION}"             --notes "Takto Android i Web/PWA izdanje. APK se gradi kao standardni Android debug artefakt bez korisničkih keystore datoteka i bez GitHub signing secreta. Workflow prije objave provjerava isti APK kroz stvarni clean-install i launch smoke test. Ako uređaj već ima stariji GitHub APK potpisan drugim automatskim debug certifikatom, staru aplikaciju treba prvo ukloniti pa zatim instalirati ovu verziju. AAB je release bundle za daljnju obradu i nije namijenjen izravnoj instalaciji."
 
       - uses: actions/upload-artifact@v4
         with:
