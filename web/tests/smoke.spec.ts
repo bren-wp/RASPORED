@@ -731,7 +731,7 @@ test("individual Web account can import only its own recognized row", async ({pa
   await page.waitForFunction(() => document.body?.dataset.authenticated==="true",null,{timeout:20000});
   await page.locator('[data-route="scan"]:visible').first().click();
   await page.locator("#galleryInput").setInputFiles({
-    name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("89504e470d0a1a0a","hex")
+    name:"osobni.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAD0lEQVR42mP8z8AARMAgYKSgAAMAJQABf2m7WQAAAABJRU5ErkJggg==","base64")
   });
   await page.locator("#scanSinglePersonBtn").click();
   await expect(page.locator("#scanPersonLabel")).toContainText("ANA HORVAT");
