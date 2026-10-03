@@ -1278,13 +1278,43 @@ internal fun OcrScanScreen(
                     Text("• Izbjegni sjene, odsjaj i zamućenje.")
                     Text("• Kalendar i prepoznavanje na uređaju rade bez računa. Android Postavke nemaju prijavu ni registraciju; osnovni rad ne ovisi o mreži.")
                     Text("• Prazna kućica ostaje „Nije označeno” i ne tretira se automatski kao SD. SD odaberi samo ako je izričito upisan ili odobren u izvornom rasporedu.")
-                    Text("• Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Kratke radne oznake specifične ustanovi (npr. J, S ili P1) aplikacija čuva bez izmišljanja značenja.")
+                    Text("• Provjeri D, N, J, GO, BO, PD i SD prije spremanja. D i N su primarne 12-satne smjene, J je jutarnja 8-satna smjena; druge kratke oznake aplikacija čuva bez izmišljanja značenja.")
                 }
             },
             confirmButton = {
                 TextButton(onClick = { helpOpen = false }) { Text("U redu") }
             }
         )
+    }
+}
+
+@Composable
+private fun ScanStepHeader(
+    number: String,
+    title: String,
+    subtitle: String,
+    dark: Boolean = false
+) {
+    val titleColor = if (dark) Color.White else MaterialTheme.colorScheme.onSurface
+    val subtitleColor = if (dark) Color(0xFFC6D4EA) else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(11.dp),
+            color = RasporedTokens.Cyan,
+            modifier = Modifier.size(34.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(number, color = Color.White, fontWeight = FontWeight.Black)
+            }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, color = titleColor, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Text(subtitle, color = subtitleColor, fontSize = 11.sp, lineHeight = 15.sp)
+        }
     }
 }
 
@@ -1318,6 +1348,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
     val bg = when (code) {
         "D" -> RasporedTokens.CyanSoft
         "N" -> RasporedTokens.NavyAlt
+        "J" -> RasporedTokens.Sky
         "GO" -> RasporedTokens.TealSoft
         "BO" -> RasporedTokens.Amber
         "PD" -> RasporedTokens.RedSoft
@@ -1325,7 +1356,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
         else -> Color(0xFF20314A)
     }
     val fg = when (code) {
-        "D", "N", "GO", "PD" -> Color.White
+        "D", "N", "J", "GO", "PD" -> Color.White
         "BO" -> RasporedTokens.Navy
         "SD" -> Color(0xFFD7E3F4)
         else -> Color(0xFFD7E3F4)
@@ -1358,7 +1389,7 @@ private fun RecognizedDay(day: Int, month: YearMonth, code: String, enabled: Boo
 }
 
 private fun nextShiftCode(current: String): String {
-    val order = listOf("", "D", "N", "GO", "BO", "PD", "SD")
+    val order = listOf("", "D", "N", "J", "GO", "BO", "PD", "SD")
     val index = order.indexOf(current).takeIf { it >= 0 } ?: 0
     return order[(index + 1) % order.size]
 }
