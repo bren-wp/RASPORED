@@ -241,6 +241,48 @@ test("smart single-person crop snaps to detected employee rows and supports tap 
   await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
+test("single-person scan supports rotation, manual movement and direct drag", async ({page}) => {
+  await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
+  await page.goto("/");
+  await page.locator('[data-route="scan"]:visible').first().click();
+  await page.locator("#scanSinglePersonToggle").check();
+
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="800" height="400" fill="#fff"/><text x="40" y="80" font-size="28">ANA HORVAT 1 D 2 N 3 GO</text></svg>';
+  await page.locator("#galleryInput").setInputFiles({
+    name:"osoba.svg",
+    mimeType:"image/svg+xml",
+    buffer:Buffer.from(svg)
+  });
+
+  await expect(page.locator("#scanTransformActions")).toBeVisible();
+  await expect(page.locator("#scanRotateLeft")).toBeEnabled();
+  await expect(page.locator("#scanRotateRight")).toBeEnabled();
+
+  const dimensions=async()=>page.locator("#scanPreviewImage").evaluate((img:HTMLImageElement)=>[img.naturalWidth,img.naturalHeight]);
+  await expect.poll(dimensions).toEqual([800,400]);
+  await page.locator("#scanRotateRight").click();
+  await expect.poll(dimensions).toEqual([400,800]);
+
+  const top=page.locator("#scanCropTop");
+  await expect(top).toHaveValue("34");
+  await page.locator("#scanCropDown").click();
+  expect(Number(await top.inputValue())).toBeGreaterThan(34);
+
+  const band=page.locator("#scanRowCrop");
+  const box=await band.boundingBox();
+  expect(box).not.toBeNull();
+  const beforeDrag=Number(await top.inputValue());
+  await page.mouse.move((box?.x||0)+(box?.width||1)/2,(box?.y||0)+(box?.height||1)/2);
+  await page.mouse.down();
+  await page.mouse.move((box?.x||0)+(box?.width||1)/2,(box?.y||0)+(box?.height||1)/2+40,{steps:5});
+  await page.mouse.up();
+  expect(Number(await top.inputValue())).toBeGreaterThan(beforeDrag);
+
+  await page.locator("#scanCropReset").click();
+  await expect(top).toHaveValue("34");
+  await expect(page.locator("#scanCropBottom")).toHaveValue("38");
+});
+
 test("scan imports only the explicitly selected employee schedule", async ({page}) => {
   await mockOcr(page);
   await page.goto("/");
