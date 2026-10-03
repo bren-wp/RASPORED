@@ -174,9 +174,9 @@ internal fun PayrollScreen(
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Natrag")
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Okvirna plaća", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Procjena plaće", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Javni sektor RH · službeni parametri gdje postoje · sati iz kalendara",
+                        "Javni sektor RH · provjerljivi parametri gdje postoje · sati iz kalendara",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
