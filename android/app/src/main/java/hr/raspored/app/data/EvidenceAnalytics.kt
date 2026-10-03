@@ -30,7 +30,7 @@ data class EvidenceMonthSummary(
  * GO/BO/PD receive an 8-hour monthly-fund credit
  * only on ordinary Monday-Friday workdays. SD, blank days and custom codes do
  * not receive invented hours. A weekday public holiday receives an 8-hour
- * fund credit when no D/N shift is worked that day.
+ * fund credit when no D/N/J shift is worked that day.
  */
 object EvidenceAnalytics {
     const val DAY_SHIFT_MINUTES = 12L * 60L
