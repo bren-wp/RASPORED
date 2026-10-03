@@ -1438,8 +1438,34 @@ function bind(){
   if(cropReset)cropReset.addEventListener("click",resetScanCrop);
   var scanImageStage=document.getElementById("scanImageStage"),scanRowCrop=document.getElementById("scanRowCrop"),scanPreviewImage=document.getElementById("scanPreviewImage");
   if(scanPreviewImage)scanPreviewImage.addEventListener("load",updateScanCropOverlay);
+  var cropDragActive=false,cropDragStartPercent=0,cropDragStartTop=0,cropDragStartBottom=0,cropDragMoved=false,cropSuppressClick=false;
+  function beginStageCropDrag(clientY){
+    if(cropDragActive||!state.scanSingleMode||!state.scanOriginalFile)return false;
+    var percent=scanPercentFromClientY(clientY);
+    if(percent==null||percent<state.scanCropTop-.75||percent>state.scanCropBottom+.75)return false;
+    cropDragActive=true;cropDragStartPercent=percent;cropDragStartTop=state.scanCropTop;cropDragStartBottom=state.scanCropBottom;cropDragMoved=false;
+    state.scanDetectedRowIndex=-1;
+    return true;
+  }
+  function moveStageCropDrag(clientY){
+    if(!cropDragActive)return false;
+    var percent=scanPercentFromClientY(clientY);
+    if(percent==null)return false;
+    var delta=percent-cropDragStartPercent;
+    if(Math.abs(delta)>.2)cropDragMoved=true;
+    var height=cropDragStartBottom-cropDragStartTop;
+    var top=Math.max(0,Math.min(100-height,cropDragStartTop+delta));
+    setScanCrop(top,top+height,-1);
+    return true;
+  }
+  function stopStageCropDrag(){
+    if(!cropDragActive)return;
+    cropSuppressClick=cropDragMoved;
+    cropDragActive=false;
+  }
   if(scanImageStage){
     scanImageStage.addEventListener("click",function(event){
+      if(cropSuppressClick){cropSuppressClick=false;event.preventDefault();return}
       if(!state.scanSingleMode||!state.scanOriginalFile)return;
       var percent=scanPercentFromClientY(event.clientY);
       if(percent==null)return;
@@ -1458,65 +1484,34 @@ function bind(){
         else shiftScanCrop(1.5);
       }
     });
-  }
-  if(scanRowCrop){
-    var dragPointer=null,dragStartPercent=0,dragStartTop=0,dragStartBottom=0;
-    function beginCropDrag(key,clientY){
-      if(dragPointer!==null||!state.scanSingleMode||!state.scanOriginalFile)return false;
-      var percent=scanPercentFromClientY(clientY);
-      if(percent==null)return false;
-      dragPointer=key;dragStartPercent=percent;dragStartTop=state.scanCropTop;dragStartBottom=state.scanCropBottom;
-      state.scanDetectedRowIndex=-1;
-      return true;
-    }
-    function moveCropDrag(key,clientY){
-      if(dragPointer!==key)return false;
-      var percent=scanPercentFromClientY(clientY);
-      if(percent==null)return false;
-      var height=dragStartBottom-dragStartTop,top=Math.max(0,Math.min(100-height,dragStartTop+(percent-dragStartPercent)));
-      setScanCrop(top,top+height,-1);
-      return true;
-    }
-    function stopCropDrag(key){
-      if(dragPointer!==key)return;
-      dragPointer=null;
-    }
-    scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
-    scanRowCrop.addEventListener("pointerdown",function(event){
-      if(beginCropDrag("pointer:"+event.pointerId,event.clientY)){
-        event.preventDefault();event.stopPropagation();
-      }
-    });
-    window.addEventListener("pointermove",function(event){
-      if(moveCropDrag("pointer:"+event.pointerId,event.clientY))event.preventDefault();
-    },{passive:false});
-    window.addEventListener("pointerup",function(event){stopCropDrag("pointer:"+event.pointerId)});
-    window.addEventListener("pointercancel",function(event){stopCropDrag("pointer:"+event.pointerId)});
-
-    scanRowCrop.addEventListener("mousedown",function(event){
-      if(beginCropDrag("mouse",event.clientY)){event.preventDefault();event.stopPropagation()}
-    });
-    window.addEventListener("mousemove",function(event){
-      if(moveCropDrag("mouse",event.clientY))event.preventDefault();
-    });
-    window.addEventListener("mouseup",function(){stopCropDrag("mouse")});
-
-    scanRowCrop.addEventListener("touchstart",function(event){
+    scanImageStage.addEventListener("pointerdown",function(event){
+      if(beginStageCropDrag(event.clientY)){event.preventDefault();event.stopPropagation()}
+    },true);
+    scanImageStage.addEventListener("mousedown",function(event){
+      if(beginStageCropDrag(event.clientY)){event.preventDefault();event.stopPropagation()}
+    },true);
+    scanImageStage.addEventListener("touchstart",function(event){
       var touch=event.changedTouches&&event.changedTouches[0];
-      if(touch&&beginCropDrag("touch:"+touch.identifier,touch.clientY)){event.preventDefault();event.stopPropagation()}
-    },{passive:false});
-    window.addEventListener("touchmove",function(event){
-      if(typeof dragPointer!=="string"||dragPointer.indexOf("touch:")!==0)return;
-      var id=Number(dragPointer.slice(6)),touch=Array.from(event.changedTouches||[]).find(function(item){return item.identifier===id});
-      if(touch&&moveCropDrag(dragPointer,touch.clientY))event.preventDefault();
-    },{passive:false});
-    window.addEventListener("touchend",function(event){
-      Array.from(event.changedTouches||[]).forEach(function(touch){stopCropDrag("touch:"+touch.identifier)});
-    });
-    window.addEventListener("touchcancel",function(event){
-      Array.from(event.changedTouches||[]).forEach(function(touch){stopCropDrag("touch:"+touch.identifier)});
-    });
+      if(touch&&beginStageCropDrag(touch.clientY)){event.preventDefault();event.stopPropagation()}
+    },{capture:true,passive:false});
   }
+  if(scanRowCrop)scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
+  window.addEventListener("pointermove",function(event){
+    if(moveStageCropDrag(event.clientY))event.preventDefault();
+  },{passive:false});
+  window.addEventListener("mousemove",function(event){
+    if(moveStageCropDrag(event.clientY))event.preventDefault();
+  });
+  window.addEventListener("touchmove",function(event){
+    if(!cropDragActive)return;
+    var touch=event.changedTouches&&event.changedTouches[0];
+    if(touch&&moveStageCropDrag(touch.clientY))event.preventDefault();
+  },{passive:false});
+  window.addEventListener("pointerup",stopStageCropDrag);
+  window.addEventListener("pointercancel",stopStageCropDrag);
+  window.addEventListener("mouseup",stopStageCropDrag);
+  window.addEventListener("touchend",stopStageCropDrag);
+  window.addEventListener("touchcancel",stopStageCropDrag);
   document.getElementById("scanSinglePersonBtn").addEventListener("click",async function(){
     if(!state.scanOriginalFile){toast("Najprije učitaj fotografiju rasporeda.");return}
     this.disabled=true;
