@@ -41,6 +41,9 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("screen-home").performScrollToNode(hasTestTag("home-hours"))
         composeRule.onNodeWithTag("home-hours").performClick()
         composeRule.onNodeWithTag("screen-hours").fetchSemanticsNode()
+        composeRule.onNodeWithText("Mjesečni fond").fetchSemanticsNode()
+        composeRule.onNodeWithText("Iznad fonda").fetchSemanticsNode()
+        composeRule.onNodeWithText("Obračunski sati").fetchSemanticsNode()
         composeRule.onNodeWithText("‹ Natrag").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
 
