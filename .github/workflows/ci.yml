@@ -51,12 +51,10 @@ jobs:
           [[ "$(grep -c 'name: Android launch smoke test' "$RELEASE")" -eq 1 ]] || { echo "release.yml contains duplicate Android smoke-test steps"; exit 1; }
           [[ "$(grep -c 'name: Web QA' "$RELEASE")" -eq 1 ]] || { echo "release.yml contains duplicate Web QA steps"; exit 1; }
           [[ "$(grep -c 'name: Package and verify release artifacts' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one package/verify step"; exit 1; }
-          [[ "$(grep -c 'name: Require Android release signing' "$RELEASE")" -eq 1 ]] || { echo "release.yml must require persistent Android signing"; exit 1; }
-          ! grep -Fq 'mode=fallback' "$RELEASE" || { echo "release.yml must not allow debug-signing fallback"; exit 1; }
-          grep -Fq 'adb install -r dist/RASPORED.apk' "$RELEASE" || { echo "release.yml must verify Android upgrade installation"; exit 1; }
-          grep -Fq 'android/release-signing-baseline.txt' "$RELEASE" || { echo "release.yml must define the signing migration baseline"; exit 1; }
-          BASELINE="$(tr -d '[:space:]' < android/release-signing-baseline.txt)"
-          [[ "$BASELINE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid Android signing baseline: $BASELINE"; exit 1; }
+          [[ "$(grep -c 'name: Android clean-install smoke test' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one Android clean-install smoke test"; exit 1; }
+          ! grep -Eq 'ANDROID_UPLOAD_|RASPORED_RELEASE_STORE_|release-signing-baseline|Require Android release signing' "$RELEASE" || { echo "release.yml must not require custom Android signing keys or secrets"; exit 1; }
+          grep -Fq 'gh run download "$RUN_ID"' "$RELEASE" || { echo "release.yml must reuse verified CI artifacts"; exit 1; }
+          grep -Fq 'adb install dist/RASPORED.apk' "$RELEASE" || { echo "release.yml must clean-install the exact release APK"; exit 1; }
 
   web:
     needs: version
@@ -126,23 +124,28 @@ jobs:
           gradle-version: 8.13
       - name: Android debug build
         run: gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease :demo:assembleDebug :demo:lintDebug --stacktrace
-      - name: Prepare CI debug APK
+      - name: Prepare installable Android artifacts
         if: success()
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED-ci-debug.apk
-          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED-ci.aab
-          cp demo/build/outputs/apk/debug/demo-debug.apk dist/raspored_demo-ci-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          cp demo/build/outputs/apk/debug/demo-debug.apk dist/raspored_demo.apk
+
+          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose dist/RASPORED.apk
+          "$APKSIGNER" verify --verbose dist/raspored_demo.apk
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: RASPORED-android
           path: |
-            dist/RASPORED-ci-debug.apk
-            dist/RASPORED-ci.aab
-            dist/raspored_demo-ci-debug.apk
+            dist/RASPORED.apk
+            dist/RASPORED.aab
+            dist/raspored_demo.apk
           if-no-files-found: error
 
   artifact-verify:
@@ -158,17 +161,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s dist/RASPORED-ci-debug.apk
-          test -s dist/RASPORED-ci.aab
-          test -s dist/raspored_demo-ci-debug.apk
+          test -s dist/RASPORED.apk
+          test -s dist/RASPORED.aab
+          test -s dist/raspored_demo.apk
           WEB_ZIP="$(find dist -maxdepth 1 -type f -name 'RASPORED-web-v*.zip' -print -quit)"
           test -n "$WEB_ZIP"
           test -s "$WEB_ZIP"
-          unzip -tq dist/RASPORED-ci-debug.apk
-          unzip -tq dist/RASPORED-ci.aab
-          unzip -tq dist/raspored_demo-ci-debug.apk
+          unzip -tq dist/RASPORED.apk
+          unzip -tq dist/RASPORED.aab
+          unzip -tq dist/raspored_demo.apk
           unzip -tq "$WEB_ZIP"
-          sha256sum dist/RASPORED-ci-debug.apk dist/RASPORED-ci.aab dist/raspored_demo-ci-debug.apk "$WEB_ZIP"
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab dist/raspored_demo.apk "$WEB_ZIP"
 
   android-ui:
     needs: [version, android]
@@ -182,6 +185,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.13
+      - uses: actions/download-artifact@v5
+        with:
+          name: RASPORED-android
+          path: dist
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -210,6 +217,17 @@ jobs:
             test -s android-readme-screenshots/android-scan.png
             test -s android-readme-screenshots/android-statistics.png
             test -s android-readme-screenshots/android-more.png
+
+            # Verify the exact packaged APK that the release workflow will reuse.
+            adb uninstall hr.raspored.app.test >/dev/null 2>&1 || true
+            adb uninstall hr.raspored.app >/dev/null 2>&1 || true
+            adb uninstall hr.raspored.demo >/dev/null 2>&1 || true
+            adb install dist/RASPORED.apk
+            adb install dist/raspored_demo.apk
+            adb shell am start -W -n hr.raspored.app/.MainActivity
+            adb shell pidof hr.raspored.app
+            adb shell dumpsys package hr.raspored.app | grep -F "versionName=$(tr -d '[:space:]' < VERSION)"
+            adb shell dumpsys package hr.raspored.demo | grep -F "versionName=$(tr -d '[:space:]' < VERSION)"
 
       - uses: actions/upload-artifact@v4
         if: success()
