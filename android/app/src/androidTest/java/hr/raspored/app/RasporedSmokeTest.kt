@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
@@ -34,7 +35,12 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithText("Očisti dan").performClick()
+        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasTestTag("calendar-dialog-current-state")).fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextEquals("Nije označeno")
         composeRule.onNodeWithText("Zatvori").performClick()
 
