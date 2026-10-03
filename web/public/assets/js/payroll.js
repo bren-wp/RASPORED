@@ -84,10 +84,10 @@ function baseFor(regime,month,custom){
   return match?Number(match.amount):0;
 }
 function monthlyFund(year,monthIndex){
-  var days=new Date(year,monthIndex+1,0).getDate(),count=0;
+  var days=new Date(year,monthIndex+1,0).getDate(),count=0,holidays=holidayMap(year);
   for(var d=1;d<=days;d++){
-    var day=new Date(year,monthIndex,d).getDay();
-    if(day!==0&&day!==6)count++;
+    var date=new Date(year,monthIndex,d),day=date.getDay();
+    if(day!==0&&day!==6&&!holidays[iso(date)])count++;
   }
   return count*8;
 }
@@ -153,7 +153,7 @@ function evidenceForMonth(year,monthIndex){
     var code=schedule[dateKey],d=new Date(dateKey+"T12:00:00");
     if(Number.isNaN(d.getTime())||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
     if(code==="GO"||code==="BO"||code==="PD"){
-      if(d.getDay()!==0&&d.getDay()!==6){
+      if(d.getDay()!==0&&d.getDay()!==6&&!holidays[dateKey]){
         compensatedDates[dateKey]=true;
         absenceDates[dateKey]=true;
       }
@@ -456,7 +456,7 @@ function render(){
   qs("payrollAdditions").textContent=base>0?money(overtimeBase+additions+customAddition):"—";
   qs("payrollEvidenceHint").textContent=evidence.total
     ?("Iz "+hours(evidence.total)+" rada automatski izračunatog iz kalendara.")
-    :"U kalendaru nema D/N smjena; prikazana je osnovna mjesečna procjena bez dodataka iz rada.";
+    :"U kalendaru nema D/N/J smjena; prikazana je osnovna mjesečna procjena bez dodataka iz rada.";
   qs("payrollTaxSummary").textContent="MIO 20% · osobni odbitak "+money(allowance)+" · porez "+number(lower,1)+"% / "+number(higher,1)+"% prema prebivalištu.";
 
   var roleNote=qs("payrollRoleNote");
@@ -510,7 +510,7 @@ function render(){
   });
   qs("payrollLegalText").textContent=(regime?regime.label:"Ručni obračun")+" — osnovna bruto plaća računa se kao osnovica × koeficijent + 0,5% za svaku navršenu godinu staža. "+
     (autoRates.length?"Automatski obračunski postoci u ovom presetu: "+autoRates.join(", ")+". ":"Dodaci nisu automatski pretpostavljeni za ovaj režim. ")+
-    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. GO, BO i PD te radni dan koji pada na blagdan bez kalendarske D/N smjene koriste se samo kao 8-satna ekvivalencija pri provjeri mjesečnog fonda; to nije izmišljena smjena niti dodatak za rad blagdanom. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
+    "Okvirni neto koristi standardni mirovinski doprinos 20%, uneseni osobni odbitak i porezne stope mjesta prebivališta. GO, BO i PD samo na običan radni dan te radni dan koji pada na blagdan bez kalendarske D/N/J smjene koriste se kao 8-satna ekvivalencija pri provjeri mjesečnog fonda; to nije izmišljena smjena niti dodatak za rad blagdanom. Dežurstvo, pripravnost i rad po pozivu prikazuju se kao posebni oblici rada i ne dobivaju izmišljenu stopu. Točan obračun uvijek provjeri prema ugovoru, rješenju i obračunskoj ispravi.";
 }
 function refreshInstitutionAndRole(preferredRole){
   populateInstitutions("",null);
