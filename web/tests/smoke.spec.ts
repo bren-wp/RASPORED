@@ -18,7 +18,7 @@ test("responsive Takto home uses production composition", async ({page}) => {
     const mobileNav=page.locator(".bottom-nav");
     await expect(mobileNav).toContainText("Početna");
     await expect(mobileNav).toContainText("Kalendar");
-    await expect(mobileNav).toContainText("Skeniraj");
+    await expect(mobileNav).toContainText("Uvezi");
     await expect(mobileNav).toContainText("Statistika");
     await expect(mobileNav).toContainText("Više");
     await expect(mobileNav).not.toContainText("Evidencija");
