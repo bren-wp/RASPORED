@@ -38,12 +38,16 @@ class RasporedSmokeTest {
         composeRule.onNodeWithText("Očisti dan").performClick()
         composeRule.waitForIdle()
 
-        val currentStateNodes = composeRule
+        val transientSheetStillVisible = composeRule
             .onAllNodes(hasTestTag("calendar-dialog-current-state"))
             .fetchSemanticsNodes()
-        if (currentStateNodes.isEmpty()) {
-            composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
+            .isNotEmpty()
+        if (transientSheetStillVisible) {
+            composeRule.onNodeWithText("Zatvori").performClick()
+            composeRule.waitForIdle()
         }
+
+        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("Nije označeno")
         composeRule.onAllNodesWithText("Očisti dan").assertCountEquals(0)
         composeRule.onNodeWithText("Zatvori").performClick()
