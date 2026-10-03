@@ -37,7 +37,7 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithText("Očisti dan").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Zatvori").fetchSemanticsNodes().isEmpty()
+            composeRule.onAllNodes(hasTestTag("calendar-dialog-current-state")).fetchSemanticsNodes().isEmpty()
         }
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("Nije označeno")
