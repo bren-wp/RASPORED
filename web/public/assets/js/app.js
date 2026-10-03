@@ -877,6 +877,24 @@ function renderStats(){
     var total=w.d+w.n+w.o,h=Math.max(8,Math.round(total/max*130));
     return '<div class="week-bar-wrap"><b>'+hoursText(total*60)+'</b><div class="week-bar" style="height:'+h+'px"><span class="d" style="height:'+Math.round((w.d/Math.max(1,total))*100)+'%"></span><span class="n" style="height:'+Math.round((w.n/Math.max(1,total))*100)+'%"></span><span class="other" style="height:'+Math.round((w.o/Math.max(1,total))*100)+'%"></span></div><small>'+(i+1)+'. tjedan</small></div>';
   }).join("");
+  var statsMonthKey=state.cursor.getFullYear()+"-"+String(state.cursor.getMonth()+1).padStart(2,"0");
+  var payrollPreview=window.RasporedPayroll&&typeof window.RasporedPayroll.preview==="function"
+    ?window.RasporedPayroll.preview(statsMonthKey):null;
+  var payrollNet=document.getElementById("statsPayrollNet");
+  var payrollGross=document.getElementById("statsPayrollGross");
+  var payrollOvertime=document.getElementById("statsPayrollOvertime");
+  if(payrollNet&&payrollGross&&payrollOvertime){
+    if(payrollPreview&&payrollPreview.available){
+      var currency=new Intl.NumberFormat("hr-HR",{style:"currency",currency:"EUR"});
+      payrollNet.textContent=currency.format(payrollPreview.net)+" neto";
+      payrollGross.textContent=currency.format(payrollPreview.gross)+" bruto · provjeri detalje obračuna";
+      payrollOvertime.textContent="Iznad fonda "+hoursText(payrollPreview.overtimeMinutes);
+    }else{
+      payrollNet.textContent="Dopuni podatke za obračun";
+      payrollGross.textContent="Otvori obračun i provjeri parametre radnog mjesta.";
+      payrollOvertime.textContent="Iznad fonda "+hoursText(d.overtimeMinutes);
+    }
+  }
   var detail=document.getElementById("detailStats");
   if(detail)detail.innerHTML=[
     ["sun","Dnevni sati","D raspored · "+d.counts.D+" smjena",hoursText(d.dayMinutes)],
