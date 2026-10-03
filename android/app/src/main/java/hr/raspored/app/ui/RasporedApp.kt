@@ -53,6 +53,7 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -95,6 +96,13 @@ private val NONE=Shift("","Nije označeno","—",0)
     var scheduleLoaded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val scheduleWrites = remember { Channel<Pair<LocalDate, String?>>(Channel.UNLIMITED) }
+
+    LaunchedEffect(store, scheduleWrites) {
+        for ((date, code) in scheduleWrites) {
+            withContext(Dispatchers.IO) { store.record(date, code) }
+        }
+    }
     LaunchedEffect(store) {
         val loaded = withContext(Dispatchers.IO) {
             var persisted = store.load()
@@ -235,7 +243,7 @@ private val NONE=Shift("","Nije označeno","—",0)
                         onShiftChange={date,code->
                             if(code==null) scheduleCodes.remove(date.toString())
                             else scheduleCodes[date.toString()]=code
-                            scope.launch(Dispatchers.IO) { store.record(date,code) }
+                            scheduleWrites.trySend(date to code)
                         }
                     )
                     Screen.Scan->OcrScanScreen(
@@ -903,6 +911,7 @@ private fun largeMinutesLabel(minutes:Long):String {
                         TextButton(
                             onClick = {
                                 onShiftChange(date, null)
+                                editingDate = null
                             }
                         ) {
                             Icon(Icons.Outlined.DeleteOutline, null)
