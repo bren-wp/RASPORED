@@ -987,8 +987,13 @@ function shiftScanCrop(delta){
   setScanCrop(top,top+height,-1);
 }
 function resetScanCrop(){
-  if(state.scanDetectedRows.length&&state.scanDetectedRowIndex>=0){
-    selectDetectedScanRow(state.scanDetectedRowIndex);
+  if(state.scanDetectedRows.length){
+    var center=(state.scanCropTop+state.scanCropBottom)/2,best=0,distance=Infinity;
+    state.scanDetectedRows.forEach(function(row,index){
+      var diff=Math.abs((row.top+row.bottom)/2-center);
+      if(diff<distance){distance=diff;best=index}
+    });
+    selectDetectedScanRow(best);
     return;
   }
   setScanCrop(34,38,-1);
