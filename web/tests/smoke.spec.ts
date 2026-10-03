@@ -37,6 +37,8 @@ test("primary navigation remains clickable across production screens", async ({p
     :["calendar","scan","stats","payroll","hours","colleagues","settings","home"];
 
   for(const route of routes){
+    await page.goto("/");
+    await expect(page.locator("body")).toHaveAttribute("data-app-ready","true");
     const control=page.locator('[data-route="'+route+'"]:visible').first();
     await expect(control).toBeVisible();
     await control.click();
@@ -298,7 +300,7 @@ test("AI scan review requires consent and resolves conflicts before import", asy
   await expect(page.locator("#scanAiPanel")).toBeVisible();
   await page.locator("#scanAiVerifyBtn").click();
   await expect(page.locator("#scanAiConsentDialog")).toBeVisible();
-  await expect(page.locator("#scanAiConsentDialog")).toContainText("Fotografija rasporeda napušta uređaj");
+  await expect(page.locator("#scanAiConsentDialog")).toContainText(/fotografija napušta uređaj/i);
   await page.locator("#scanAiConsentConfirm").click();
 
   await expect(page.locator("#scanConflictPanel")).toBeVisible();
@@ -320,7 +322,7 @@ test("AI scan review requires consent and resolves conflicts before import", asy
 
   await page.locator("#scanReviewNextBtn").click();
   await expect(page.locator("#scanConflictDialog")).toBeVisible();
-  await expect(page.locator("#scanConflictValues")).toContainText("Lokalni OCR: D · AI: N");
+  await expect(page.locator("#scanConflictValues")).toContainText("Prvo prepoznavanje: D · Dodatna provjera: N");
   await page.locator("#scanConflictAi").click();
 
   await expect(page.locator("#scanConflictPanel")).toBeHidden();
@@ -842,7 +844,7 @@ test("main routes have no page-level horizontal overflow or fixed-nav overlap", 
       const width=page.viewportSize()?.width ?? 1440;
       if(width<=820){
         await page.locator('[data-route="stats"]:visible').first().click();
-        await page.locator(".stats-payroll-link").click();
+        await page.locator("#statsPayrollPreview").click();
       }else{
         await page.locator('[data-route="payroll"]:visible').first().click();
       }
@@ -871,7 +873,7 @@ async function openPayroll(page:any){
   const width=page.viewportSize()?.width ?? 1440;
   if(width<=820){
     await page.locator('[data-route="stats"]:visible').first().click();
-    await page.locator(".stats-payroll-link").click();
+    await page.locator("#statsPayrollPreview").click();
   }else{
     await page.locator('[data-route="payroll"]:visible').first().click();
   }
@@ -979,13 +981,13 @@ test("salary estimator uses GO/BO/PD only for fund threshold and pays overtime b
   await page.evaluate(async () => {
     const store=(window as any).RasporedDataStore;
     const schedule:any={};
-    for(let day=2;day<=9;day++)schedule["2026-06-"+String(day).padStart(2,"0")]="D";
-    for(let day=12;day<=22;day++)schedule["2026-06-"+String(day).padStart(2,"0")]="GO";
+    for(let day=1;day<=12;day++)schedule["2026-10-"+String(day).padStart(2,"0")]="D";
+    for(const day of [13,14,15,16,17,19])schedule["2026-10-"+String(day).padStart(2,"0")]="GO";
     store.set("raspored.schedule",JSON.stringify(schedule));
     await store.flush();
   });
   await openPayroll(page);
-  await page.locator("#payrollMonth").fill("2026-06");
+  await page.locator("#payrollMonth").fill("2026-10");
   await page.locator("#payrollMonth").dispatchEvent("change");
   await expect(page.locator("#payrollBreakdown")).toContainText("Planirani izostanci");
   await expect(page.locator("#payrollBreakdown")).toContainText("Osnovna satnica prekovremenih sati");
