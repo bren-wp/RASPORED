@@ -18,7 +18,7 @@
           </div>
           <div class="hours-shift-row">
             <span class="metric-icon"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-clock"></use></svg></span>
-            <div><small>Pravilo obračuna</small><b>D / N = 12 h · custom oznake bez izmišljene satnice</b></div>
+            <div><small>Pravilo obračuna</small><b>D / N = 12 h · J = 8 h · ostale vlastite oznake bez izmišljene satnice</b></div>
           </div>
           <div class="hours-live">
             <div><small>Ukupno</small><b id="hoursMonthTotal">0 h</b></div>
