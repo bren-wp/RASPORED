@@ -860,7 +860,8 @@ function renderStats(){
   var donut=document.getElementById("donut"),total=Math.max(1,d.workedMinutes),dayPct=Math.round(d.dayMinutes/total*100),nightPct=Math.round(d.nightMinutes/total*100);
   if(donut)donut.style.background="conic-gradient(#147DF5 0 "+dayPct+"%,#6D28D9 "+dayPct+"% "+(dayPct+nightPct)+"%,#60738F "+(dayPct+nightPct)+"% 100%)";
   var cats=[
-    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D raspored · "+d.counts.D+" smjena"],
+    ["#147DF5","Dnevni sati",hoursText(d.dayMinutes),"D + J raspored · "+(d.counts.D+d.counts.J)+" smjena"],
+    ["#0891B2","Jutarnje smjene",hoursText(d.counts.J*8*60),"J raspored · "+d.counts.J+" smjena"],
     ["#6D28D9","Noćni sati",hoursText(d.nightMinutes),"N raspored · "+d.counts.N+" smjena"],
     ["#60738F","Subote",hoursText(d.satMinutes),d.sat+" smjene"],
     ["#FF4655","Nedjelje",hoursText(d.sunMinutes),d.sun+" smjene"],
@@ -900,7 +901,8 @@ function renderStats(){
   }
   var detail=document.getElementById("detailStats");
   if(detail)detail.innerHTML=[
-    ["sun","Dnevni sati","D raspored · "+d.counts.D+" smjena",hoursText(d.dayMinutes)],
+    ["sun","Dnevni sati","D + J raspored · "+(d.counts.D+d.counts.J)+" smjena",hoursText(d.dayMinutes)],
+    ["clock","Jutarnje smjene","J raspored · "+d.counts.J+" smjena",hoursText(d.counts.J*8*60)],
     ["holiday","Blagdani",d.holidays+" smjena",hoursText(d.holidayMinutes)],
     ["moon","Noćni sati","N raspored · "+d.counts.N+" smjena",hoursText(d.nightMinutes)],
     ["holiday","GO",d.go+" dana","Godišnji odmor"],
