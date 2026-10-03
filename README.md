@@ -22,7 +22,7 @@
 
 Svako produkcijsko izdanje objavljuje gotove artefakte:
 
-- **RASPORED.apk** — instalabilni Android APK. Ne koristi korisnički keystore ni GitHub signing secret; CI i release provjeravaju stvarni clean-install i pokretanje na emulatoru.
+- **RASPORED.apk** — instalabilni Android APK. Od v1.0.29 `main` CI koristi stabilni GitHub-distribution signing identitet, a release ponovno koristi isti prethodno provjereni APK te radi stvarni clean-install i launch smoke test.
 - **RASPORED.aab** — Android App Bundle za daljnju distribucijsku obradu; nije namijenjen izravnoj instalaciji na uređaj.
 - **raspored_demo.apk** — isti produkcijski Android UI i funkcionalni source kao glavna aplikacija, ali s application ID-em `hr.raspored.demo`, jasnom DEMO oznakom i izmišljenim demo rasporedom pri prvom pokretanju.
 - **RASPORED-web-vX.Y.Z.zip** — Web/PWA paket spreman za upload na domenu, poddomenu ili poddirektorij.
@@ -30,7 +30,7 @@ Svako produkcijsko izdanje objavljuje gotove artefakte:
 
 Verzija Android aplikacije i Web/PWA paketa uvijek se čita iz zajedničke datoteke <code>VERSION</code>. CI ne dopušta novo izdanje s već korištenom verzijom.
 
-Android APK mora imati tehnički potpis da bi ga Android uopće prihvatio, ali Takto ne traži korisnički keystore, GitHub signing secret ni ručno upravljanje ključevima. GitHub build koristi standardni automatski debug potpis Android alata. Zato workflow prije objave provjerava točan APK kroz clean-install i launch smoke test. Ako uređaj već ima stariji GitHub APK s drugim automatskim debug certifikatom, staru aplikaciju treba prvo ukloniti prije instalacije nove verzije.
+Android APK mora imati tehnički potpis da bi ga Android prihvatio. Izdanje v1.0.28 potvrđeno je izgrađeno kroz fallback debug-potpis jer signing Secrets nisu bili konfigurirani, pa se njegov certifikat mogao razlikovati od ranijih GitHub APK-ova. Od v1.0.29 `main` CI zadržava stabilni GitHub-distribution signing identitet i release koristi isti CI APK. Prijelaz sa starije instalacije potpisane drugim certifikatom može jednom zahtijevati uklanjanje stare Takto aplikacije; nakon uspostave novog potpisa buduća GitHub APK izdanja trebaju zadržati isti identitet.
 
 ## Raspored bez tablica, papira i ručnog prepisivanja
 
@@ -190,7 +190,7 @@ Produkcijski source tree prolazi automatski audit iz `scripts/dead_code_audit.py
 - mobilna primarna navigacija: Početna, Kalendar, istaknuti Skeniraj, Statistika i Više; Evidencija ostaje brza akcija s Početne
 - Keystore-backed kompatibilnost za ranije povezane Android sesije uz provjeru isteka/opoziva; novi login/registracija UI je uklonjen
 - stvarni mjesečni PDF izvoz rasporeda/evidencije bez profila ime/prezime u Postavkama
-- CI proizvodi `RASPORED.apk` kao instalabilni automatski debug artefakt; release workflow ponovno koristi isti provjereni APK umjesto zasebnog rebuilda
+- CI proizvodi `RASPORED.apk` kao instalabilni artefakt; na `main` grani od v1.0.29 koristi stabilni GitHub-distribution signing identitet, a release workflow ponovno koristi isti provjereni APK umjesto zasebnog rebuilda
 - Compose unit/lint provjere i stvarni API 36 emulator launch/navigation smoke test u CI-ju
 
 ### Web / PWA
