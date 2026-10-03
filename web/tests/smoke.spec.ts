@@ -464,12 +464,11 @@ test("time evidence is derived automatically from the calendar", async ({page}) 
     await page.locator('[data-route="home"]:visible').first().click();
     await page.getByRole("button",{name:/Otvori evidenciju/i}).click();
   }else await page.locator('[data-route="hours"]:visible').first().click();
-  await expect(page.locator("#hoursMonthTotal")).toContainText("24h");
+  await expect(page.locator("#hoursMonthTotal")).toContainText("32h");
   await expect(page.locator("#hoursNightTotal")).toContainText("8h");
   await expect(page.locator("#hoursHistory")).toContainText("D · Dnevna smjena");
   await expect(page.locator("#hoursHistory")).toContainText("N · Noćna smjena");
-  await expect(page.locator("#hoursHistory")).toContainText("J · Vlastita oznaka J");
-  await expect(page.locator("#hoursHistory")).toContainText("Nije definirano");
+  await expect(page.locator("#hoursHistory")).toContainText("J · Jutarnja smjena");
 });
 
 test("time evidence no longer exposes manual clock-in controls", async ({page}) => {
@@ -1114,7 +1113,7 @@ test("calendar, scan help and settings controls are wired", async ({page}) => {
   await expect(page.locator('a[href="mailto:info@brendigo.com"]')).toBeVisible();
   await expect(page.locator('a[href="https://brendigo.com"]')).toBeVisible();
   await expect(page.locator(".about-takto")).toContainText("Takto");
-  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.28");
+  await expect(page.locator(".about-takto")).toContainText("Verzija 1.0.29");
   await expect(page.locator(".about-takto")).toContainText("Brendigo");
 });
 
