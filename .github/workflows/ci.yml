@@ -55,7 +55,7 @@ jobs:
           grep -Fq 'gh run download "$RUN_ID"' "$RELEASE" || { echo "release.yml must reuse verified CI artifacts"; exit 1; }
           grep -Fq 'adb install dist/RASPORED.apk' "$RELEASE" || { echo "release.yml must clean-install the exact release APK"; exit 1; }
           grep -Fq 'takto-github-apk-signing-v1' ".github/workflows/ci.yml" || { echo "ci.yml must preserve the stable main APK signing identity"; exit 1; }
-          [[ "$(grep -Ec '^      - name: Verify APK signing continuity
+          [[ "$(grep -Ec '^      - name: Verify APK signing continuity' ".github/workflows/ci.yml")" -eq 1 ]] || { echo "ci.yml must contain exactly one APK signing continuity gate"; exit 1; }
 
   web:
     needs: version
