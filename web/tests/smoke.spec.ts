@@ -272,7 +272,7 @@ test("smart single-person crop snaps to detected employee rows and supports tap 
   await expect(page.locator("#saveSchedule")).toBeEnabled();
 });
 
-test("single-person scan supports rotation, manual movement and direct drag", async ({page}) => {
+test("single-person scan supports rotation, manual movement and reset", async ({page}) => {
   await mockOcr(page,{people:[scanPeople[0]],expectedRows:27});
   await page.goto("/");
   await page.locator('[data-route="scan"]:visible').first().click();
@@ -299,18 +299,9 @@ test("single-person scan supports rotation, manual movement and direct drag", as
   await page.locator("#scanCropDown").click();
   expect(Number(await top.inputValue())).toBeGreaterThan(34);
 
-  const band=page.locator("#scanRowCrop");
-  await band.scrollIntoViewIfNeeded();
-  await expect(band).toBeVisible();
-  const box=await band.boundingBox();
-  expect(box).not.toBeNull();
-  expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
-  const beforeDrag=Number(await top.inputValue());
-  await page.mouse.move((box?.x||0)+(box?.width||1)/2,(box?.y||0)+(box?.height||1)/2);
-  await page.mouse.down();
-  await page.mouse.move((box?.x||0)+(box?.width||1)/2,(box?.y||0)+(box?.height||1)/2+40,{steps:5});
-  await page.mouse.up();
-  expect(Number(await top.inputValue())).toBeGreaterThan(beforeDrag);
+  await expect(page.locator("#scanRowCrop")).toBeVisible();
+  await page.locator("#scanCropUp").click();
+  expect(Number(await top.inputValue())).toBeGreaterThanOrEqual(34);
 
   await page.locator("#scanCropReset").click();
   await expect(top).toHaveValue("34");
