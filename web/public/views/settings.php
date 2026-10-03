@@ -36,7 +36,7 @@
       <section class="card settings-card">
         <h2>Izgled i pristupačnost</h2>
         <label class="setting-row"><span><b>Tamni način</b><small>Takto tamna tema je primarni izgled; svijetli način ostaje dostupan po želji.</small></span><input type="checkbox" id="themeToggle"></label>
-        <label class="setting-row"><span><b>Smanjene animacije</b><small>Poštuje prefers-reduced-motion i dodatnu lokalnu postavku.</small></span><input type="checkbox" id="motionToggle"></label>
+        <label class="setting-row"><span><b>Smanjene animacije</b><small>Smanjuje prijelaze i pokrete u sučelju radi mirnijeg prikaza.</small></span><input type="checkbox" id="motionToggle"></label>
       </section>
       <section class="card settings-card support-card">
         <h2>Podrška</h2>
