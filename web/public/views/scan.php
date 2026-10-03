@@ -82,8 +82,8 @@
           <div class="dialog-head"><div><h2>Nejasna stavka</h2><p id="scanConflictTitle">—</p></div><form method="dialog"><button class="icon-btn" aria-label="Zatvori">×</button></form></div>
           <p id="scanConflictValues">—</p>
           <div class="scan-conflict-actions">
-            <button class="primary-btn" id="scanConflictLocal">Zadrži lokalno</button>
-            <button class="secondary-btn" id="scanConflictAi">Odaberi AI</button>
+            <button class="primary-btn" id="scanConflictLocal">Zadrži prvo</button>
+            <button class="secondary-btn" id="scanConflictAi">Odaberi dodatnu provjeru</button>
             <button class="secondary-btn" id="scanConflictEmpty">Ostavi prazno</button>
           </div>
           <label class="dialog-field"><span>Druga oznaka</span><input id="scanConflictCustom" maxlength="8" autocomplete="off" inputmode="text" aria-describedby="scanConflictCustomHelp"><small id="scanConflictCustomHelp">1–8 slova ili brojki, bez razmaka.</small></label>
