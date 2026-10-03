@@ -55,7 +55,246 @@ jobs:
           grep -Fq 'gh run download "$RUN_ID"' "$RELEASE" || { echo "release.yml must reuse verified CI artifacts"; exit 1; }
           grep -Fq 'adb install dist/RASPORED.apk' "$RELEASE" || { echo "release.yml must clean-install the exact release APK"; exit 1; }
           grep -Fq 'takto-github-apk-signing-v1' ".github/workflows/ci.yml" || { echo "ci.yml must preserve the stable main APK signing identity"; exit 1; }
-          [[ "$(grep -c 'name: Verify APK signing continuity' ".github/workflows/ci.yml")" -eq 1 ]] || { echo "ci.yml must contain exactly one APK signing continuity gate"; exit 1; }
+          [[ "$(grep -Ec '^      - name: Verify APK signing continuity
+
+  web:
+    needs: version
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: {node-version: 22}
+      - name: PHP and JavaScript syntax
+        run: |
+          set -euo pipefail
+          find public -name '*.php' -print0 | xargs -0 -n1 php -l
+          find public/assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
+          node -e "JSON.parse(require('fs').readFileSync('public/assets/data/payroll-public-sector-2026.json','utf8'))"
+      - name: Install QA dependencies
+        run: npm install
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Functional and screenshot QA
+        run: npx playwright test tests/capture.spec.ts tests/smoke.spec.ts tests/export-history.spec.ts tests/ocr-parser.spec.ts
+      - name: Package Web/PWA
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < ../VERSION)"
+          rm -rf ../dist/web-package
+          mkdir -p ../dist/web-package/storage/data
+          cp -R public/. ../dist/web-package/
+          cp storage/.htaccess ../dist/web-package/storage/.htaccess
+          printf '%s\\n' '# Runtime JSON files are created here.' > ../dist/web-package/storage/data/.gitkeep
+          (
+            cd ../dist/web-package
+            zip -r "../RASPORED-web-v${VERSION}.zip" . \
+              -x "*.DS_Store" \
+              -x "__MACOSX/*" \
+              -x "storage/data/client-*.json" \
+              -x "storage/data/.write.lock"
+          )
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-ui-captures
+          path: web/test-results
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: RASPORED-web
+          path: dist/RASPORED-web-*.zip
+          if-no-files-found: error
+
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.13
+      - name: Restore stable GitHub APK signing identity
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: takto-github-apk-signing-v1
+      - name: Prepare stable GitHub APK signing identity
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [[ ! -s "$HOME/.android/debug.keystore" ]]; then
+            keytool -genkeypair -noprompt               -keystore "$HOME/.android/debug.keystore"               -storepass android               -alias androiddebugkey               -keypass android               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=Takto GitHub Distribution, OU=Takto, O=Brendigo, L=Rijeka, ST=Primorsko-goranska, C=HR"
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+      - name: Android debug build
+        run: gradle -p android :app:assembleDebug :app:bundleRelease :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug :app:lintRelease :demo:assembleDebug :demo:lintDebug --stacktrace
+      - name: Prepare installable Android artifacts
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/RASPORED.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab dist/RASPORED.aab
+          cp demo/build/outputs/apk/debug/demo-debug.apk dist/raspored_demo.apk
+
+          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose dist/RASPORED.apk
+          "$APKSIGNER" verify --verbose dist/raspored_demo.apk
+
+      - name: Verify APK signing continuity
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n1)"
+          test -n "$APKSIGNER"
+
+          signer_digest() {
+            "$APKSIGNER" verify --print-certs "$1" |
+              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+              head -n1 |
+              tr '[:lower:]' '[:upper:]'
+          }
+
+          CURRENT="$(signer_digest dist/RASPORED.apk)"
+          test -n "$CURRENT"
+          echo "Current GitHub APK signer SHA-256: $CURRENT"
+
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [[ "$VERSION" == "1.0.29" ]]; then
+            echo "v1.0.29 establishes the stable GitHub APK signing baseline."
+            exit 0
+          fi
+
+          PREVIOUS_TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName')"
+          test -n "$PREVIOUS_TAG"
+          rm -rf "${RUNNER_TEMP}/previous-takto-release"
+          mkdir -p "${RUNNER_TEMP}/previous-takto-release"
+          gh release download "$PREVIOUS_TAG"             --repo "$GITHUB_REPOSITORY"             --pattern RASPORED.apk             --dir "${RUNNER_TEMP}/previous-takto-release"
+
+          PREVIOUS="$(signer_digest "${RUNNER_TEMP}/previous-takto-release/RASPORED.apk")"
+          test -n "$PREVIOUS"
+          echo "Previous GitHub APK signer SHA-256 ($PREVIOUS_TAG): $PREVIOUS"
+
+          if [[ "$CURRENT" != "$PREVIOUS" ]]; then
+            echo "::error::APK signing certificate changed. Refusing to publish an uninstall-required update."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: RASPORED-android
+          path: |
+            dist/RASPORED.apk
+            dist/RASPORED.aab
+            dist/raspored_demo.apk
+          if-no-files-found: error
+
+  artifact-verify:
+    needs: [web, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: RASPORED-*
+          path: dist
+          merge-multiple: true
+      - name: Verify packaged artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/RASPORED.apk
+          test -s dist/RASPORED.aab
+          test -s dist/raspored_demo.apk
+          WEB_ZIP="$(find dist -maxdepth 1 -type f -name 'RASPORED-web-v*.zip' -print -quit)"
+          test -n "$WEB_ZIP"
+          test -s "$WEB_ZIP"
+          unzip -tq dist/RASPORED.apk
+          unzip -tq dist/RASPORED.aab
+          unzip -tq dist/raspored_demo.apk
+          unzip -tq "$WEB_ZIP"
+          sha256sum dist/RASPORED.apk dist/RASPORED.aab dist/raspored_demo.apk "$WEB_ZIP"
+
+  android-ui:
+    needs: [version, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.13
+      - uses: actions/download-artifact@v5
+        with:
+          name: RASPORED-android
+          path: dist
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android launch, navigation and README screenshot test
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          emulator-build: 15917651
+          disable-animations: true
+          script: |
+            set -eu
+            gradle -p android :app:connectedDebugAndroidTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell pm clear hr.raspored.app >/dev/null
+            adb shell pm clear hr.raspored.app.test >/dev/null || true
+            adb shell am instrument -w -e class hr.raspored.app.AndroidReadmeScreenshotTest hr.raspored.app.test/androidx.test.runner.AndroidJUnitRunner
+            mkdir -p android-readme-screenshots
+            adb pull /sdcard/Android/data/hr.raspored.app/files/readme/. android-readme-screenshots/
+            test -s android-readme-screenshots/android-calendar.png
+            test -s android-readme-screenshots/android-evidence.png
+            test -s android-readme-screenshots/android-scan.png
+            test -s android-readme-screenshots/android-statistics.png
+            test -s android-readme-screenshots/android-more.png
+
+            # Verify the exact packaged APK that the release workflow will reuse.
+            adb uninstall hr.raspored.app.test >/dev/null 2>&1 || true
+            adb uninstall hr.raspored.app >/dev/null 2>&1 || true
+            adb uninstall hr.raspored.demo >/dev/null 2>&1 || true
+            adb install dist/RASPORED.apk
+            adb install dist/raspored_demo.apk
+            adb shell monkey -p hr.raspored.app -c android.intent.category.LAUNCHER 1 >/dev/null
+            adb shell pidof hr.raspored.app
+            adb shell dumpsys package hr.raspored.app | grep -F "versionName=$(tr -d '[:space:]' < VERSION)"
+            adb shell dumpsys package hr.raspored.demo | grep -F "versionName=$(tr -d '[:space:]' < VERSION)"
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: android-readme-screenshots
+          path: android-readme-screenshots/*.png
+          if-no-files-found: error
+ ".github/workflows/ci.yml")" -eq 1 ]] || { echo "ci.yml must contain exactly one APK signing continuity gate"; exit 1; }
 
   web:
     needs: version
