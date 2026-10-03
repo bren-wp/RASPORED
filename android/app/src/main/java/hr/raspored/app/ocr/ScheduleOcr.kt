@@ -37,12 +37,12 @@ data class RecognizedSchedule(
 
 object ScheduleOcrParser {
     private val shiftRegex = Regex(
-        """(?<![\p{L}])(GO|G0|BO|B0|PD|SD|D|N)[.,;:]?(?![\p{L}])""",
+        """(?<![\p{L}])(GO|G0|BO|B0|PD|SD|D|N|J)[.,;:]?(?![\p{L}])""",
         RegexOption.IGNORE_CASE
     )
     private val rowNumberRegex = Regex("""^\s*(\d{1,3})[.)]?\s*""")
     private val explicitDayShiftRegex = Regex(
-        """(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)|\-]?\s*(GO|G0|BO|B0|PD|SD|D|N)(?![\p{L}])""",
+        """(?<!\d)([1-9]|[12]\d|3[01])\s*[:.)|\-]?\s*(GO|G0|BO|B0|PD|SD|D|N|J)(?![\p{L}])""",
         setOf(RegexOption.IGNORE_CASE)
     )
     private val spaces = Regex("""\s+""")
@@ -78,6 +78,7 @@ object ScheduleOcrParser {
     ) {
         "D" -> "D"
         "N" -> "N"
+        "J" -> "J"
         "GO", "G0" -> "GO"
         "BO", "B0" -> "BO"
         "PD" -> "PD"
@@ -87,7 +88,7 @@ object ScheduleOcrParser {
 
     /**
      * Dense hospital and public-sector rosters often contain workplace-specific
-     * cell labels in addition to D/N/GO/BO/PD/SD (for example J, S or P1).
+     * cell labels in addition to D/N/J/GO/BO/PD/SD (for example S or P1).
      * Inside a proven day-grid cell we preserve those short labels instead of
      * silently dropping them. Meanings are not guessed; unknown labels stay
      * user-visible custom schedule codes.
