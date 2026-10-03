@@ -1492,6 +1492,7 @@ function bind(){
       }
     });
     scanImageStage.addEventListener("pointerdown",function(event){
+      if(event.pointerType==="mouse")return;
       var force=!!(event.target&&event.target.closest&&event.target.closest("#scanRowCrop"));
       if(beginCropDrag(event.clientY,force)){event.preventDefault();event.stopPropagation()}
     },true);
@@ -1508,6 +1509,7 @@ function bind(){
   if(scanRowCrop){
     scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
     scanRowCrop.addEventListener("pointerdown",function(event){
+      if(event.pointerType==="mouse")return;
       if(beginCropDrag(event.clientY,true)){event.preventDefault();event.stopPropagation()}
     });
     scanRowCrop.addEventListener("mousedown",function(event){
@@ -1518,7 +1520,10 @@ function bind(){
       if(touch&&beginCropDrag(touch.clientY,true)){event.preventDefault();event.stopPropagation()}
     },{passive:false});
   }
-  window.addEventListener("pointermove",function(event){if(moveCropDrag(event.clientY))event.preventDefault()},{passive:false});
+  window.addEventListener("pointermove",function(event){
+    if(event.pointerType==="mouse")return;
+    if(moveCropDrag(event.clientY))event.preventDefault();
+  },{passive:false});
   window.addEventListener("mousemove",function(event){if(moveCropDrag(event.clientY))event.preventDefault()});
   window.addEventListener("touchmove",function(event){
     if(!cropDragActive)return;
