@@ -1443,36 +1443,8 @@ function bind(){
   if(cropReset)cropReset.addEventListener("click",resetScanCrop);
   var scanImageStage=document.getElementById("scanImageStage"),scanRowCrop=document.getElementById("scanRowCrop"),scanPreviewImage=document.getElementById("scanPreviewImage");
   if(scanPreviewImage)scanPreviewImage.addEventListener("load",updateScanCropOverlay);
-  var cropDragActive=false,cropDragStartClientY=0,cropDragStartTop=0,cropDragStartBottom=0,cropDragMoved=false,cropSuppressClick=false;
-  function beginCropDrag(clientY,force){
-    if(cropDragActive||!state.scanSingleMode||!state.scanOriginalFile)return false;
-    if(!force){
-      var percent=scanPercentFromClientY(clientY);
-      if(percent==null||percent<state.scanCropTop-.75||percent>state.scanCropBottom+.75)return false;
-    }
-    cropDragActive=true;cropDragStartClientY=clientY;cropDragStartTop=state.scanCropTop;cropDragStartBottom=state.scanCropBottom;cropDragMoved=false;
-    state.scanDetectedRowIndex=-1;
-    return true;
-  }
-  function moveCropDrag(clientY){
-    if(!cropDragActive)return false;
-    var geometry=scanPreviewContentGeometry();
-    if(!geometry||geometry.height<=0)return false;
-    var delta=(clientY-cropDragStartClientY)/geometry.height*100;
-    if(Math.abs(delta)>.2)cropDragMoved=true;
-    var height=cropDragStartBottom-cropDragStartTop;
-    var top=Math.max(0,Math.min(100-height,cropDragStartTop+delta));
-    setScanCrop(top,top+height,-1);
-    return true;
-  }
-  function stopCropDrag(){
-    if(!cropDragActive)return;
-    cropSuppressClick=cropDragMoved;
-    cropDragActive=false;
-  }
   if(scanImageStage){
     scanImageStage.addEventListener("click",function(event){
-      if(cropSuppressClick){cropSuppressClick=false;event.preventDefault();return}
       if(!state.scanSingleMode||!state.scanOriginalFile)return;
       var percent=scanPercentFromClientY(event.clientY);
       if(percent==null)return;
@@ -1491,50 +1463,8 @@ function bind(){
         else shiftScanCrop(1.5);
       }
     });
-    scanImageStage.addEventListener("pointerdown",function(event){
-      if(event.pointerType==="mouse")return;
-      var force=!!(event.target&&event.target.closest&&event.target.closest("#scanRowCrop"));
-      if(beginCropDrag(event.clientY,force)){event.preventDefault();event.stopPropagation()}
-    },true);
-    scanImageStage.addEventListener("mousedown",function(event){
-      var force=!!(event.target&&event.target.closest&&event.target.closest("#scanRowCrop"));
-      if(beginCropDrag(event.clientY,force)){event.preventDefault();event.stopPropagation()}
-    },true);
-    scanImageStage.addEventListener("touchstart",function(event){
-      var touch=event.changedTouches&&event.changedTouches[0];
-      var force=!!(event.target&&event.target.closest&&event.target.closest("#scanRowCrop"));
-      if(touch&&beginCropDrag(touch.clientY,force)){event.preventDefault();event.stopPropagation()}
-    },{capture:true,passive:false});
   }
-  if(scanRowCrop){
-    scanRowCrop.addEventListener("click",function(event){event.stopPropagation()});
-    scanRowCrop.addEventListener("pointerdown",function(event){
-      if(event.pointerType==="mouse")return;
-      if(beginCropDrag(event.clientY,true)){event.preventDefault();event.stopPropagation()}
-    });
-    scanRowCrop.addEventListener("mousedown",function(event){
-      if(beginCropDrag(event.clientY,true)){event.preventDefault();event.stopPropagation()}
-    });
-    scanRowCrop.addEventListener("touchstart",function(event){
-      var touch=event.changedTouches&&event.changedTouches[0];
-      if(touch&&beginCropDrag(touch.clientY,true)){event.preventDefault();event.stopPropagation()}
-    },{passive:false});
-  }
-  window.addEventListener("pointermove",function(event){
-    if(event.pointerType==="mouse")return;
-    if(moveCropDrag(event.clientY))event.preventDefault();
-  },{passive:false});
-  window.addEventListener("mousemove",function(event){if(moveCropDrag(event.clientY))event.preventDefault()});
-  window.addEventListener("touchmove",function(event){
-    if(!cropDragActive)return;
-    var touch=event.changedTouches&&event.changedTouches[0];
-    if(touch&&moveCropDrag(touch.clientY))event.preventDefault();
-  },{passive:false});
-  window.addEventListener("pointerup",stopCropDrag);
-  window.addEventListener("pointercancel",stopCropDrag);
-  window.addEventListener("mouseup",stopCropDrag);
-  window.addEventListener("touchend",stopCropDrag);
-  window.addEventListener("touchcancel",stopCropDrag);
+  if(scanRowCrop)scanRowCrop.setAttribute("aria-hidden","true");
   document.getElementById("scanSinglePersonBtn").addEventListener("click",async function(){
     if(!state.scanOriginalFile){toast("Najprije učitaj fotografiju rasporeda.");return}
     this.disabled=true;
