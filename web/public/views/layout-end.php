@@ -1,7 +1,7 @@
   <nav class="bottom-nav" aria-label="Mobilna navigacija">
     <button class="is-active" data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-home"></use></svg><small>Početna</small></button>
     <button data-route="calendar"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-calendar"></use></svg><small>Kalendar</small></button>
-    <button class="scan-nav" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><small>Skeniraj</small></button>
+    <button class="scan-nav" data-route="scan"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-camera"></use></svg><small>Uvezi</small></button>
     <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-chart"></use></svg><small>Statistika</small></button>
     <button data-route="settings"><svg class="ui-icon" aria-hidden="true"><use href="assets/brand/icons.svg#icon-settings"></use></svg><small>Više</small></button>
   </nav>
@@ -24,10 +24,10 @@
       <button class="icon-btn" value="cancel" aria-label="Zatvori">×</button>
     </div>
     <div class="scan-help-list">
-      <p><b>1.</b> Obuhvati cijelu tablicu: prvi i zadnji redak osobe te sve stupce dana.</p>
-      <p><b>2.</b> Za široku mjesečnu tablicu fotografiraj vodoravno; izbjegni sjene, odsjaj i zamućenje.</p>
-      <p><b>3.</b> U pregledu se fotografija prikazuje cijela, bez rezanja rubova. Ako ima više osoba, odaberi samo jedno ime i prezime.</p>
-      <p><b>4.</b> Provjeri D, N, GO, BO, PD i SD oznake prije spremanja. Prazna kućica mora ostati prazna; SD postavi samo kada je SD izričito upisan/odobren u izvornom rasporedu. Kratke oznake specifične ustanovi, npr. J, S ili P1, čuvaju se kao vlastite oznake bez izmišljanja značenja.</p>
+      <p><b>1.</b> Dodaj jasnu fotografiju cijele tablice. Za široki raspored fotografiraj vodoravno i izbjegni odsjaj.</p>
+      <p><b>2.</b> Provjeri orijentaciju fotografije. Takto po defaultu radi u načinu jedne osobe; plavi pojas postavi preko željenog retka.</p>
+      <p><b>3.</b> Provjeri ime osobe i mjesec. Cijeli tim uključi samo kada namjerno želiš uvesti više odvojenih rasporeda.</p>
+      <p><b>4.</b> Provjeri D i N (12 h), J (8 h), GO, BO, PD i SD prije spremanja. Prazna kućica ostaje „Nije označeno”; druge kratke oznake, npr. S ili P1, čuvaju se bez izmišljanja značenja.</p>
     </div>
   </form>
 </dialog>
