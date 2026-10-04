@@ -99,8 +99,20 @@ private val NONE=Shift("","Nije označeno","—",0)
     val scheduleWrites = remember { Channel<Pair<LocalDate, String?>>(Channel.UNLIMITED) }
 
     LaunchedEffect(store, scheduleWrites) {
-        for ((date, code) in scheduleWrites) {
-            withContext(Dispatchers.IO) { store.record(date, code) }
+        withContext(Dispatchers.IO) {
+            for ((date, code) in scheduleWrites) {
+                runCatching { store.record(date, code) }
+                    .onFailure {
+                        val refreshed = runCatching { store.load() }.getOrDefault(emptyMap())
+                        withContext(Dispatchers.Main) {
+                            scheduleCodes.clear()
+                            scheduleCodes.putAll(refreshed)
+                            snackbarHostState.showSnackbar(
+                                "Izmjenu nije bilo moguće spremiti. Prikaz je vraćen na zadnje spremljeno stanje."
+                            )
+                        }
+                    }
+            }
         }
     }
     LaunchedEffect(store) {
@@ -243,7 +255,17 @@ private val NONE=Shift("","Nije označeno","—",0)
                         onShiftChange={date,code->
                             if(code==null) scheduleCodes.remove(date.toString())
                             else scheduleCodes[date.toString()]=code
-                            scheduleWrites.trySend(date to code)
+                            val queued = scheduleWrites.trySend(date to code)
+                            if (queued.isFailure) {
+                                scope.launch {
+                                    val refreshed = withContext(Dispatchers.IO) { store.load() }
+                                    scheduleCodes.clear()
+                                    scheduleCodes.putAll(refreshed)
+                                    snackbarHostState.showSnackbar(
+                                        "Izmjenu nije bilo moguće spremiti. Pokušaj ponovno."
+                                    )
+                                }
+                            }
                         }
                     )
                     Screen.Scan->OcrScanScreen(
