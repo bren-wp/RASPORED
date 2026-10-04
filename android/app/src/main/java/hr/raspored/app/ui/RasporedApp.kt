@@ -54,6 +54,7 @@ import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -101,14 +102,15 @@ private val NONE=Shift("","Nije označeno","—",0)
     LaunchedEffect(store, scheduleWrites) {
         withContext(Dispatchers.IO) {
             for ((date, code) in scheduleWrites) {
-                val failure = runCatching { store.record(date, code) }.exceptionOrNull()
+                var failure = runCatching { store.record(date, code) }.exceptionOrNull()
                 if (failure != null) {
-                    val refreshed = runCatching { store.load() }.getOrDefault(emptyMap())
+                    delay(75)
+                    failure = runCatching { store.record(date, code) }.exceptionOrNull()
+                }
+                if (failure != null) {
                     withContext(Dispatchers.Main) {
-                        scheduleCodes.clear()
-                        scheduleCodes.putAll(refreshed)
                         snackbarHostState.showSnackbar(
-                            "Izmjenu nije bilo moguće spremiti. Prikaz je vraćen na zadnje spremljeno stanje."
+                            "Izmjenu nije bilo moguće trajno spremiti. Pokušaj ponovno."
                         )
                     }
                 }
@@ -258,11 +260,8 @@ private val NONE=Shift("","Nije označeno","—",0)
                             val queued = scheduleWrites.trySend(date to code)
                             if (queued.isFailure) {
                                 scope.launch {
-                                    val refreshed = withContext(Dispatchers.IO) { store.load() }
-                                    scheduleCodes.clear()
-                                    scheduleCodes.putAll(refreshed)
                                     snackbarHostState.showSnackbar(
-                                        "Izmjenu nije bilo moguće spremiti. Pokušaj ponovno."
+                                        "Izmjenu nije bilo moguće poslati na spremanje. Pokušaj ponovno."
                                     )
                                 }
                             }
