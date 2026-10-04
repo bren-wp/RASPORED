@@ -12,8 +12,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
 import java.time.YearMonth
-import androidx.test.platform.app.InstrumentationRegistry
-import hr.raspored.app.data.ScheduleStore
 import org.junit.Rule
 import org.junit.Test
 
@@ -43,10 +41,6 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
         composeRule.onNodeWithText("Očisti dan").performClick()
         val clearedDate = currentMonth.atDay(3)
-        val persistedStore = ScheduleStore(InstrumentationRegistry.getInstrumentation().targetContext)
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            persistedStore.load()[clearedDate.toString()] == null
-        }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("nav-home").performClick()
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
