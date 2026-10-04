@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
@@ -19,6 +20,9 @@ class RasporedSmokeTest {
 
     @Test
     fun glavneNavigacijeOtvarajuProdukcijskeEkrane() {
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("screen-home").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
 
         composeRule.onNodeWithTag("nav-calendar").performClick()
@@ -30,24 +34,25 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(4)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-j").performClick()
-        // Make the neutral-state assertion deterministic even when another instrumented
-        // test has left persisted schedule data for this date.
-        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
+        // Neutral-state regression: synchronize with sheet dismissal so the next
+        // interaction can never target the previous modal during its closing animation.
+        val clearedDate = currentMonth.atDay(3)
+        composeRule.onNodeWithTag("calendar-day-"+clearedDate).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
-        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
-        composeRule.onNodeWithText("Očisti dan").performClick()
-        composeRule.waitForIdle()
-
-        val transientSheetStillVisible = composeRule
-            .onAllNodes(hasTestTag("calendar-dialog-current-state"))
-            .fetchSemanticsNodes()
-            .isNotEmpty()
-        if (transientSheetStillVisible) {
-            composeRule.onNodeWithText("Zatvori").performClick()
-            composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("calendar-dialog-current-state")
+                .fetchSemanticsNodes().isEmpty()
         }
 
-        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
+        composeRule.onNodeWithTag("calendar-day-"+clearedDate).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("D")
+        composeRule.onNodeWithText("Očisti dan").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("calendar-dialog-current-state")
+                .fetchSemanticsNodes().isEmpty()
+        }
+
+        composeRule.onNodeWithTag("calendar-day-"+clearedDate).performClick()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("Nije označeno")
         composeRule.onAllNodesWithText("Očisti dan").assertCountEquals(0)
         composeRule.onNodeWithText("Zatvori").performClick()

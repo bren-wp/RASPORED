@@ -50,7 +50,7 @@ jobs:
           [[ "$(grep -c 'name: Create GitHub release' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one GitHub release step"; exit 1; }
           [[ "$(grep -c 'name: Download verified CI artifacts' "$RELEASE")" -eq 1 ]] || { echo "release.yml must download the verified CI artifacts exactly once"; exit 1; }
           [[ "$(grep -c 'name: Package and verify release artifacts' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one package/verify step"; exit 1; }
-          [[ "$(grep -c 'name: Android clean-install smoke test' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one Android clean-install smoke test"; exit 1; }
+          [[ "$(grep -c 'name: Android clean-install and upgrade smoke test' "$RELEASE")" -eq 1 ]] || { echo "release.yml must contain exactly one Android clean-install and upgrade smoke test"; exit 1; }
           ! grep -Eq 'ANDROID_UPLOAD_|RASPORED_RELEASE_STORE_|release-signing-baseline|Require Android release signing' "$RELEASE" || { echo "release.yml must not require custom Android signing keys or secrets"; exit 1; }
           grep -Fq 'gh run download "$RUN_ID"' "$RELEASE" || { echo "release.yml must reuse verified CI artifacts"; exit 1; }
           grep -Fq 'adb install dist/RASPORED.apk' "$RELEASE" || { echo "release.yml must clean-install the exact release APK"; exit 1; }
@@ -163,6 +163,15 @@ jobs:
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose dist/RASPORED.apk
           "$APKSIGNER" verify --verbose dist/raspored_demo.apk
+
+          SIGNER_REPORT="$("$APKSIGNER" verify --print-certs dist/RASPORED.apk 2>&1)"
+          SIGNER_SHA256="$(printf '%s\n' "$SIGNER_REPORT" |
+            grep -i 'SHA-256' |
+            grep -Eo '[[:xdigit:]]{64}' |
+            head -n1 |
+            tr '[:lower:]' '[:upper:]')"
+          test -n "$SIGNER_SHA256"
+          echo "APK signer SHA-256: $SIGNER_SHA256"
       - name: Verify APK signing continuity
         if: success() && github.ref == 'refs/heads/main'
         env:
@@ -174,8 +183,10 @@ jobs:
           test -n "$APKSIGNER"
 
           signer_digest() {
-            "$APKSIGNER" verify --print-certs "$1" |
-              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+            "$APKSIGNER" verify --print-certs "$1" 2>&1 |
+              tr -d '\r' |
+              grep -i 'SHA-256' |
+              grep -Eo '[[:xdigit:]]{64}' |
               head -n1 |
               tr '[:lower:]' '[:upper:]'
           }

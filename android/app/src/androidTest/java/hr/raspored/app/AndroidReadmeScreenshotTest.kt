@@ -3,6 +3,7 @@ package hr.raspored.app
 import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -47,6 +48,9 @@ class AndroidReadmeScreenshotTest {
     fun snimiStvarneEkraneAplikacije() {
         val month = YearMonth.now()
 
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("screen-home").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
         composeRule.onNodeWithTag("nav-calendar").performClick()
         composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()

@@ -53,6 +53,8 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -92,24 +94,49 @@ private val NONE=Shift("","Nije označeno","—",0)
     var darkMode by remember { mutableStateOf(uiSettings.darkMode) }
     var reducedMotion by remember { mutableStateOf(uiSettings.reducedMotion) }
     val scheduleCodes = remember { mutableStateMapOf<String, String>() }
+    var scheduleLoaded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(store) {
-        scheduleCodes.clear()
-        var loaded = store.load()
-        if (BuildConfig.DEMO_MODE && loaded.isEmpty()) {
-            val month = YearMonth.from(appDate())
-            store.saveMonth(
-                month,
-                mapOf(
-                    1 to "D", 2 to "N", 5 to "D", 7 to "GO", 9 to "N",
-                    12 to "D", 14 to "PD", 17 to "N", 20 to "D", 23 to "BO",
-                    26 to "D", 28 to "SD", month.lengthOfMonth() to "N"
-                )
-            )
-            loaded = store.load()
+    val scheduleWrites = remember { Channel<Pair<LocalDate, String?>>(Channel.UNLIMITED) }
+
+    LaunchedEffect(store, scheduleWrites) {
+        withContext(Dispatchers.IO) {
+            for ((date, code) in scheduleWrites) {
+                var failure = runCatching { store.record(date, code) }.exceptionOrNull()
+                if (failure != null) {
+                    delay(75)
+                    failure = runCatching { store.record(date, code) }.exceptionOrNull()
+                }
+                if (failure != null) {
+                    withContext(Dispatchers.Main) {
+                        snackbarHostState.showSnackbar(
+                            "Izmjenu nije bilo moguće trajno spremiti. Pokušaj ponovno."
+                        )
+                    }
+                }
+            }
         }
+    }
+    LaunchedEffect(store) {
+        val loaded = withContext(Dispatchers.IO) {
+            var persisted = store.load()
+            if (BuildConfig.DEMO_MODE && persisted.isEmpty()) {
+                val month = YearMonth.from(appDate())
+                store.saveMonth(
+                    month,
+                    mapOf(
+                        1 to "D", 2 to "N", 5 to "D", 7 to "GO", 9 to "N",
+                        12 to "D", 14 to "PD", 17 to "N", 20 to "D", 23 to "BO",
+                        26 to "D", 28 to "SD", month.lengthOfMonth() to "N"
+                    )
+                )
+                persisted = store.load()
+            }
+            persisted
+        }
+        scheduleCodes.clear()
         scheduleCodes.putAll(loaded)
+        scheduleLoaded = true
     }
     BackHandler(enabled = screen != Screen.Home) {
         screen = when (screen) {
@@ -173,7 +200,26 @@ private val NONE=Shift("","Nije označeno","—",0)
         colorScheme=colors,
         typography=Typography()
     ){
-        Scaffold(
+        if (!scheduleLoaded) {
+            Surface(
+                modifier = Modifier.fillMaxSize().testTag("screen-loading"),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            "Učitavam raspored…",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        } else Scaffold(
             containerColor=MaterialTheme.colorScheme.background,
             snackbarHost={ SnackbarHost(snackbarHostState) },
             topBar={
@@ -190,9 +236,12 @@ private val NONE=Shift("","Nije označeno","—",0)
                         scope.launch{snackbarHostState.showSnackbar(message)}
                     },
                     onSync={
-                        scheduleCodes.clear()
-                        scheduleCodes.putAll(store.load())
-                        scope.launch{snackbarHostState.showSnackbar("Podaci su osvježeni.")}
+                        scope.launch {
+                            val refreshed = withContext(Dispatchers.IO) { store.load() }
+                            scheduleCodes.clear()
+                            scheduleCodes.putAll(refreshed)
+                            snackbarHostState.showSnackbar("Podaci su osvježeni.")
+                        }
                     }
                 )
             },
@@ -206,9 +255,16 @@ private val NONE=Shift("","Nije označeno","—",0)
                     Screen.Calendar->CalendarScreen(
                         scheduleCodes=scheduleCodes,
                         onShiftChange={date,code->
-                            store.record(date,code)
                             if(code==null) scheduleCodes.remove(date.toString())
                             else scheduleCodes[date.toString()]=code
+                            val queued = scheduleWrites.trySend(date to code)
+                            if (queued.isFailure) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        "Izmjenu nije bilo moguće poslati na spremanje. Pokušaj ponovno."
+                                    )
+                                }
+                            }
                         }
                     )
                     Screen.Scan->OcrScanScreen(
