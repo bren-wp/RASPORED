@@ -34,18 +34,24 @@ class RasporedSmokeTest {
         composeRule.onNodeWithTag("calendar-dialog-code-n").performClick()
         composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(4)).performClick()
         composeRule.onNodeWithTag("calendar-dialog-code-j").performClick()
-        // Make the neutral-state assertion deterministic even when another instrumented
-        // test has left persisted schedule data for this date.
-        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
-        composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
-        composeRule.onNodeWithTag("calendar-day-"+currentMonth.atDay(3)).performClick()
-        composeRule.onNodeWithText("Očisti dan").performClick()
+        // Neutral-state regression: synchronize with sheet dismissal so the next
+        // interaction can never target the previous modal during its closing animation.
         val clearedDate = currentMonth.atDay(3)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("nav-home").performClick()
-        composeRule.onNodeWithTag("screen-home").fetchSemanticsNode()
-        composeRule.onNodeWithTag("nav-calendar").performClick()
-        composeRule.onNodeWithTag("screen-calendar").fetchSemanticsNode()
+        composeRule.onNodeWithTag("calendar-day-"+clearedDate).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-code-d").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("calendar-dialog-current-state")
+                .fetchSemanticsNodes().isEmpty()
+        }
+
+        composeRule.onNodeWithTag("calendar-day-"+clearedDate).performClick()
+        composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("D")
+        composeRule.onNodeWithText("Očisti dan").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("calendar-dialog-current-state")
+                .fetchSemanticsNodes().isEmpty()
+        }
+
         composeRule.onNodeWithTag("calendar-day-"+clearedDate).performClick()
         composeRule.onNodeWithTag("calendar-dialog-current-state").assertTextContains("Nije označeno")
         composeRule.onAllNodesWithText("Očisti dan").assertCountEquals(0)
