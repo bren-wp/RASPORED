@@ -101,17 +101,17 @@ private val NONE=Shift("","Nije označeno","—",0)
     LaunchedEffect(store, scheduleWrites) {
         withContext(Dispatchers.IO) {
             for ((date, code) in scheduleWrites) {
-                runCatching { store.record(date, code) }
-                    .onFailure {
-                        val refreshed = runCatching { store.load() }.getOrDefault(emptyMap())
-                        withContext(Dispatchers.Main) {
-                            scheduleCodes.clear()
-                            scheduleCodes.putAll(refreshed)
-                            snackbarHostState.showSnackbar(
-                                "Izmjenu nije bilo moguće spremiti. Prikaz je vraćen na zadnje spremljeno stanje."
-                            )
-                        }
+                val failure = runCatching { store.record(date, code) }.exceptionOrNull()
+                if (failure != null) {
+                    val refreshed = runCatching { store.load() }.getOrDefault(emptyMap())
+                    withContext(Dispatchers.Main) {
+                        scheduleCodes.clear()
+                        scheduleCodes.putAll(refreshed)
+                        snackbarHostState.showSnackbar(
+                            "Izmjenu nije bilo moguće spremiti. Prikaz je vraćen na zadnje spremljeno stanje."
+                        )
                     }
+                }
             }
         }
     }
